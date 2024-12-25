@@ -50,22 +50,28 @@ app.use(cors({
       'http://localhost:5173',
       'http://localhost:3000',
       'https://e12-o.vercel.app',
+      'https://e12-4pi6wxn77-chaman-ss-projects.vercel.app',
       'https://e12-bju5we716-chaman-ss-projects.vercel.app',
       'https://e12-b7r6tag5x-chaman-ss-projects.vercel.app',
       'https://e12-dsdmh8xos-chaman-ss-projects.vercel.app'
     ];
     
-    if(allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('Origin attempted:', origin);
-      callback(null, true); // Allow all origins in development
+    // Allow all origins in development
+    callback(null, true);
+    
+    // Log attempted origins for debugging
+    if(!allowedOrigins.includes(origin)) {
+      console.log('New origin attempted:', origin);
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
+
+// Enable pre-flight requests for all routes
+app.options('*', cors());
+
 app.use(express.json());
 
 // MongoDB connection with retry logic
