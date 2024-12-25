@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: epsilora-ai-backend
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false # Will be set manually in Render dashboard
+      - key: JWT_SECRET
+        sync: false # Will be set manually in Render dashboard
