@@ -49,16 +49,17 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
+      'https://e12-bju5we716-chaman-ss-projects.vercel.app',
       'https://e12-1fmtbg07q-chaman-ss-projects.vercel.app',
-      'https://e12-anj6iw5yb-chaman-ss-projects.vercel.app',
-      'https://e12-blao9c7ow-chaman-ss-projects.vercel.app'
+      'https://e12-dsdmh8xos-chaman-ss-projects.vercel.app'
     ];
     
-    if(allowedOrigins.indexOf(origin) === -1){
+    if(allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
       console.log('Origin attempted:', origin);
+      callback(null, true); // Allow all origins in development
     }
-    
-    callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
