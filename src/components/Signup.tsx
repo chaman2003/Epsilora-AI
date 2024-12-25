@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import authService from '../services/auth';
 import {
   Box,
   Button,
@@ -8,20 +8,19 @@ import {
   TextField,
   Typography,
   Alert,
-  Paper,
-  CircularProgress
+  Paper
 } from '@mui/material';
 
 const Signup: React.FC = () => {
   const navigate = useNavigate();
-  const { signup, isLoading, error } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: ''
   });
-  const [validationError, setValidationError] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -29,28 +28,21 @@ const Signup: React.FC = () => {
       ...prev,
       [name]: value
     }));
-    setValidationError('');
   };
 
   const validateForm = () => {
     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
-      setValidationError('All fields are required');
+      setError('All fields are required');
       return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setValidationError('Passwords do not match');
+      setError('Passwords do not match');
       return false;
     }
 
     if (formData.password.length < 8) {
-      setValidationError('Password must be at least 8 characters long');
-      return false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setValidationError('Please enter a valid email address');
+      setError('Password must be at least 8 characters long');
       return false;
     }
 
@@ -59,20 +51,24 @@ const Signup: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setValidationError('');
+    setError('');
 
     if (!validateForm()) {
       return;
     }
 
+    setIsLoading(true);
+
     try {
-      await signup(formData.name, formData.email, formData.password);
+      const { confirmPassword, ...signupData } = formData;
+      await authService.signup(signupData);
+      navigate('/dashboard');
     } catch (err) {
-      // Error is handled by the auth context
+      setError(err instanceof Error ? err.message : 'Signup failed');
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  const displayError = validationError || error;
 
   return (
     <Container maxWidth="sm">
@@ -82,9 +78,9 @@ const Signup: React.FC = () => {
             Sign Up
           </Typography>
 
-          {displayError && (
+          {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
-              {displayError}
+              {error}
             </Alert>
           )}
 
@@ -100,8 +96,7 @@ const Signup: React.FC = () => {
               autoFocus
               value={formData.name}
               onChange={handleChange}
-              error={!!displayError}
-              disabled={isLoading}
+              error={!!error}
             />
 
             <TextField
@@ -114,8 +109,7 @@ const Signup: React.FC = () => {
               autoComplete="email"
               value={formData.email}
               onChange={handleChange}
-              error={!!displayError}
-              disabled={isLoading}
+              error={!!error}
             />
 
             <TextField
@@ -129,9 +123,7 @@ const Signup: React.FC = () => {
               autoComplete="new-password"
               value={formData.password}
               onChange={handleChange}
-              error={!!displayError}
-              disabled={isLoading}
-              helperText="Password must be at least 8 characters long"
+              error={!!error}
             />
 
             <TextField
@@ -145,8 +137,7 @@ const Signup: React.FC = () => {
               autoComplete="new-password"
               value={formData.confirmPassword}
               onChange={handleChange}
-              error={!!displayError}
-              disabled={isLoading}
+              error={!!error}
             />
 
             <Button
@@ -156,11 +147,7 @@ const Signup: React.FC = () => {
               sx={{ mt: 3, mb: 2 }}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                'Sign Up'
-              )}
+              {isLoading ? 'Signing up...' : 'Sign Up'}
             </Button>
 
             <Button
@@ -168,7 +155,6 @@ const Signup: React.FC = () => {
               variant="text"
               onClick={() => navigate('/login')}
               sx={{ mt: 1 }}
-              disabled={isLoading}
             >
               Already have an account? Login
             </Button>

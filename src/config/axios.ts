@@ -1,16 +1,14 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+  baseURL: import.meta.env.VITE_API_URL,
   headers: {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,PATCH,OPTIONS',
+    'Content-Type': 'application/json'
   },
-  withCredentials: false
+  withCredentials: true
 });
 
-// Add a request interceptor to add the auth token to requests
+// Request interceptor
 instance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -22,30 +20,25 @@ instance.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('Request error:', error);
     return Promise.reject(error);
   }
 );
 
-// Add a response interceptor for error handling
+// Response interceptor
 instance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return response;
+  },
   (error) => {
-    console.error('API Error:', error);
-    if (error.response) {
-      console.error('Response data:', error.response.data);
-      console.error('Response status:', error.response.status);
-      if (error.response.status === 401) {
-        // Handle unauthorized access
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      }
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.error('Request error:', error.request);
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error('Error:', error.message);
+    console.error('Response error:', error);
+    
+    // Handle authentication errors
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
     }
+    
     return Promise.reject(error);
   }
 );

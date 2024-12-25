@@ -42,10 +42,10 @@ const app = express();
 
 // CORS configuration - before any routes
 app.use(cors({
-  origin: true, // This allows all origins but maintains the origin header
-  credentials: true,
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
+  credentials: true
 }));
 
 // Handle preflight requests for all routes
@@ -946,22 +946,12 @@ app.get('/api/quiz/stats', async (req, res) => {
 
 // Error Handler Middleware
 const errorHandler = (err, req, res, next) => {
-  console.error(err.stack);
-  
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({ 
-      message: Object.values(err.errors).map(error => error.message).join(', ')
-    });
-  }
-  
-  if (err.code === 11000) {
-    return res.status(400).json({ 
-      message: 'Email already exists'
-    });
-  }
-  
-  res.status(500).json({ 
-    message: 'Something went wrong on the server'
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
+    error: {
+      message: err.message || 'Internal Server Error',
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    }
   });
 };
 

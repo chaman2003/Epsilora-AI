@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axiosInstance from '../config/axios';
-import { toast } from 'react-hot-toast'; // Using react-hot-toast directly
+import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface User {
   _id: string;
@@ -31,6 +32,7 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,16 +40,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
+  const handleError = (error: any, defaultMessage: string) => {
+    console.error('Auth error:', error);
+    if (error.response?.data?.message) {
+      return error.response.data.message;
+    }
+    if (error.message) {
+      return error.message;
+    }
+    return defaultMessage;
+  };
+
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem('token');
-      console.log('Stored Token:', storedToken);
       if (storedToken) {
         try {
           setToken(storedToken);
           axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
           const response = await axiosInstance.get('/api/auth/me');
-          console.log('User Data Response:', response.data);
           if (response.data) {
             setUser(response.data);
             setIsAuthenticated(true);
@@ -72,12 +83,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.data) {
         setUser(response.data);
         setIsAuthenticated(true);
-      } else {
-        handleLogout();
+        return true;
       }
+      handleLogout();
+      return false;
     } catch (error) {
       console.error('Auth check failed:', error);
       handleLogout();
+      return false;
     }
   };
 
@@ -87,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setIsAuthenticated(false);
     delete axiosInstance.defaults.headers.common['Authorization'];
+    navigate('/login');
   };
 
   const login = async (email: string, password: string) => {
@@ -102,11 +116,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUser(userData);
       setIsAuthenticated(true);
+      toast.success('Logged in successfully!');
+      navigate('/dashboard');
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Login failed';
+      const message = handleError(error, 'Login failed');
       setError(message);
-      toast.error('Login failed. Please check your credentials.');
+      toast.error(message);
       return false;
     } finally {
       setIsLoading(false);
@@ -131,10 +147,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(userData);
       setIsAuthenticated(true);
       toast.success('Account created successfully!');
+      navigate('/dashboard');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Signup failed';
+      const message = handleError(error, 'Signup failed');
       setError(message);
-      toast.error('Signup failed. Please try again.');
+      toast.error(message);
       throw error;
     } finally {
       setIsLoading(false);
@@ -157,6 +174,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated,
     isLoading,
   };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

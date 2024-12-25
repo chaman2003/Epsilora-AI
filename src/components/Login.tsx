@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import authService from '../services/auth';
 import {
   Box,
   Button,
@@ -8,17 +8,17 @@ import {
   TextField,
   Typography,
   Alert,
-  Paper,
-  CircularProgress
+  Paper
 } from '@mui/material';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isLoading, error } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
+  const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -30,10 +30,17 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email || !formData.password) {
-      return;
+    setError('');
+    setIsLoading(true);
+
+    try {
+      await authService.login(formData);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setIsLoading(false);
     }
-    await login(formData.email, formData.password);
   };
 
   return (
@@ -63,7 +70,6 @@ const Login: React.FC = () => {
               value={formData.email}
               onChange={handleChange}
               error={!!error}
-              disabled={isLoading}
             />
 
             <TextField
@@ -78,7 +84,6 @@ const Login: React.FC = () => {
               value={formData.password}
               onChange={handleChange}
               error={!!error}
-              disabled={isLoading}
             />
 
             <Button
@@ -88,11 +93,7 @@ const Login: React.FC = () => {
               sx={{ mt: 3, mb: 2 }}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                'Login'
-              )}
+              {isLoading ? 'Logging in...' : 'Login'}
             </Button>
 
             <Button
@@ -100,7 +101,6 @@ const Login: React.FC = () => {
               variant="text"
               onClick={() => navigate('/signup')}
               sx={{ mt: 1 }}
-              disabled={isLoading}
             >
               Don't have an account? Sign Up
             </Button>
