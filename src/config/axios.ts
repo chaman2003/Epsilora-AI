@@ -1,10 +1,13 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',  // This should match your backend server port
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
   headers: {
     'Content-Type': 'application/json',
-  }
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,PATCH,OPTIONS',
+  },
+  withCredentials: false
 });
 
 // Add a request interceptor to add the auth token to requests
@@ -14,6 +17,8 @@ instance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Log the request URL for debugging
+    console.log('Making request to:', config.baseURL + config.url);
     return config;
   },
   (error) => {
@@ -21,14 +26,14 @@ instance.interceptors.request.use(
   }
 );
 
-// Add a response interceptor to handle errors
+// Add a response interceptor for error handling
 instance.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('API Error:', error);
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error('Response error:', error.response.data);
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
       if (error.response.status === 401) {
         // Handle unauthorized access
         localStorage.removeItem('token');
