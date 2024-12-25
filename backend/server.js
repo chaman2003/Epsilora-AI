@@ -40,37 +40,25 @@ try {
 
 const app = express();
 
-// Middleware
+// CORS configuration
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// Enable CORS for all routes
 app.use(cors({
-  origin: function(origin, callback) {
-    // allow requests with no origin (like mobile apps or curl requests)
-    if(!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'https://e12-o.vercel.app',
-      'https://e12-4pi6wxn77-chaman-ss-projects.vercel.app',
-      'https://e12-bju5we716-chaman-ss-projects.vercel.app',
-      'https://e12-b7r6tag5x-chaman-ss-projects.vercel.app',
-      'https://e12-dsdmh8xos-chaman-ss-projects.vercel.app'
-    ];
-    
-    // Allow all origins in development
-    callback(null, true);
-    
-    // Log attempted origins for debugging
-    if(!allowedOrigins.includes(origin)) {
-      console.log('New origin attempted:', origin);
-    }
-  },
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
-
-// Enable pre-flight requests for all routes
-app.options('*', cors());
 
 app.use(express.json());
 
