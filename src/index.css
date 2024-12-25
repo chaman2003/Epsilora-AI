@@ -1,0 +1,262 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --transition-duration: 300ms;
+  }
+
+  body {
+    @apply bg-background-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark;
+    transition: background-color var(--transition-duration) ease-in-out,
+                color var(--transition-duration) ease-in-out;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 rounded-md bg-primary-light dark:bg-primary-dark 
+           text-white font-medium
+           hover:bg-primary-hover-light dark:hover:bg-primary-hover-dark
+           transition-colors duration-300;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 rounded-md bg-secondary-light dark:bg-secondary-dark 
+           text-white font-medium
+           hover:bg-secondary-hover-light dark:hover:bg-secondary-hover-dark
+           transition-colors duration-300;
+  }
+
+  .card {
+    @apply bg-background-light dark:bg-background-dark
+           border border-border-light dark:border-border-dark
+           rounded-lg shadow-sm
+           transition-colors duration-300;
+  }
+
+  .input {
+    @apply w-full px-4 py-2 rounded-md
+           bg-background-light dark:bg-background-dark
+           border border-border-light dark:border-border-dark
+           text-text-primary-light dark:text-text-primary-dark
+           focus:ring-2 focus:ring-primary-light dark:focus:ring-primary-dark
+           focus:border-transparent
+           transition-colors duration-300;
+  }
+
+  .link {
+    @apply text-primary-light dark:text-primary-dark
+           hover:text-primary-hover-light dark:hover:text-primary-hover-dark
+           transition-colors duration-300;
+  }
+}
+
+/* Theme transition utilities */
+.theme-transition {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: var(--transition-duration);
+}
+
+/* Button click animation */
+button.clicked {
+  animation: clickFade 0.3s ease-out;
+}
+
+@keyframes clickFade {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* Navigation Click Animations */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes bounce-rotate {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(0.95) rotate(-2deg);
+  }
+  75% {
+    transform: scale(0.98) rotate(2deg);
+  }
+}
+
+.animate-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(var(--color-primary-light), 0.3);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%);
+  transform-origin: 50% 50%;
+  animation: ripple 0.5s ease-out;
+}
+
+.dark .animate-ripple::after {
+  background: rgba(var(--color-primary-dark), 0.3);
+}
+
+/* Navigation hover animation */
+.nav-item-hover {
+  transition: all 0.3s ease;
+}
+
+.nav-item-hover:hover {
+  transform: translateY(-2px);
+}
+
+/* Active navigation item animation */
+.nav-item-active {
+  animation: bounce-rotate 0.5s ease-out;
+}
+
+/* Pulse animation for AI Assist */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(var(--color-primary-light), 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px 0 rgba(var(--color-primary-light), 0.2);
+  }
+}
+
+.dark .pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Modern Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 5px;
+  margin: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.5);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.8);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.dark * {
+  scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
+}
+
+/* Smooth Scrolling for the entire app */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar when not hovering (optional) */
+.hide-scrollbar::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Add smooth transitions for scrollable elements */
+.scroll-smooth {
+  scroll-behavior: smooth;
+  transition: all 0.3s ease;
+}
+
+/* Custom scrollbar for specific components */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.3);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.6);
+}
