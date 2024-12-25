@@ -1,4 +1,4 @@
-import axios from '../config/axios';
+import { API_URL } from '../config/env';
 
 export interface LoginCredentials {
   email: string;
@@ -27,9 +27,6 @@ class AuthService {
   private constructor() {
     // Load token from localStorage on initialization
     this.token = localStorage.getItem('token');
-    if (this.token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
-    }
   }
 
   public static getInstance(): AuthService {
@@ -41,40 +38,75 @@ class AuthService {
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const response = await axios.post<AuthResponse>('/api/auth/login', credentials);
-      this.setToken(response.data.token);
-      return response.data;
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Login failed');
+      }
+
+      const data = await response.json();
+      this.setToken(data.token);
+      return data;
     } catch (error) {
       console.error('Login error:', error);
-      throw this.handleError(error);
+      throw error;
     }
   }
 
   async signup(credentials: SignupCredentials): Promise<AuthResponse> {
     try {
-      const response = await axios.post<AuthResponse>('/api/auth/signup', credentials);
-      this.setToken(response.data.token);
-      return response.data;
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Signup failed');
+      }
+
+      const data = await response.json();
+      this.setToken(data.token);
+      return data;
     } catch (error) {
       console.error('Signup error:', error);
-      throw this.handleError(error);
+      throw error;
     }
   }
 
   async getCurrentUser(): Promise<User> {
     try {
-      const response = await axios.get<User>('/api/auth/me');
-      return response.data;
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get current user');
+      }
+
+      return response.json();
     } catch (error) {
       console.error('Get current user error:', error);
-      throw this.handleError(error);
+      throw error;
     }
   }
 
   logout(): void {
     this.token = null;
     localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
   }
 
   isAuthenticated(): boolean {
@@ -88,15 +120,6 @@ class AuthService {
   private setToken(token: string): void {
     this.token = token;
     localStorage.setItem('token', token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
-
-  private handleError(error: any): Error {
-    if (axios.isAxiosError(error)) {
-      const message = error.response?.data?.message || error.message;
-      return new Error(message);
-    }
-    return error;
   }
 }
 

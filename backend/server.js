@@ -1,22 +1,13 @@
 import express from 'express';
-import cors from 'cors';
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import path from 'path';
+import progressRoutes from './routes/progress.js';
 import User from './models/User.js';
 import Course from './models/Course.js';
 import Quiz from './models/Quiz.js'; // Import Quiz model
 import QuizAttempt from './models/QuizAttempt.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import progressRoutes from './routes/progress.js';
 import { MongoClient } from 'mongodb';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 dotenv.config();
 
@@ -40,21 +31,19 @@ try {
 
 const app = express();
 
-// CORS configuration - before any routes
-const corsOptions = {
-  origin: 'https://e12-f2zbmd4r9-chaman-ss-projects.vercel.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-
-app.use(cors(corsOptions));
-
-// Handle preflight requests for all routes
-app.options('*', cors(corsOptions));
-
+// Basic middleware
 app.use(express.json());
+
+// Simple middleware to allow all origins
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', '*');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
