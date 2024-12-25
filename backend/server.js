@@ -49,8 +49,9 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
+      'https://e12-o.vercel.app',
       'https://e12-bju5we716-chaman-ss-projects.vercel.app',
-      'https://e12-1fmtbg07q-chaman-ss-projects.vercel.app',
+      'https://e12-b7r6tag5x-chaman-ss-projects.vercel.app',
       'https://e12-dsdmh8xos-chaman-ss-projects.vercel.app'
     ];
     
@@ -63,7 +64,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
 app.use(express.json());
 
