@@ -41,15 +41,18 @@ try {
 const app = express();
 
 // CORS configuration - before any routes
-app.use(cors({
-  origin: '*',
+const corsOptions = {
+  origin: 'https://e12-f2zbmd4r9-chaman-ss-projects.vercel.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
-  credentials: true
-}));
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 
 // Handle preflight requests for all routes
-app.options('*', cors());
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 

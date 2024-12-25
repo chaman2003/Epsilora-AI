@@ -12,7 +12,7 @@
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "*"
+          "value": "https://e12-f2zbmd4r9-chaman-ss-projects.vercel.app"
         },
         {
           "key": "Access-Control-Allow-Methods",
@@ -20,7 +20,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+          "value": "Content-Type, Authorization, Origin, X-Requested-With, Accept"
         },
         {
           "key": "Access-Control-Allow-Credentials",
