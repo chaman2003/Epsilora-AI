@@ -45,76 +45,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB connection with retry logic
-const connectDB = async (retries = 5) => {
-  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/epsilora';
-  console.log('Attempting to connect to MongoDB...');
-  
-  // Add mongoose debug logging
-  mongoose.set('debug', true);
-  
-  while (retries > 0) {
-    try {
-      console.log(`Connection attempt ${6 - retries}/5`);
-      await mongoose.connect(MONGODB_URI, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        serverSelectionTimeoutMS: 5000,
-        heartbeatFrequencyMS: 2000,
-        family: 4 // Force IPv4
-      });
-      
-      // Test the connection
-      await mongoose.connection.db.admin().ping();
-      console.log('MongoDB Connected Successfully');
-      
-      // Add connection event listeners
-      mongoose.connection.on('error', err => {
-        console.error('MongoDB connection error:', err);
-      });
-      
-      mongoose.connection.on('disconnected', () => {
-        console.log('MongoDB disconnected');
-      });
-      
-      mongoose.connection.on('reconnected', () => {
-        console.log('MongoDB reconnected');
-      });
-      
-      return;
-    } catch (err) {
-      console.error(`MongoDB connection attempt failed (${retries} retries left):`, {
-        message: err.message,
-        code: err.code,
-        name: err.name,
-        stack: err.stack
-      });
-      
-      retries -= 1;
-      if (retries === 0) {
-        console.error('All connection attempts failed. Last error:', err);
-        throw new Error('Failed to connect to MongoDB after multiple attempts');
-      }
-      console.log('Waiting 5 seconds before next retry...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-  }
-};
-
-// Initialize MongoDB connection
-(async () => {
-  try {
-    await connectDB();
-  } catch (err) {
-    console.error('Fatal: Could not connect to MongoDB:', {
-      message: err.message,
-      code: err.code,
-      name: err.name,
-      stack: err.stack
-    });
-    process.exit(1);
-  }
-})();
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -952,7 +886,43 @@ app.use(errorHandler);
 
 app.use('/api/progress', progressRoutes);
 
+// MongoDB connection with retry logic
+const connectDB = async (retries = 5) => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('Connected to MongoDB');
+    return true;
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    if (retries > 0) {
+      console.log(`Retrying connection... (${retries} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      return connectDB(retries - 1);
+    }
+    return false;
+  }
+};
+
 // Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    const isConnected = await connectDB();
+    if (!isConnected) {
+      console.error('Failed to connect to MongoDB after retries');
+      process.exit(1);
+    }
+
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Server startup error:', err);
+    process.exit(1);
+  }
+};
+
+startServer();
+
+// Export for testing
+module.exports = app;
