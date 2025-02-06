@@ -461,16 +461,12 @@ const AIAssist: React.FC = () => {
 
     try {
       // Clean up the content first
-      content = content.trim()
-        .replace(/\n{3,}/g, '\n\n')  // Remove excessive newlines
-        .replace(/\s+/g, ' ')        // Remove excessive spaces
-        .replace(/\*\*/g, '')        // Remove existing bold markers
-        .replace(/`/g, '');          // Remove existing code markers
+      content = content.trim();
 
       // Split content into sections
       const sections = content.split(/(?=\b(?:Key Features|Applications|Advantages|Disadvantages|Examples|Note|Important):\s)/);
       
-      let formatted = sections[0].trim(); // Keep the introduction
+      let formatted = sections[0].trim(); // Keep the introduction clean
 
       if (sections.length > 1) {
         sections.slice(1).forEach(section => {
@@ -480,24 +476,28 @@ const AIAssist: React.FC = () => {
           // Add emoji based on section title
           const emoji = getSectionEmoji(title.trim());
           
-          // Format section content
+          // Format section content with proper spacing
           const formattedContent = sectionContent
-            .split(/[.!?]\s+/)                    // Split into sentences
-            .filter(s => s.trim())                // Remove empty lines
-            .map(s => `• ${s.trim()}`)           // Add bullet points
-            .join('\n');
+            .split(/[.!?]\s+/)                     // Split into sentences
+            .filter(s => s.trim())                 // Remove empty lines
+            .map(s => `• ${s.trim()}`)            // Add bullet points
+            .join('\n\n');                        // Add extra spacing between points
 
-          formatted += `\n\n${emoji} **${title.trim()}**\n${formattedContent}`;
+          formatted += `\n\n\n${emoji} **${title.trim()}**\n\n${formattedContent}`;
         });
       }
 
       // Add special formatting
       formatted = formatted
-        // Format code snippets
+        // Format code snippets with proper spacing
         .replace(/\b(class|struct|namespace|template|virtual|public|private|protected)\b/g, '`$1`')
         // Add emphasis to important terms
         .replace(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)\b(?=:)/g, '**$1**')
-        // Format lists
+        // Ensure proper spacing after punctuation
+        .replace(/([.!?])\s*([A-Z])/g, '$1\n\n$2')
+        // Clean up any excessive newlines
+        .replace(/\n{4,}/g, '\n\n\n')
+        // Ensure proper list formatting
         .replace(/(?:^|\n)[-*•]\s+/g, '\n• ');
 
       return formatted;
@@ -505,6 +505,60 @@ const AIAssist: React.FC = () => {
       console.error('Error formatting response:', error);
       return content; // Return original content if formatting fails
     }
+  };
+
+  const renderMessage = (message: Message) => {
+    if (message.role === 'assistant') {
+      if (message.content.includes('Welcome to Your AI Learning Assistant')) {
+        return (
+          <div 
+            className="markdown-content"
+            dangerouslySetInnerHTML={{ __html: message.content }}
+          />
+        );
+      }
+
+      return (
+        <div className="prose dark:prose-invert max-w-none">
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p: ({node, ...props}) => (
+                <p className="my-3 leading-7" {...props} />
+              ),
+              strong: ({node, ...props}) => (
+                <strong className="font-semibold text-indigo-600 dark:text-indigo-400" {...props} />
+              ),
+              code: ({node, inline, ...props}) => (
+                inline ? 
+                  <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono" {...props} /> :
+                  <code className="block p-4 my-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm font-mono overflow-x-auto" {...props} />
+              ),
+              ul: ({node, ...props}) => (
+                <ul className="space-y-3 my-4" {...props} />
+              ),
+              li: ({node, ...props}) => (
+                <li className="flex items-start space-x-3 leading-7">
+                  <span className="text-indigo-500 mt-1.5 flex-shrink-0">•</span>
+                  <span className="flex-1" {...props} />
+                </li>
+              ),
+              blockquote: ({node, ...props}) => (
+                <blockquote className="border-l-4 border-indigo-500 pl-4 my-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-r-lg" {...props} />
+              )
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </div>
+      );
+    }
+
+    return (
+      <div className="text-gray-800 dark:text-gray-200 leading-7">
+        {message.content}
+      </div>
+    );
   };
 
   const getSectionEmoji = (title: string): string => {
@@ -522,47 +576,6 @@ const AIAssist: React.FC = () => {
       'Syntax': '📖'
     };
     return emojis[title] || '📍';
-  };
-
-  const renderMessage = (message: Message) => {
-    if (message.role === 'assistant') {
-      return (
-        <div className="prose dark:prose-invert max-w-none">
-          <ReactMarkdown 
-            remarkPlugins={[remarkGfm]}
-            components={{
-              p: ({node, ...props}) => (
-                <p className="my-2 leading-relaxed" {...props} />
-              ),
-              strong: ({node, ...props}) => (
-                <strong className="font-semibold text-indigo-600 dark:text-indigo-400" {...props} />
-              ),
-              code: ({node, inline, ...props}) => (
-                inline ? 
-                  <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-sm" {...props} /> :
-                  <code className="block p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm overflow-x-auto" {...props} />
-              ),
-              ul: ({node, ...props}) => (
-                <ul className="space-y-1 my-2" {...props} />
-              ),
-              li: ({node, ...props}) => (
-                <li className="flex items-start space-x-2">
-                  <span className="text-indigo-500 mt-1">•</span>
-                  <span {...props} />
-                </li>
-              )
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
-        </div>
-      );
-    }
-    return (
-      <div className="text-gray-800 dark:text-gray-200">
-        {message.content}
-      </div>
-    );
   };
 
   const saveMessagesToChat = async (chatId: string, messages: Message[]) => {
