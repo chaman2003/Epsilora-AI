@@ -731,23 +731,71 @@ const AIAssist: React.FC = () => {
     NumberedItem: (num: number, text: string) => `${num}. ${text}`,
   };
 
+  // Add scroll control
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    
+    // Only scroll to bottom if there are messages
+    if (messages.length > 0) {
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [messages]);
+
+  // Cleanup scroll restoration
+  useEffect(() => {
+    return () => {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'auto';
+      }
+    };
+  }, []);
+
+  // Update scroll behavior
   const scrollToBottom = () => {
     if (autoScroll && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'end',
+        inline: 'nearest'
+      });
     }
   };
 
+  // Handle scroll events
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget;
     const isAtBottom = Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 50;
     setAutoScroll(isAtBottom);
   };
 
+  // Handle message updates
   useEffect(() => {
     if (messages.length > 0) {
-      scrollToBottom();
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [messages]);
+
+  // Update chat container styles
+  const chatContainerStyle = `
+    flex-1 
+    overflow-y-auto 
+    p-4 
+    space-y-4 
+    scroll-smooth 
+    scrollbar-thin 
+    scrollbar-thumb-gray-300 
+    dark:scrollbar-thumb-gray-700 
+    scrollbar-track-transparent
+    relative
+  `;
 
   return (
     <motion.div
@@ -887,8 +935,9 @@ const AIAssist: React.FC = () => {
 
             {/* Chat Messages */}
             <div 
-              className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
+              className={chatContainerStyle}
               onScroll={handleScroll}
+              style={{ scrollBehavior: 'smooth' }}
             >
               <AnimatePresence>
                 {messages.map((message, index) => (
