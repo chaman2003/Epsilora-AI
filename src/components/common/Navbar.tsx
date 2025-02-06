@@ -110,23 +110,24 @@ const Navbar: React.FC = () => {
               </motion.div>
             ))}
 
+            {/* Theme Toggle Button - Always visible */}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleThemeToggle}
+              className="p-2.5 rounded-2xl text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20"
+              aria-label="Toggle theme"
+            >
+              <motion.div
+                animate={{ rotate: theme === 'dark' ? 180 : 0 }}
+                transition={{ duration: 0.5 }}
+                className="rounded-2xl"
+              >
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </motion.div>
+            </motion.button>
+
             {user && (
               <>
-                <motion.button
-                  onClick={handleThemeToggle}
-                  whileTap={{ scale: 0.95 }}
-                  className="p-2.5 rounded-2xl text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20"
-                  aria-label="Toggle theme"
-                >
-                  <motion.div
-                    animate={{ rotate: theme === 'dark' ? 180 : 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="rounded-2xl"
-                  >
-                    {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                  </motion.div>
-                </motion.button>
-
                 <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 dark:bg-gray-800/10 border border-gray-200/10 dark:border-gray-700/10">
                   <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark theme-transition">
                     {user.email.substring(0, 6)}...
@@ -170,6 +171,16 @@ const Navbar: React.FC = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
+            {/* Theme Toggle - Always visible on mobile */}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleThemeToggle}
+              className="p-2.5 rounded-2xl text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark focus:outline-none transition-colors duration-200 mr-2"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
+            </motion.button>
+
             <motion.button
               onClick={() => setIsOpen(!isOpen)}
               whileTap={{ scale: 0.95 }}
@@ -202,11 +213,11 @@ const Navbar: React.FC = () => {
                     handleNavClick(item.href);
                     setIsOpen(false);
                   }}
-                  className={`block px-4 py-2 rounded-2xl text-base font-medium theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20 ${
+                  className={`block px-4 py-2 rounded-2xl text-base font-medium theme-transition ${
                     location.pathname === item.href
-                      ? 'text-primary-light dark:text-primary-dark shadow-lg bg-white/20 dark:bg-gray-800/20'
+                      ? 'text-primary-light dark:text-primary-dark bg-gradient-to-r from-primary-light/10 to-primary-light/5 dark:from-primary-dark/20 dark:to-primary-dark/10 shadow-lg'
                       : 'text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark'
-                  } ${clickedItem === item.href ? 'animate-nav-click shadow-lg' : ''}`}
+                  } ${clickAnimation === item.href ? 'animate-nav-click shadow-lg' : ''}`}
                 >
                   {item.name}
                 </Link>
