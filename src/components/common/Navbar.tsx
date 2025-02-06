@@ -128,12 +128,9 @@ const Navbar: React.FC = () => {
 
             {user && (
               <>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 dark:bg-gray-800/10 border border-gray-200/10 dark:border-gray-700/10">
-                  <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark theme-transition">
-                    {user.email.substring(0, 6)}...
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200/20 dark:bg-gray-700/20 text-text-secondary-light/70 dark:text-text-secondary-dark/70">
-                    {user.email.split('@')[1]}
+                <div className="flex items-center px-4 py-2 rounded-2xl bg-white/10 dark:bg-gray-800/10 border border-gray-200/10 dark:border-gray-700/10 hover:bg-white/20 dark:hover:bg-gray-800/20 transition-colors duration-200">
+                  <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+                    {user.email}
                   </span>
                 </div>
 
