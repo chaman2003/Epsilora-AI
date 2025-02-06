@@ -52,6 +52,7 @@ const AIAssist: React.FC = () => {
     correctQuestions?: number[];
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
@@ -511,7 +512,15 @@ const AIAssist: React.FC = () => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (autoScroll && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const element = e.currentTarget;
+    const isAtBottom = Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 50;
+    setAutoScroll(isAtBottom);
   };
 
   useEffect(() => {
@@ -657,7 +666,10 @@ const AIAssist: React.FC = () => {
             </div>
 
             {/* Chat Messages */}
-            <div className="h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50">
+            <div 
+              className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
+              onScroll={handleScroll}
+            >
               <AnimatePresence>
                 {messages.map((message, index) => (
                   <motion.div
@@ -665,25 +677,27 @@ const AIAssist: React.FC = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} px-4`}
+                    transition={{ duration: 0.3 }}
+                    className={`flex items-start space-x-4 ${
+                      message.role === 'assistant' ? 'bg-white dark:bg-gray-800' : ''
+                    } rounded-lg p-4`}
                   >
                     <div className={`flex-shrink-0 p-2.5 rounded-xl ${
-                      message.role === 'user' 
-                        ? 'bg-indigo-100 dark:bg-indigo-900/50' 
-                        : 'bg-purple-100 dark:bg-purple-900/50'
+                      message.role === 'assistant' 
+                        ? 'bg-purple-100 dark:bg-purple-900/50' 
+                        : 'bg-indigo-100 dark:bg-indigo-900/50'
                     }`}>
-                      {message.role === 'user' ? (
-                        <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      ) : (
+                      {message.role === 'assistant' ? (
                         <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      ) : (
+                        <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       )}
                     </div>
                     <div
                       className={`rounded-2xl p-6 shadow-md ${
-                        message.role === 'user'
-                          ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'
-                          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                        message.role === 'assistant'
+                          ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                          : 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'
                       }`}
                     >
                       <ReactMarkdown 
@@ -784,7 +798,7 @@ const AIAssist: React.FC = () => {
                   </div>
                 </motion.div>
               )}
-              <div ref={messagesEndRef} className="h-4" />
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}
