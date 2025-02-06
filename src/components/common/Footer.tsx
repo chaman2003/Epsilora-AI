@@ -61,7 +61,7 @@ const Footer = () => {
 
       {/* Main Content */}
       <div className="relative max-w-7xl mx-auto pt-8 pb-6 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Brand Section */}
           <div className="space-y-4">
             <Link 
@@ -165,75 +165,74 @@ const Footer = () => {
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Connect With Us</h3>
               <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Column 1 */}
-              <div className="space-y-3">
-                <a 
-                  href="https://www.linkedin.com/in/chaman2003/" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="group flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
-                >
-                  <Linkedin className="w-5 h-5 text-[#0A66C2] group-hover:scale-110 transition-transform duration-300" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">LinkedIn</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">@chaman2003</span>
-                  </div>
-                </a>
-                
-                <a 
-                  href="https://github.com/chaman2003" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="group flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
-                >
-                  <Github className="w-5 h-5 text-gray-900 dark:text-white group-hover:scale-110 transition-transform duration-300" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">GitHub</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">@chaman2003</span>
-                  </div>
-                </a>
-              </div>
+            {/* Grid layout changes based on screen size */}
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-1 gap-3">
+              {/* LinkedIn */}
+              <a 
+                href="https://www.linkedin.com/in/chaman2003/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="group flex items-center space-x-3 p-2.5 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+              >
+                <Linkedin className="flex-shrink-0 w-5 h-5 text-[#0A66C2] group-hover:scale-110 transition-transform duration-300" />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate">LinkedIn</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate">@chaman2003</span>
+                </div>
+              </a>
+              
+              {/* GitHub */}
+              <a 
+                href="https://github.com/chaman2003" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="group flex items-center space-x-3 p-2.5 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+              >
+                <Github className="flex-shrink-0 w-5 h-5 text-gray-900 dark:text-white group-hover:scale-110 transition-transform duration-300" />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate">GitHub</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate">@chaman2003</span>
+                </div>
+              </a>
 
-              {/* Column 2 */}
-              <div className="space-y-3">
-                <a 
-                  href="https://x.com/2003_chaman" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="group flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+              {/* Twitter */}
+              <a 
+                href="https://x.com/2003_chaman" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="group flex items-center space-x-3 p-2.5 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+              >
+                <Twitter className="flex-shrink-0 w-5 h-5 text-[#1DA1F2] group-hover:scale-110 transition-transform duration-300" />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate">Twitter</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate">@2003_chaman</span>
+                </div>
+              </a>
+              
+              {/* Gmail */}
+              <a 
+                href="mailto:chamans7952@gmail.com" 
+                className="group flex items-center space-x-3 p-2.5 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+              >
+                <svg 
+                  viewBox="0 0 24 24" 
+                  className="flex-shrink-0 w-5 h-5 text-[#EA4335] group-hover:scale-110 transition-transform duration-300" 
+                  fill="currentColor"
                 >
-                  <Twitter className="w-5 h-5 text-[#1DA1F2] group-hover:scale-110 transition-transform duration-300" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Twitter</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">@2003_chaman</span>
-                  </div>
-                </a>
-                
-                <a 
-                  href="mailto:chamans7952@gmail.com" 
-                  className="group flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
-                >
-                  <svg 
-                    viewBox="0 0 24 24" 
-                    className="w-5 h-5 text-[#EA4335] group-hover:scale-110 transition-transform duration-300" 
-                    fill="currentColor"
-                  >
-                    <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/>
-                  </svg>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Gmail</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">chamans7952</span>
-                  </div>
-                </a>
-              </div>
+                  <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/>
+                </svg>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate">Gmail</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate">chamans7952</span>
+                </div>
+              </a>
             </div>
           </div>
         </div>
 
         {/* Bottom Section */}
         <div className="relative pt-6 mt-6 border-t border-gray-200/30 dark:border-gray-700/30">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-4">
               <a 
                 href="https://x.com/2003_chaman" 
@@ -263,7 +262,13 @@ const Footer = () => {
                 href="mailto:chamans7952@gmail.com" 
                 className="p-1.5 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transform hover:scale-110 transition-all duration-300"
               >
-                <Mail className="w-4 h-4" />
+                <svg 
+                  viewBox="0 0 24 24" 
+                  className="w-4 h-4" 
+                  fill="currentColor"
+                >
+                  <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/>
+                </svg>
               </a>
             </div>
             
