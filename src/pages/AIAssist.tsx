@@ -75,7 +75,7 @@ const AIAssist: React.FC = () => {
   const welcomeMessages = [
     {
       content: `<div class="welcome-message">
-        <h1 class="welcome-title">✨Welcome to Your AI Learning Assistant!✨</h1>
+        <h1 class="welcome-title">Welcome to Your AI Learning Assistant!✨</h1>
         <div class="feature-card">
           <h4>🎯 How I Can Help You</h4>
           <ul>
@@ -113,16 +113,16 @@ const AIAssist: React.FC = () => {
     style.textContent = `
       .welcome-message {
         animation: fadeIn 1s ease-in;
-        padding: 1rem;
+        padding: 0.5rem;
         max-width: 600px;
         margin: 0 auto;
       }
       
       .welcome-title {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
         font-weight: bold;
         text-align: center;
-        margin-bottom: 1.25rem;
+        margin-bottom: 0.75rem;
         background: linear-gradient(45deg, #4f46e5, #7c3aed);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -131,17 +131,17 @@ const AIAssist: React.FC = () => {
       
       .feature-card {
         border-left: 4px solid #4f46e5;
-        padding: 1rem;
-        margin: 0.75rem 0;
+        padding: 0.5rem 0.75rem;
+        margin: 0.5rem 0;
         background: rgba(79, 70, 229, 0.05);
-        border-radius: 8px;
+        border-radius: 6px;
         animation: slideIn 0.5s ease-out;
       }
 
       .feature-card h4 {
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.35rem;
         color: #4f46e5;
       }
 
@@ -152,61 +152,61 @@ const AIAssist: React.FC = () => {
       }
 
       .feature-card li, .tip-box li {
-        margin: 0.35rem 0;
-        padding-left: 1.5rem;
+        margin: 0.25rem 0;
+        padding-left: 1.25rem;
         position: relative;
-        font-size: 0.95rem;
+        font-size: 0.9rem;
       }
       
       .tip-box {
         background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 0.75rem 0;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        margin: 0.5rem 0;
         animation: fadeIn 0.5s ease-out;
       }
 
       .tip-box h3 {
         color: #4f46e5;
-        margin-bottom: 0.5rem;
-        font-size: 1.1rem;
+        margin-bottom: 0.35rem;
+        font-size: 1rem;
         font-weight: 600;
       }
       
       .quote-box {
         background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(13, 148, 136, 0.1));
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 0.75rem 0;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        margin: 0.5rem 0;
         animation: slideIn 0.5s ease-out;
       }
 
       .quote-box blockquote {
         border-left: 4px solid #4f46e5;
-        padding-left: 0.75rem;
+        padding-left: 0.5rem;
         margin: 0;
       }
 
       .quote-box p {
         font-style: italic;
         color: #4f46e5;
-        margin: 0 0 0.35rem 0;
-        font-size: 0.95rem;
+        margin: 0 0 0.25rem 0;
+        font-size: 0.9rem;
       }
 
       .quote-box footer {
         color: #4f46e5;
         font-weight: 500;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
       }
 
       .gradient-text-blue {
         text-align: center;
-        margin-top: 1rem;
+        margin-top: 0.75rem;
       }
 
       .gradient-text-blue p {
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 600;
         background: linear-gradient(45deg, #4f46e5, #0d9488);
         -webkit-background-clip: text;
