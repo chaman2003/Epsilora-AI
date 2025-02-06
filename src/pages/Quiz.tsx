@@ -550,7 +550,7 @@ const Quiz: React.FC = () => {
   }, []);
 
   const fetchQuizHistoryCallback = React.useCallback(fetchQuizHistory, [historyFetched, quizHistory.length]);
-  const saveQuizResult = async (finalScore: number) => {
+  const saveQuizResult = React.useCallback(async (finalScore: number) => {
     if (!user?._id || !selectedCourse || !questions || !questionStates) {
       console.error('Quiz data not found. Please ensure all data is available before saving.');
       return;
@@ -595,90 +595,7 @@ const Quiz: React.FC = () => {
     } catch (error) {
       console.error('Error saving quiz result:', error);
     }
-  };
-  useEffect(() => {
-    const initializeQuizData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          navigate('/login');
-          return;
-        }
-
-        // Get user info from token
-        const tokenData = JSON.parse(atob(token.split('.')[1]));
-        const userId = tokenData.id;
-
-        // Fetch user-specific quiz data
-        const response = await axiosInstance.get(`/api/quiz-history/${userId}`);
-        const userQuizData = response.data;
-
-        if (userQuizData) {
-          setQuizData(userQuizData);
-          localStorage.setItem('quizData', JSON.stringify(userQuizData));
-        } else {
-          // Initialize empty quiz data for new user
-          setQuizData({
-            totalQuizzes: 0,
-            averageScore: 0,
-            latestScore: 0,
-            questions: []
-          });
-        }
-      } catch (error) {
-        console.error('Error initializing quiz data:', error);
-        // Handle unauthorized access
-        if (axios.isAxiosError(error) && error.response?.status === 401) {
-          navigate('/login');
-        }
-      }
-    };
-
-    initializeQuizData();
-  }, [navigate]);
-
-  const saveQuizResultUpdated = async (result: any) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      const response = await axiosInstance.post('/api/quiz/save-result', {
-        ...result,
-        timestamp: new Date().toISOString()
-      });
-
-      if (response.data) {
-        // Update local quiz data
-        setQuizData(prevData => ({
-          ...prevData,
-          totalQuizzes: (prevData?.totalQuizzes || 0) + 1,
-          latestScore: result.score,
-          averageScore: calculateNewAverage(
-            prevData?.averageScore || 0,
-            prevData?.totalQuizzes || 0,
-            result.score
-          )
-        }));
-
-        // Store updated quiz data
-        const updatedQuizData = {
-          ...quizData,
-          totalQuizzes: (quizData?.totalQuizzes || 0) + 1,
-          latestScore: result.score,
-          questions: [...(quizData?.questions || []), ...result.questions]
-        };
-        localStorage.setItem('quizData', JSON.stringify(updatedQuizData));
-      }
-    } catch (error) {
-      console.error('Error saving quiz result:', error);
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        navigate('/login');
-      }
-    }
-  };
+  }, [selectedCourse, courses, questions, questionStates, quizDetails, startTime, user?._id, fetchQuizHistoryCallback]);
 
   const handleQuizComplete = React.useCallback(async () => {
     setTimerActive(false);
@@ -724,7 +641,7 @@ const Quiz: React.FC = () => {
     localStorage.setItem('lastQuizData', JSON.stringify(aiAssistData));
 
     // Save quiz result and navigate
-    saveQuizResultUpdated(finalScore).then(() => {
+    saveQuizResult(finalScore).then(() => {
       // Reset quiz state
       setQuizStarted(false);
       setQuestions([]);
@@ -740,7 +657,7 @@ const Quiz: React.FC = () => {
       console.error('Error saving quiz result:', error);
       toast.error('Failed to save quiz result. Please try again.');
     });
-  }, [questions, questionStates, courses, selectedCourse, quizDetails.difficulty, calculateFinalScore, saveQuizResultUpdated, navigate]);
+  }, [questions, questionStates, courses, selectedCourse, quizDetails.difficulty, calculateFinalScore, saveQuizResult, navigate]);
 
   const handleGetAIHelp = React.useCallback(() => {
     const courseObj = courses.find(course => course._id === selectedCourse);
@@ -847,7 +764,7 @@ const Quiz: React.FC = () => {
     localStorage.setItem('quizData', JSON.stringify(quizData));
     
     // Save quiz result and navigate
-    saveQuizResultUpdated(finalScore).then(() => {
+    saveQuizResult(finalScore).then(() => {
       // Reset quiz state
       setQuizStarted(false);
       setQuestions([]);
@@ -866,7 +783,7 @@ const Quiz: React.FC = () => {
       console.error('Error saving quiz result:', error);
       toast.error('Failed to save quiz result. Please try again.');
     });
-  }, [questions, questionStates, courses, selectedCourse, quizDetails.difficulty, calculateFinalScore, saveQuizResultUpdated, navigate, setQuizData]);
+  }, [questions, questionStates, courses, selectedCourse, quizDetails.difficulty, calculateFinalScore, saveQuizResult, navigate, setQuizData]);
 
   const renderQuestion = React.useCallback(() => {
     if (!questions[currentQuestion]) return null;
