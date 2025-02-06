@@ -12,29 +12,49 @@ import {
   MessageSquare,
   Award,
   Users,
-  Star
+  Sparkles
 } from 'lucide-react';
-import { themeConfig } from '../../config/theme';
 
 const Footer = () => {
-  const [isNewsletterSubmitted, setIsNewsletterSubmitted] = useState(false);
+  const [suggestion, setSuggestion] = useState('');
+  const [email, setEmail] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsNewsletterSubmitted(true);
-    // Add newsletter subscription logic here
+    try {
+      // Here you would typically send this to your backend
+      // For now, we'll just simulate sending an email
+      const emailBody = `New suggestion from ${email}:\n\n${suggestion}`;
+      window.location.href = `mailto:chamans7952@gmail.com?subject=Website Suggestion&body=${encodeURIComponent(emailBody)}`;
+      setIsSubmitted(true);
+      setSuggestion('');
+      setEmail('');
+    } catch (error) {
+      console.error('Error sending suggestion:', error);
+    }
   };
 
   return (
-    <footer className="relative bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+    <footer className="relative bg-gradient-to-br from-indigo-50/80 to-purple-50/80 dark:from-gray-900/90 dark:to-gray-800/90">
       {/* Decorative Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
-        <div className="absolute -top-24 -right-20 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl animate-blob" />
-        <div className="absolute -bottom-32 -left-20 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div 
+          className="absolute -top-24 -right-20 w-96 h-96 bg-indigo-500/20 rounded-full mix-blend-multiply filter blur-xl animate-blob"
+          style={{ animationDuration: '15s' }}
+        />
+        <div 
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[40rem] h-[40rem] bg-purple-500/10 rounded-full mix-blend-multiply filter blur-xl animate-blob-spin"
+          style={{ animationDuration: '25s' }}
+        />
+        <div 
+          className="absolute -bottom-32 -left-20 w-96 h-96 bg-pink-500/20 rounded-full mix-blend-multiply filter blur-xl animate-blob"
+          style={{ animationDuration: '20s' }}
+        />
       </div>
 
       {/* Main Content */}
@@ -136,33 +156,45 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Newsletter Section */}
+          {/* Suggestions Section */}
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Stay Updated</h3>
-            {!isNewsletterSubmitted ? (
-              <form onSubmit={handleNewsletterSubmit} className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Share Your Ideas</h3>
+              <Sparkles className="w-5 h-5 text-yellow-400 animate-pulse" />
+            </div>
+            {!isSubmitted ? (
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Subscribe to our newsletter for the latest updates and learning resources.
+                  Help us improve! Share your suggestions or feedback.
                 </p>
-                <div className="flex flex-col space-y-2">
+                <div className="space-y-3">
                   <input
                     type="email"
-                    placeholder="Enter your email"
-                    className="px-4 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Your email"
+                    className="w-full px-4 py-2 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
+                    required
+                  />
+                  <textarea
+                    value={suggestion}
+                    onChange={(e) => setSuggestion(e.target.value)}
+                    placeholder="Your suggestion or feedback..."
+                    className="w-full px-4 py-2 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm h-24 resize-none"
                     required
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-lg"
+                    className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600/90 to-purple-600/90 hover:from-indigo-600 hover:to-purple-600 text-white rounded-lg transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm"
                   >
-                    Subscribe
+                    Send Suggestion
                   </button>
                 </div>
               </form>
             ) : (
-              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+              <div className="bg-green-50/50 dark:bg-green-900/20 p-4 rounded-lg backdrop-blur-sm">
                 <p className="text-green-600 dark:text-green-400 text-sm">
-                  Thanks for subscribing! Check your email for confirmation.
+                  Thank you for your feedback! We'll review it soon.
                 </p>
               </div>
             )}
@@ -170,7 +202,7 @@ const Footer = () => {
         </div>
 
         {/* Bottom Section */}
-        <div className="relative pt-8 mt-12 border-t border-gray-200 dark:border-gray-700">
+        <div className="relative pt-8 mt-12 border-t border-gray-200/50 dark:border-gray-700/50">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="flex items-center space-x-4">
               <a 
@@ -198,7 +230,7 @@ const Footer = () => {
                 <Linkedin className="w-5 h-5" />
               </a>
               <a 
-                href="mailto:contact@epsilora.com" 
+                href="mailto:chamans7952@gmail.com" 
                 className="p-2 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transform hover:scale-110 transition-all duration-300"
               >
                 <Mail className="w-5 h-5" />
@@ -206,12 +238,12 @@ const Footer = () => {
             </div>
             
             <p className="text-gray-600 dark:text-gray-300 text-sm text-center flex items-center">
-              Made with <Heart className="w-4 h-4 mx-1 text-red-500" /> by Chaman
+              Made with <Heart className="w-4 h-4 mx-1 text-red-500" /> by Chammy
             </p>
 
             <button
               onClick={scrollToTop}
-              className="p-2 bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300"
+              className="p-2 bg-white/80 dark:bg-gray-800/80 text-indigo-600 dark:text-indigo-400 rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300 backdrop-blur-sm"
             >
               <ArrowUp className="w-5 h-5" />
             </button>
@@ -222,24 +254,36 @@ const Footer = () => {
       {/* Add animation keyframes */}
       <style jsx>{`
         @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
           }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
+          25% {
+            transform: translate(20px, -30px) scale(1.1);
           }
-          66% {
+          50% {
             transform: translate(-20px, 20px) scale(0.9);
           }
+          75% {
+            transform: translate(30px, 30px) scale(1.05);
+          }
+        }
+        @keyframes blob-spin {
+          0% {
+            transform: translate(-50%, -50%) rotate(0deg) scale(1);
+          }
+          50% {
+            transform: translate(-50%, -50%) rotate(180deg) scale(1.1);
+          }
           100% {
-            transform: translate(0px, 0px) scale(1);
+            transform: translate(-50%, -50%) rotate(360deg) scale(1);
           }
         }
         .animate-blob {
-          animation: blob 7s infinite;
+          animation: blob infinite;
+          animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .animation-delay-2000 {
-          animation-delay: 2s;
+        .animate-blob-spin {
+          animation: blob-spin infinite linear;
         }
       `}</style>
     </footer>
