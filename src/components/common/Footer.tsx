@@ -159,45 +159,63 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Suggestions Section */}
+          {/* Social Media Section */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Share Your Ideas</h3>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Connect With Us</h3>
               <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
             </div>
-            {!isSubmitted ? (
-              <form onSubmit={handleSubmit} className="space-y-3">
-                <div className="space-y-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Your email"
-                    className="w-full px-3 py-1.5 text-sm rounded-lg bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
-                    required
-                  />
-                  <textarea
-                    value={suggestion}
-                    onChange={(e) => setSuggestion(e.target.value)}
-                    placeholder="Your suggestion..."
-                    className="w-full px-3 py-1.5 text-sm rounded-lg bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm h-16 resize-none"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    className="w-full px-3 py-1.5 text-sm bg-gradient-to-r from-indigo-600/90 to-purple-600/90 hover:from-indigo-600 hover:to-purple-600 text-white rounded-lg transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm"
-                  >
-                    Send Suggestion
-                  </button>
+            <div className="space-y-3">
+              <a 
+                href="https://x.com/2003_chaman" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="group flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+              >
+                <Twitter className="w-5 h-5 text-[#1DA1F2] group-hover:scale-110 transition-transform duration-300" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">Twitter</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">@2003_chaman</span>
                 </div>
-              </form>
-            ) : (
-              <div className="bg-teal-50/50 dark:bg-teal-900/20 p-3 rounded-lg backdrop-blur-sm">
-                <p className="text-teal-600 dark:text-teal-400 text-sm">
-                  Thank you for your feedback!
-                </p>
-              </div>
-            )}
+              </a>
+              
+              <a 
+                href="https://github.com/chaman-ss" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="group flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+              >
+                <Github className="w-5 h-5 text-gray-900 dark:text-white group-hover:scale-110 transition-transform duration-300" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">GitHub</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">@chaman-ss</span>
+                </div>
+              </a>
+              
+              <a 
+                href="https://www.linkedin.com/in/chaman-ss" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="group flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+              >
+                <Linkedin className="w-5 h-5 text-[#0A66C2] group-hover:scale-110 transition-transform duration-300" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">LinkedIn</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">@chaman-ss</span>
+                </div>
+              </a>
+              
+              <a 
+                href="mailto:chamans7952@gmail.com" 
+                className="group flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+              >
+                <Mail className="w-5 h-5 text-gray-900 dark:text-white group-hover:scale-110 transition-transform duration-300" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">Email</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">chamans7952@gmail.com</span>
+                </div>
+              </a>
+            </div>
           </div>
         </div>
 
