@@ -77,38 +77,21 @@ const AIAssist: React.FC = () => {
       content: `<div class="welcome-message">
         <h1 class="welcome-title">✨ Welcome to Your AI Learning Assistant! ✨</h1>
 
-        <div class="gradient-text-purple">
-          <h2>🌟 Let's Make Learning Amazing Together!</h2>
-        </div>
-
-        <h3 class="section-title">🎯 Here's What I Can Do For You:</h3>
-
         <div class="feature-card">
-          <h4>📚 Smart Learning Support</h4>
+          <h4>🎯 How I Can Help You</h4>
           <ul>
-            <li>🧠 Explain complex topics in simple terms</li>
-            <li>💡 Answer your questions with examples</li>
-            <li>📝 Provide study strategies that work</li>
-          </ul>
-        </div>
-
-        <div class="feature-card">
-          <h4>🚀 Interactive Features</h4>
-          <ul>
-            <li>💬 Natural conversations about any topic</li>
-            <li>🎮 Learn through examples and practice</li>
-            <li>📊 Track your progress and improve</li>
+            <li>💡 Explain concepts clearly</li>
+            <li>📚 Provide learning resources</li>
+            <li>🔍 Answer your questions</li>
           </ul>
         </div>
 
         <div class="tip-box">
-          <h3>💡 Pro Tips for Better Results:</h3>
-          <ol>
-            <li>🎯 Use "explain [topic]" for detailed explanations</li>
-            <li>📝 Try "example of [concept]" for practical examples</li>
-            <li>🔍 Ask "summarize [topic]" for quick overviews</li>
-            <li>✨ Start with clear, specific questions</li>
-          </ol>
+          <h3>Pro Tips</h3>
+          <ul>
+            <li>🎯 "explain [topic]" for detailed explanations</li>
+            <li>📝 "example [concept]" for practice</li>
+          </ul>
         </div>
 
         <div class="quote-box">
@@ -119,8 +102,7 @@ const AIAssist: React.FC = () => {
         </div>
 
         <div class="gradient-text-blue">
-          <h3>🌈 Ready to Start Your Learning Journey?</h3>
-          <p>Just type your question below and let's begin! 🚀</p>
+          <p>Ready to learn? Ask me anything! 🚀</p>
         </div>
       </div>`,
       role: 'assistant' as const
@@ -134,119 +116,105 @@ const AIAssist: React.FC = () => {
       .welcome-message {
         animation: fadeIn 1s ease-in;
         padding: 1rem;
+        max-width: 600px;
+        margin: 0 auto;
       }
       
       .welcome-title {
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: bold;
         text-align: center;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.25rem;
         background: linear-gradient(45deg, #4f46e5, #7c3aed);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         animation: shimmer 2s infinite;
       }
-
-      .section-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        margin: 1.5rem 0 1rem;
-        color: #4f46e5;
-      }
-      
-      .gradient-text-purple h2 {
-        font-size: 1.75rem;
-        font-weight: bold;
-        text-align: center;
-        background: linear-gradient(45deg, #7c3aed, #4f46e5);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: shimmer 2s infinite;
-        margin-bottom: 1.5rem;
-      }
-      
-      .gradient-text-blue h3 {
-        font-size: 1.5rem;
-        font-weight: bold;
-        background: linear-gradient(45deg, #4f46e5, #0d9488);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: shimmer 2s infinite;
-        margin-bottom: 0.5rem;
-      }
       
       .feature-card {
         border-left: 4px solid #4f46e5;
         padding: 1rem;
-        margin: 1rem 0;
+        margin: 0.75rem 0;
         background: rgba(79, 70, 229, 0.05);
         border-radius: 8px;
         animation: slideIn 0.5s ease-out;
       }
 
       .feature-card h4 {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
         font-weight: 600;
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.5rem;
         color: #4f46e5;
       }
 
-      .feature-card ul {
+      .feature-card ul, .tip-box ul {
         list-style: none;
         padding: 0;
         margin: 0;
       }
 
-      .feature-card li {
-        margin: 0.5rem 0;
+      .feature-card li, .tip-box li {
+        margin: 0.35rem 0;
         padding-left: 1.5rem;
         position: relative;
+        font-size: 0.95rem;
       }
       
       .tip-box {
         background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
         border-radius: 8px;
-        padding: 1.5rem;
-        margin: 1.5rem 0;
+        padding: 1rem;
+        margin: 0.75rem 0;
         animation: fadeIn 0.5s ease-out;
       }
 
       .tip-box h3 {
         color: #4f46e5;
-        margin-bottom: 1rem;
-      }
-
-      .tip-box ol {
-        padding-left: 1.5rem;
-      }
-
-      .tip-box li {
-        margin: 0.5rem 0;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
       }
       
       .quote-box {
         background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(13, 148, 136, 0.1));
         border-radius: 8px;
-        padding: 1.5rem;
-        margin: 1.5rem 0;
+        padding: 1rem;
+        margin: 0.75rem 0;
         animation: slideIn 0.5s ease-out;
       }
 
       .quote-box blockquote {
         border-left: 4px solid #4f46e5;
-        padding-left: 1rem;
+        padding-left: 0.75rem;
         margin: 0;
       }
 
       .quote-box p {
         font-style: italic;
         color: #4f46e5;
-        margin: 0 0 0.5rem 0;
+        margin: 0 0 0.35rem 0;
+        font-size: 0.95rem;
       }
 
       .quote-box footer {
         color: #4f46e5;
         font-weight: 500;
+        font-size: 0.9rem;
+      }
+
+      .gradient-text-blue {
+        text-align: center;
+        margin-top: 1rem;
+      }
+
+      .gradient-text-blue p {
+        font-size: 1.1rem;
+        font-weight: 600;
+        background: linear-gradient(45deg, #4f46e5, #0d9488);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 2s infinite;
+        margin: 0;
       }
       
       @keyframes fadeIn {
@@ -731,71 +699,23 @@ const AIAssist: React.FC = () => {
     NumberedItem: (num: number, text: string) => `${num}. ${text}`,
   };
 
-  // Add scroll control
-  useEffect(() => {
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
-    
-    // Only scroll to bottom if there are messages
-    if (messages.length > 0) {
-      const timer = setTimeout(() => {
-        scrollToBottom();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [messages]);
-
-  // Cleanup scroll restoration
-  useEffect(() => {
-    return () => {
-      if ('scrollRestoration' in window.history) {
-        window.history.scrollRestoration = 'auto';
-      }
-    };
-  }, []);
-
-  // Update scroll behavior
   const scrollToBottom = () => {
     if (autoScroll && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'end',
-        inline: 'nearest'
-      });
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   };
 
-  // Handle scroll events
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget;
     const isAtBottom = Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 50;
     setAutoScroll(isAtBottom);
   };
 
-  // Handle message updates
   useEffect(() => {
     if (messages.length > 0) {
-      const timer = setTimeout(() => {
-        scrollToBottom();
-      }, 100);
-      return () => clearTimeout(timer);
+      scrollToBottom();
     }
   }, [messages]);
-
-  // Update chat container styles
-  const chatContainerStyle = `
-    flex-1 
-    overflow-y-auto 
-    p-4 
-    space-y-4 
-    scroll-smooth 
-    scrollbar-thin 
-    scrollbar-thumb-gray-300 
-    dark:scrollbar-thumb-gray-700 
-    scrollbar-track-transparent
-    relative
-  `;
 
   return (
     <motion.div
@@ -935,9 +855,8 @@ const AIAssist: React.FC = () => {
 
             {/* Chat Messages */}
             <div 
-              className={chatContainerStyle}
+              className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
               onScroll={handleScroll}
-              style={{ scrollBehavior: 'smooth' }}
             >
               <AnimatePresence>
                 {messages.map((message, index) => (
