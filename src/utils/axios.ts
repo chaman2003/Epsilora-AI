@@ -2,12 +2,14 @@ import axios from 'axios';
 
 // Create axios instance with default config
 export const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend-chaman-ss-projects.vercel.app',
+  baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend.vercel.app',
   timeout: 10000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-  },
-  withCredentials: true
+    'Accept': 'application/json',
+    'Origin': 'https://epsilora.vercel.app'
+  }
 });
 
 // Add request interceptor to add auth token
