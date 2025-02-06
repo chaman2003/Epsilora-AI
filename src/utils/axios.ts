@@ -3,12 +3,12 @@ import axios from 'axios';
 // Create axios instance with default config
 export const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend.vercel.app',
-  timeout: 10000,
+  timeout: 30000, // Increased timeout to 30 seconds
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Origin': 'https://epsilora.vercel.app'
+    'Accept': 'application/json'
+    // Removed Origin header as it's automatically set by the browser
   }
 });
 
@@ -35,7 +35,10 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.code === 'ECONNABORTED') {
+      // Handle timeout error
+      console.error('Request timed out:', error.config.url);
+    } else if (error.response?.status === 401) {
       // Clear token and redirect to login
       localStorage.removeItem('token');
       if (!window.location.pathname.includes('/login')) {
