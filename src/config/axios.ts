@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: 'http://localhost:3001',  // This should match your backend server port
+  baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend-chaman-ss-projects.vercel.app',
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   }
