@@ -56,6 +56,40 @@ const AIAssist: React.FC = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
+  const welcomeMessages = [
+    {
+      content: `# 👋 Welcome to Your AI Learning Assistant! 
+
+🌟 I'm here to help you succeed in your learning journey! Here's what I can do:
+
+📚 **Learning Support**
+- Help explain complex topics
+- Answer your questions
+- Provide study tips and strategies
+
+💡 **Quick Tips**:
+- Type your question in the chat below
+- Be specific for better answers
+- Use code blocks for code-related questions
+
+🎯 **Pro Tips**:
+1. Start with "explain" for detailed explanations
+2. Use "example" for practical examples
+3. Try "summarize" for quick overviews
+
+> 💭 *"Education is not preparation for life; education is life itself." - John Dewey*
+
+Ready to start learning? Ask me anything! 🚀`,
+      role: 'assistant' as const
+    }
+  ];
+
+  useEffect(() => {
+    if (!messages.length) {
+      setMessages(welcomeMessages);
+    }
+  }, []);
+
   // Check if this is a new session and reset data if needed
   useEffect(() => {
     const lastUserId = localStorage.getItem('lastUserId');
@@ -72,7 +106,7 @@ const AIAssist: React.FC = () => {
           localStorage.removeItem('aiAssistMessages');
           localStorage.removeItem('quiz_data');
           localStorage.removeItem('quizData');
-          setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
+          setMessages(welcomeMessages);
           setQuizData(null);
           setChatHistories([]);
           setCurrentChatId(null);
@@ -112,7 +146,7 @@ const AIAssist: React.FC = () => {
       if (!quizDataToUse) {
         console.warn('No quiz data available, proceeding without quiz data.');
         // Allow access to AI Assist even without quiz data
-        setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
+        setMessages(welcomeMessages);
         return;
       }
 
@@ -218,7 +252,7 @@ const AIAssist: React.FC = () => {
       
       // For new users, ensure we start with a clean slate
       if (response.data.length === 0) {
-        setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
+        setMessages(welcomeMessages);
         setCurrentChatId(null);
       }
       

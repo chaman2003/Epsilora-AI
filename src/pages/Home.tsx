@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BarChart2, Brain, BookOpen, Bot, ArrowRight, Sparkles } from 'lucide-react';
 import { themeConfig } from '../config/theme';
 import Footer from '../components/common/Footer';
@@ -37,12 +37,28 @@ const features = [
 ];
 
 const Home: React.FC = () => {
+  // Prevent scroll restoration on navigation
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    
+    // Reset scroll position when component mounts
+    window.scrollTo(0, 0);
+    
+    return () => {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'auto';
+      }
+    };
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 1.5 }}
-      className={`min-h-screen bg-gradient-to-b from-${themeConfig.colors.background.page.light} via-white to-${themeConfig.colors.background.page.light} dark:from-${themeConfig.colors.background.page.dark} dark:via-gray-900 dark:to-${themeConfig.colors.background.page.dark}`}
+      className={`min-h-screen bg-gradient-to-b from-${themeConfig.colors.background.page.light} via-white to-${themeConfig.colors.background.page.light} dark:from-${themeConfig.colors.background.page.dark} dark:via-gray-900 dark:to-${themeConfig.colors.background.page.dark} overflow-x-hidden`}
     >
       {/* Hero Section */}
       <div className="relative isolate">
