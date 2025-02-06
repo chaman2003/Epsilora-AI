@@ -165,14 +165,14 @@ const Footer = () => {
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Connect With Us</h3>
               <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
             </div>
-            {/* Grid layout changes based on screen size */}
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-1 gap-3">
+            {/* Grid layout - 2x2 for all screens */}
+            <div className="grid grid-cols-2 gap-3">
               {/* LinkedIn */}
               <a 
                 href="https://www.linkedin.com/in/chaman2003/" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="group flex items-center space-x-3 p-2.5 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+                className="group flex items-center space-x-2 p-2 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
               >
                 <Linkedin className="flex-shrink-0 w-5 h-5 text-[#0A66C2] group-hover:scale-110 transition-transform duration-300" />
                 <div className="flex flex-col min-w-0">
@@ -186,7 +186,7 @@ const Footer = () => {
                 href="https://github.com/chaman2003" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="group flex items-center space-x-3 p-2.5 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+                className="group flex items-center space-x-2 p-2 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
               >
                 <Github className="flex-shrink-0 w-5 h-5 text-gray-900 dark:text-white group-hover:scale-110 transition-transform duration-300" />
                 <div className="flex flex-col min-w-0">
@@ -200,7 +200,7 @@ const Footer = () => {
                 href="https://x.com/2003_chaman" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="group flex items-center space-x-3 p-2.5 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+                className="group flex items-center space-x-2 p-2 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
               >
                 <Twitter className="flex-shrink-0 w-5 h-5 text-[#1DA1F2] group-hover:scale-110 transition-transform duration-300" />
                 <div className="flex flex-col min-w-0">
@@ -212,7 +212,7 @@ const Footer = () => {
               {/* Gmail */}
               <a 
                 href="mailto:chamans7952@gmail.com" 
-                className="group flex items-center space-x-3 p-2.5 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+                className="group flex items-center space-x-2 p-2 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-gray-800/70 dark:hover:to-gray-800/60 transform hover:scale-105 transition-all duration-300 backdrop-blur-sm"
               >
                 <svg 
                   viewBox="0 0 24 24" 
