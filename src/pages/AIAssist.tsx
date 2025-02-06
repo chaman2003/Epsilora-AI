@@ -784,182 +784,125 @@ const AIAssist: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Settings Panel */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <MessageSquare className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-            </button>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white">AI Assistant</h2>
-          </div>
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600 dark:text-gray-300">Font Size</span>
-              <input
-                type="range"
-                min="12"
-                max="24"
-                value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
-                className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-              />
-              <span className="text-sm text-gray-600 dark:text-gray-300">{fontSize}px</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 pt-2"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Chat History Sidebar */}
         <AnimatePresence>
           {isSidebarOpen && (
             <motion.div
-              initial={{ x: -300, opacity: 0 }}
+              initial={{ x: -320, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -300, opacity: 0 }}
-              className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto"
+              exit={{ x: -320, opacity: 0 }}
+              transition={{ type: "spring", damping: 20 }}
+              className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50"
             >
-              {/* Chat History Sidebar */}
-              <AnimatePresence>
-                {isSidebarOpen && (
-                  <motion.div
-                    initial={{ x: -320, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: -320, opacity: 0 }}
-                    transition={{ type: "spring", damping: 20 }}
-                    className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50"
-                  >
-                    <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                      <button
-                        onClick={() => setIsSidebarOpen(false)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                      >
-                        <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      </button>
-                    </div>
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                      <button
-                        onClick={() => {
-                          setMessages([]);
-                          setCurrentChatId(null);
-                          setIsSidebarOpen(false);
-                        }}
-                        className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
-                      >
-                        <Plus className="w-5 h-5" />
-                        <span>New Chat</span>
-                      </button>
-                    </div>
-                    <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
-                      {chatHistories.map((chat, index) => {
-                        const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
-                        const chatPreview = isQuizReview 
-                          ? `Quiz Review #${chatHistories.length - index}`
-                          : chat.messages[0]?.content.slice(0, 30) + '...';
-
-                        return (
-                          <div
-                            key={chat._id}
-                            className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-                              currentChatId === chat._id
-                                ? 'bg-indigo-50 dark:bg-indigo-900/20'
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                            }`}
-                            onClick={() => {
-                              loadChat(chat._id);
-                              setIsSidebarOpen(false);
-                            }}
-                          >
-                            <div className="flex items-center space-x-3">
-                              <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                              <div className="flex-1 truncate">
-                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                  {chat.title}
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  {new Date(chat.createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteChat(chat._id);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Backdrop */}
-              <AnimatePresence>
-                {isSidebarOpen && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40"
-                  />
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Chat Header */}
-          <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
-                  <Bot className="w-7 h-7" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight">AI Learning Assistant</h2>
-                  <p className="text-indigo-100 text-sm mt-1">Powered by advanced AI to help you learn</p>
-                </div>
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                </button>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => {
                     setMessages([]);
                     setCurrentChatId(null);
+                    setIsSidebarOpen(false);
                   }}
-                  className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
+                  className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
                 >
-                  <Plus className="w-6 h-6" />
-                  <span className="text-sm font-medium">New Chat</span>
+                  <Plus className="w-5 h-5" />
+                  <span>New Chat</span>
                 </button>
+              </div>
+              <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
+                {chatHistories.map((chat, index) => {
+                  const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
+                  const chatPreview = isQuizReview 
+                    ? `Quiz Review #${chatHistories.length - index}`
+                    : chat.messages[0]?.content.slice(0, 30) + '...';
+
+                  return (
+                    <div
+                      key={chat._id}
+                      className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 ${
+                        currentChatId === chat._id
+                          ? 'bg-indigo-50 dark:bg-indigo-900/20'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      }`}
+                      onClick={() => {
+                        loadChat(chat._id);
+                        setIsSidebarOpen(false);
+                      }}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        <div className="flex-1 truncate">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {chat.title}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(chat.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteChat(chat._id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Backdrop */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40"
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Main Chat Area */}
+        <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+          {/* Chat Header */}
+          <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
                 <button
                   onClick={() => setIsSidebarOpen(true)}
-                  className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                 >
-                  <History className="w-6 h-6" />
-                  <span className="text-sm font-medium">History</span>
+                  <MessageSquare className="w-6 h-6" />
                 </button>
+                <h1 className="text-xl font-semibold">AI Learning Assistant</h1>
               </div>
             </div>
           </div>
 
-          {/* Chat Messages */}
+          {/* Messages */}
           <div 
-            className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
+            className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
             onScroll={handleScroll}
-            style={{ fontSize: `${fontSize}px` }}
           >
             <AnimatePresence>
               {messages.map((message, index) => (
@@ -969,16 +912,25 @@ const AIAssist: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
-                  className={`flex ${
-                    message.role === 'assistant'
-                      ? 'justify-start'
-                      : 'justify-end'
-                  }`}
+                  className={`flex items-start space-x-4 ${
+                    message.role === 'assistant' ? 'bg-white dark:bg-gray-800' : ''
+                  } rounded-lg p-4`}
                 >
+                  <div className={`flex-shrink-0 p-2.5 rounded-xl ${
+                    message.role === 'assistant' 
+                      ? 'bg-purple-100 dark:bg-purple-900/50' 
+                      : 'bg-indigo-100 dark:bg-indigo-900/50'
+                  }`}>
+                    {message.role === 'assistant' ? (
+                      <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    ) : (
+                      <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    )}
+                  </div>
                   <div
-                    className={`max-w-3xl rounded-lg px-4 py-2 ${
+                    className={`prose prose-sm max-w-none ${
                       message.role === 'assistant'
-                        ? 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
+                        ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
                         : 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'
                     }`}
                   >
@@ -987,57 +939,42 @@ const AIAssist: React.FC = () => {
                 </motion.div>
               ))}
             </AnimatePresence>
-            {loading && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex justify-start px-4"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
-                    <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md">
-                    <div className="flex items-center space-x-3">
-                      <Loader2 className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-400" />
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Thinking...</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
             <div ref={messagesEndRef} />
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-            <div className="max-w-7xl mx-auto">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                  placeholder="Type your message..."
-                  className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={loading}
-                  className="p-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
-                >
-                  {loading ? (
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                  ) : (
-                    <Send className="w-6 h-6" />
-                  )}
-                </button>
-              </div>
+          <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="flex items-center space-x-4">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                placeholder="Ask about your quiz or any courses related topics..."
+                className="flex-1 p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+              />
+              <button
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+                className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl"
+              >
+                {loading ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Sending...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Send className="w-5 h-5" />
+                    <span>Send</span>
+                  </div>
+                )}
+              </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
