@@ -52,6 +52,7 @@ const AIAssist: React.FC = () => {
     courseName?: string;
     correctQuestions?: number[];
   } | null>(null);
+  const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const navigate = useNavigate();
@@ -508,6 +509,57 @@ Ready to learn? Ask me anything! 🚀`
     }
   }, [messages]);
 
+  const WelcomeOverlay = () => (
+    <div 
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+      onClick={() => setShowWelcomeOverlay(false)}
+    >
+      <div 
+        className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-2xl w-[90%] max-h-[90vh] overflow-y-auto relative shadow-xl border border-gray-200/20 dark:border-gray-700/20"
+        onClick={e => e.stopPropagation()}
+      >
+        <button 
+          className="absolute top-4 right-4 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400"
+          onClick={() => setShowWelcomeOverlay(false)}
+        >
+          <X size={20} />
+        </button>
+        
+        <div className="prose dark:prose-invert max-w-none">
+          <h1 className="text-center bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent text-3xl font-bold mb-6">
+            Welcome to Your AI Learning Assistant! ✨
+          </h1>
+          
+          <h2 className="text-xl font-semibold text-indigo-600 dark:text-indigo-400 mt-6 mb-4">
+            How I Can Help You
+          </h2>
+          <ul className="space-y-2">
+            <li className="flex items-center gap-2">💡 Explain concepts clearly</li>
+            <li className="flex items-center gap-2">📚 Provide learning resources</li>
+            <li className="flex items-center gap-2">🔍 Answer your questions</li>
+          </ul>
+
+          <h2 className="text-xl font-semibold text-indigo-600 dark:text-indigo-400 mt-6 mb-4">
+            Pro Tips
+          </h2>
+          <ul className="space-y-2">
+            <li className="flex items-center gap-2">🎯 Use "explain [topic]" for detailed explanations</li>
+            <li className="flex items-center gap-2">📝 Use "example [concept]" for practice examples</li>
+          </ul>
+
+          <blockquote className="border-l-4 border-indigo-500 pl-4 my-6 italic text-gray-600 dark:text-gray-300">
+            "{getRandomQuote().quote}"
+            <footer className="mt-2 text-gray-500 dark:text-gray-400">— {getRandomQuote().author}</footer>
+          </blockquote>
+
+          <p className="text-center text-lg font-semibold mt-8 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            Ready to learn? Ask me anything! 🚀
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -771,6 +823,7 @@ Ready to learn? Ask me anything! 🚀`
           </div>
         </div>
       </div>
+      {showWelcomeOverlay && <WelcomeOverlay />}
     </motion.div>
   );
 };
