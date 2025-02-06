@@ -350,7 +350,6 @@ const Quiz: React.FC = () => {
 
   const fetchQuizStatistics = async () => {
     try {
-      // Use axiosInstance instead of direct axios call
       const response = await axiosInstance.get('/api/quiz/stats');
       console.log('Quiz stats response:', response.data);
       if (response.data) {
@@ -362,6 +361,11 @@ const Quiz: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching quiz statistics:', error);
+      setQuizStats({
+        totalQuizzes: 0,
+        averageScore: 0,
+        latestScore: 0
+      });
     }
   };
   useEffect(() => {
@@ -384,9 +388,7 @@ const Quiz: React.FC = () => {
       });
       let quizData;
       try {
-        // Handle both string and parsed JSON responses
         const rawData = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-        // Clean the JSON string
         const cleanedData = rawData.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
         quizData = JSON.parse(cleanedData);
       } catch (parseError) {
@@ -400,7 +402,6 @@ const Quiz: React.FC = () => {
       if (quizData.length === 0) {
         throw new Error('No questions were generated. Please try again.');
       }
-      // Clean and validate each question
       const cleanedQuestions = quizData.map((q, index) => {
         if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
           throw new Error(`Invalid question format at index ${index}`);
@@ -414,7 +415,6 @@ const Quiz: React.FC = () => {
           correctAnswer: q.correctAnswer.trim().toUpperCase()
         };
       });
-      // Validate cleaned questions
       const validQuestions = cleanedQuestions.every(q => 
         q.id && 
         q.question && 
@@ -1207,7 +1207,7 @@ const Quiz: React.FC = () => {
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">Average Score</p>
                           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                            {quizStats.averageScore}%
+                            {quizStats.totalQuizzes === 0 ? '—' : `${quizStats.averageScore}%`}
                           </p>
                         </div>
                         <div className="bg-green-100 dark:bg-green-900 p-2 rounded-lg">
@@ -1221,7 +1221,7 @@ const Quiz: React.FC = () => {
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">Latest Performance</p>
                           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                            {quizStats.latestScore}%
+                            {quizStats.totalQuizzes === 0 ? '—' : `${quizStats.latestScore}%`}
                           </p>
                         </div>
                         <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
