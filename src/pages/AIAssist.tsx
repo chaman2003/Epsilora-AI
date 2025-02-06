@@ -249,14 +249,23 @@ const AIAssist: React.FC = () => {
       const storedMessages = localStorage.getItem('aiAssistMessages');
       if (chatHistories.length === 0 && !storedMessages && messages.length === 0) {
         setMessages(welcomeMessages);
-        createNewChat(welcomeMessages);
+        // Only create a new chat if we don't have any existing chats
+        if (chatHistories.length === 0) {
+          createNewChat(welcomeMessages);
+        }
       } else if (storedMessages) {
         try {
           const parsedMessages = JSON.parse(storedMessages);
-          setMessages(parsedMessages);
+          // Don't set welcome messages if we already have chat history
+          if (parsedMessages.length > 0 && !parsedMessages.every(msg => 
+            msg.role === 'assistant' && msg.content.includes('Welcome to Your AI Learning Assistant'))) {
+            setMessages(parsedMessages);
+          }
         } catch (error) {
           console.error('Error parsing stored messages:', error);
-          setMessages(welcomeMessages);
+          if (chatHistories.length === 0) {
+            setMessages(welcomeMessages);
+          }
         }
       }
     };
@@ -267,63 +276,58 @@ const AIAssist: React.FC = () => {
   useEffect(() => {
     if (quizData && !currentChatId) {
       const summary = generateQuizSummary(quizData);
-      const quizMessage = { role: 'assistant' as const, content: summary };
       
-      // Check if we already have this quiz review in chat histories
-      const existingQuizChat = chatHistories.find(chat => 
-        chat.messages.some(msg => 
-          msg.content.includes('Quiz Review') && 
-          msg.content.includes(quizData.courseName)
-        )
-      );
+      // Only proceed if we have a valid quiz summary
+      if (summary) {
+        const quizMessage = { role: 'assistant' as const, content: summary };
+        
+        // Check if we already have this quiz review in chat histories
+        const existingQuizChat = chatHistories.find(chat => 
+          chat.messages.some(msg => 
+            msg.content.includes('Quiz Review') && 
+            msg.content.includes(quizData.courseName) &&
+            msg.content.includes(`Score: ${quizData.score}/${quizData.questions.length}`)
+          )
+        );
 
-      if (existingQuizChat) {
-        setCurrentChatId(existingQuizChat._id);
-        setMessages(existingQuizChat.messages);
-      } else {
-        // Only create a new chat if one doesn't exist
-        createNewChat([quizMessage]);
-        setMessages([quizMessage]);
+        if (existingQuizChat) {
+          setCurrentChatId(existingQuizChat._id);
+          setMessages(existingQuizChat.messages);
+        } else {
+          // Only create a new chat if the quiz data is valid
+          createNewChat([quizMessage]);
+          setMessages([quizMessage]);
+        }
       }
     }
   }, [quizData, currentChatId, chatHistories]);
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem('aiAssistMessages', JSON.stringify(messages));
+  const generateQuizSummary = (data: QuizData) => {
+    // Don't generate quiz summary if data is incomplete
+    if (!data || !data.courseName || !data.questions || data.questions.length === 0) {
+      return null;
     }
-  }, [messages]);
 
-  useEffect(() => {
-    return () => {
-      localStorage.removeItem('aiAssistMessages');
-    };
-  }, []);
+    const totalQuestions = data.questions.length;
+    const correctAnswers = data.questions.filter(q => q.isCorrect).length;
+    const score = data.score || correctAnswers;
 
-  useEffect(() => {
-    // Update quiz data whenever messages change
-    const quizMessage = messages.find(msg => msg.content.includes('Quiz Review'));
-    if (quizMessage) {
-      setCurrentQuizData(parseQuizReview(quizMessage.content));
-    } else {
-      setCurrentQuizData(null);
-    }
-  }, [messages]);
+    let summary = `# 🎓 Quiz Review\n\n`;
+    summary += `## 📘 Course: ${data.courseName}\n`;
+    summary += `**🧠 Difficulty:** ${data.difficulty || 'Standard'}\n`;
+    summary += `**🏆 Score:** ${score}/${totalQuestions}\n\n`;
 
-  const parseQuizReview = (content: string) => {
-    const scoreMatch = content.match(/🏆 Score: (\d+)\/(\d+)/);
-    const courseMatch = content.match(/📘 Course: (.*?)\n/);
-    const correctQuestions = content.split('\n')
-      .filter(line => line.includes('Question'))
-      .map((line, index) => line.includes('✅') ? index + 1 : 0)
-      .filter(num => num !== 0);
+    data.questions.forEach((q, index) => {
+      summary += `### Question ${index + 1}\n`;
+      summary += `${q.question}\n\n`;
+      summary += `${q.isCorrect ? '✅' : '❌'} Your Answer: ${q.userAnswer}\n`;
+      if (!q.isCorrect) {
+        summary += `✨ Correct Answer: ${q.correctAnswer}\n`;
+      }
+      summary += '\n';
+    });
 
-    return {
-      score: scoreMatch ? scoreMatch[0] : undefined,
-      totalQuestions: scoreMatch ? parseInt(scoreMatch[2]) : undefined,
-      courseName: courseMatch ? courseMatch[1] : undefined,
-      correctQuestions
-    };
+    return summary;
   };
 
   const loadChatHistories = async () => {
@@ -539,38 +543,20 @@ const AIAssist: React.FC = () => {
     }
   };
 
-  const generateQuizSummary = (data: QuizData) => {
-    console.log('Generating summary for quiz data:', data);
-    
-    let summary = `# 🎓 Quiz Review\n\n`;
-    summary += `## 📘 Course: ${data.courseName} \n`;
-    summary += `**🧠 Difficulty:** ${data.difficulty} \n`;
-    summary += `**🏆 Score:** ${data.score}/${data.totalQuestions} \n\n`;
+  const parseQuizReview = (content: string) => {
+    const scoreMatch = content.match(/🏆 Score: (\d+)\/(\d+)/);
+    const courseMatch = content.match(/📘 Course: (.*?)\n/);
+    const correctQuestions = content.split('\n')
+      .filter(line => line.includes('Question'))
+      .map((line, index) => line.includes('✅') ? index + 1 : 0)
+      .filter(num => num !== 0);
 
-    summary += `## 🔍 Questions \n\n`;
-    data.questions.forEach((q, index) => {
-      summary += `### 📝 Question ${index + 1} ${q.isCorrect ? '✅' : '❌'} \n\n`;
-      summary += `**${q.question}** \n\n`;
-      
-      summary += `**Options:** \n\n`;
-      if (Array.isArray(q.options)) {
-        q.options.forEach(opt => {
-          const isUserAnswer = opt.label === q.userAnswer;
-          const isCorrectAnswer = opt.label === q.correctAnswer;
-          summary += `${isUserAnswer ? '👉 ' : ''}${opt.text} ${isCorrectAnswer ? '✅' : ''}\n\n`;
-        });
-      }
-      
-      summary += `\n**Your Answer:** ${q.userAnswer} `;
-      if (q.isCorrect) {
-        summary += `✅ Correct!\n\n`;
-      } else {
-        summary += `❌ Wrong\n\n`;
-        summary += `\n**_Correct answer was ${q.correctAnswer}_**\n\n`;
-      }
-    });
-
-    return summary;
+    return {
+      score: scoreMatch ? scoreMatch[0] : undefined,
+      totalQuestions: scoreMatch ? parseInt(scoreMatch[2]) : undefined,
+      courseName: courseMatch ? courseMatch[1] : undefined,
+      correctQuestions
+    };
   };
 
   const StyledComponents = {
