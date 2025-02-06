@@ -11,6 +11,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const axiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend-chaman-ss-projects.vercel.app',
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [user, setUser] = useState<any | null>(null);
@@ -23,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUser = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/user', {
+      const response = await axiosInstance.get('/api/user', {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -37,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post('http://localhost:3001/api/login', {
+      const response = await axiosInstance.post('/api/auth/login', {
         email,
         password
       });
