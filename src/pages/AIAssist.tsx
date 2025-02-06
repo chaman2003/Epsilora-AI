@@ -18,7 +18,6 @@ interface ChatHistory {
   _id: string;
   messages: Message[];
   createdAt: string;
-  title: string;
 }
 
 interface QuizData {
@@ -42,7 +41,6 @@ const AIAssist: React.FC = () => {
   const { quizData, setQuizData } = useQuiz();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [chatHistories, setChatHistories] = useState<ChatHistory[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -76,56 +74,167 @@ const AIAssist: React.FC = () => {
 
   const welcomeMessages = [
     {
-      role: 'assistant' as const,
-      content: `# Welcome to Your AI Learning Assistant! ✨
+      content: `<div class="welcome-message">
+        <h1 class="welcome-title">Welcome to Your AI Learning Assistant!✨</h1>
+        <div class="feature-card">
+          <h4>🎯 How I Can Help You</h4>
+          <ul>
+            <li>💡 Explain concepts clearly</li>
+            <li>📚 Provide learning resources</li>
+            <li>🔍 Answer your questions</li>
+          </ul>
+        </div>
+        <div class="tip-box">
+          <h3>Pro Tips</h3>
+          <ul>
+            <li>🎯 "explain [topic]" for detailed explanations</li>
+            <li>📝 "example [concept]" for practice</li>
+          </ul>
+        </div>
 
-## How I Can Help You
-- 💡 Explain concepts clearly
-- 📚 Provide learning resources
-- 🔍 Answer your questions
+        <div class="quote-box">
+          <blockquote>
+            <p><em>"${getRandomQuote().quote}"</em></p>
+            <footer>— ${getRandomQuote().author}</footer>
+          </blockquote>
+        </div>
 
-## Pro Tips
-- 🎯 Use "explain [topic]" for detailed explanations
-- 📝 Use "example [concept]" for practice examples
-
-> "${getRandomQuote().quote}"
-> — ${getRandomQuote().author}
-
-Ready to learn? Ask me anything! 🚀`
+        <div class="gradient-text-blue">
+          <p>Ready to learn? Ask me anything! 🚀</p>
+        </div>
+      </div>`,
+      role: 'assistant' as const
     }
   ];
 
-  const formatResponse = (content: string) => {
-    // Format programming language explanations
-    if (content.includes('**Definition:**')) {
-      const lines = content.split('\n');
-      let formatted = '';
-      let currentSection = '';
-
-      lines.forEach(line => {
-        if (line.startsWith('**') && line.endsWith('**') && !line.includes('Definition')) {
-          // This is a language name, make it a heading
-          formatted += `# ${line.replace(/\*\*/g, '')}\n\n`;
-        } else if (line.startsWith('**') && line.includes(':')) {
-          // This is a section header
-          currentSection = line.replace(/\*\*/g, '').trim();
-          formatted += `## ${currentSection}\n\n`;
-        } else if (line.trim().startsWith('*')) {
-          // This is a bullet point
-          formatted += `${line}\n`;
-        } else if (line.trim()) {
-          // This is normal text
-          formatted += `${line}\n\n`;
-        }
-      });
-      return formatted;
-    }
-    return content;
-  };
-
+  // Add CSS styles for the welcome message
   useEffect(() => {
-    setDisplayMessages([...welcomeMessages, ...messages]);
-  }, [messages]);
+    const style = document.createElement('style');
+    style.textContent = `
+      .welcome-message {
+        animation: fadeIn 1s ease-in;
+        padding: 0.5rem;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      
+      .welcome-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 0.75rem;
+        background: linear-gradient(45deg, #4f46e5, #7c3aed);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 2s infinite;
+      }
+      
+      .feature-card {
+        border-left: 4px solid #4f46e5;
+        padding: 0.5rem 0.75rem;
+        margin: 0.5rem 0;
+        background: rgba(79, 70, 229, 0.05);
+        border-radius: 6px;
+        animation: slideIn 0.5s ease-out;
+      }
+
+      .feature-card h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+        color: #4f46e5;
+      }
+
+      .feature-card ul, .tip-box ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .feature-card li, .tip-box li {
+        margin: 0.25rem 0;
+        padding-left: 1.25rem;
+        position: relative;
+        font-size: 0.9rem;
+      }
+      
+      .tip-box {
+        background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        margin: 0.5rem 0;
+        animation: fadeIn 0.5s ease-out;
+      }
+
+      .tip-box h3 {
+        color: #4f46e5;
+        margin-bottom: 0.35rem;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+      
+      .quote-box {
+        background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(13, 148, 136, 0.1));
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        margin: 0.5rem 0;
+        animation: slideIn 0.5s ease-out;
+      }
+
+      .quote-box blockquote {
+        border-left: 4px solid #4f46e5;
+        padding-left: 0.5rem;
+        margin: 0;
+      }
+
+      .quote-box p {
+        font-style: italic;
+        color: #4f46e5;
+        margin: 0 0 0.25rem 0;
+        font-size: 0.9rem;
+      }
+
+      .quote-box footer {
+        color: #4f46e5;
+        font-weight: 500;
+        font-size: 0.85rem;
+      }
+
+      .gradient-text-blue {
+        text-align: center;
+        margin-top: 0.75rem;
+      }
+
+      .gradient-text-blue p {
+        font-size: 1rem;
+        font-weight: 600;
+        background: linear-gradient(45deg, #4f46e5, #0d9488);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 2s infinite;
+        margin: 0;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      
+      @keyframes slideIn {
+        from { transform: translateX(-20px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      
+      @keyframes shimmer {
+        0% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -136,18 +245,28 @@ Ready to learn? Ask me anything! 🚀`
     const initializeChat = async () => {
       await loadChatHistories();
       
-      // Only set messages if we have stored messages
+      // Only set welcome message if there are no chat histories and no current messages
       const storedMessages = localStorage.getItem('aiAssistMessages');
-      if (storedMessages) {
+      if (chatHistories.length === 0 && !storedMessages && messages.length === 0) {
+        setMessages(welcomeMessages);
+        // Only create a new chat if we don't have any existing chats
+        if (chatHistories.length === 0) {
+          createNewChat(welcomeMessages);
+        }
+      } else if (storedMessages) {
         try {
           const parsedMessages = JSON.parse(storedMessages);
-          setMessages(parsedMessages);
+          // Don't set welcome messages if we already have chat history
+          if (parsedMessages.length > 0 && !parsedMessages.every(msg => 
+            msg.role === 'assistant' && msg.content.includes('Welcome to Your AI Learning Assistant'))) {
+            setMessages(parsedMessages);
+          }
         } catch (error) {
           console.error('Error parsing stored messages:', error);
-          setMessages([]);
+          if (chatHistories.length === 0) {
+            setMessages(welcomeMessages);
+          }
         }
-      } else {
-        setMessages([]);
       }
     };
 
@@ -225,23 +344,11 @@ Ready to learn? Ask me anything! 🚀`
       
       // For new users, ensure we start with a clean slate
       if (response.data.length === 0) {
-        setMessages([]);
+        setMessages(welcomeMessages);
         setCurrentChatId(null);
       }
-
-      // Remove any duplicate messages in existing chats
-      const cleanedChats = response.data.map((chat: ChatHistory) => ({
-        ...chat,
-        messages: chat.messages.filter((msg, index, self) => 
-          msg.role === 'assistant' || 
-          !self.slice(0, index).some(m => 
-            m.role === 'user' && 
-            m.content.toLowerCase().trim() === msg.content.toLowerCase().trim()
-          )
-        )
-      }));
       
-      setChatHistories(cleanedChats);
+      setChatHistories(response.data);
     } catch (error) {
       console.error('Error loading chat histories:', error);
       if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -260,22 +367,9 @@ Ready to learn? Ask me anything! 🚀`
         return null;
       }
 
-      // Create a title based on the first message
-      const firstMessage = initialMessages[0]?.content || '';
-      let chatTitle = '';
-      
-      if (firstMessage.includes('Quiz Review')) {
-        const courseMatch = firstMessage.match(/Course: (.*?)\n/);
-        const course = courseMatch ? courseMatch[1].trim() : 'Unknown Course';
-        chatTitle = `Quiz Review - ${course}`;
-      } else {
-        // Extract first line or first few words for the title
-        chatTitle = firstMessage.split('\n')[0].slice(0, 50) + (firstMessage.length > 50 ? '...' : '');
-      }
-
+      // Create new chat for all quiz reviews
       const response = await axiosInstance.post('/api/chat-history', {
-        messages: initialMessages,
-        title: chatTitle
+        messages: initialMessages
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -397,17 +491,13 @@ Ready to learn? Ask me anything! 🚀`
     const userMessage = { role: 'user' as const, content: input.trim() };
     setInput('');
     
-    // Check for duplicate messages in the entire chat history
-    const isDuplicate = messages.some(msg => 
-      msg.role === 'user' && 
-      msg.content.toLowerCase().trim() === userMessage.content.toLowerCase().trim()
-    );
-
-    if (isDuplicate) {
-      toast.error('This question has already been asked. Please check the previous answers.');
+    // Deduplicate messages by checking the last message
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.content === userMessage.content) {
+      toast.error('Please avoid sending duplicate messages');
       return;
     }
-
+    
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setLoading(true);
@@ -436,9 +526,7 @@ Ready to learn? Ask me anything! 🚀`
         isQuizReview: messages.some(msg => msg.content.includes('Quiz Review'))
       });
 
-      // Format the response before saving
-      const formattedContent = formatResponse(response.data.message);
-      const aiMessage = { role: 'assistant' as const, content: formattedContent };
+      const aiMessage = { role: 'assistant' as const, content: response.data.message };
       const updatedMessages = [...newMessages, aiMessage];
       
       // Save AI response
@@ -501,92 +589,270 @@ Ready to learn? Ask me anything! 🚀`
     }
   }, [messages]);
 
-  const renderMessages = () => {
-    return (
-      <>
-        {/* Always show welcome message at the top */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="welcome-section mb-6 border-b border-gray-200 dark:border-gray-700 pb-4"
-        >
-          <ReactMarkdown 
-            remarkPlugins={[remarkGfm]}
-            className="prose dark:prose-invert max-w-none"
-          >
-            {welcomeMessages[0].content}
-          </ReactMarkdown>
-        </motion.div>
-
-        {/* Show actual chat messages */}
-        {messages.map((message, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'} mb-4`}
-          >
-            <div className={`flex items-start max-w-[80%] ${
-              message.role === 'assistant' 
-                ? 'bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm' 
-                : 'bg-indigo-500 text-white rounded-lg p-3'
-            }`}>
-              <div className="flex-shrink-0 mr-2">
-                {message.role === 'assistant' ? (
-                  <Bot className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
-                ) : (
-                  <User className="w-5 h-5 text-white" />
-                )}
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 pt-2"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Chat History Sidebar */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <motion.div
+              initial={{ x: -320, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -320, opacity: 0 }}
+              transition={{ type: "spring", damping: 20 }}
+              className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                </button>
               </div>
-              <div className={message.role === 'assistant' ? 'prose dark:prose-invert max-w-none' : 'text-white'}>
-                {message.role === 'assistant' ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {message.content}
-                  </ReactMarkdown>
-                ) : (
-                  message.content
-                )}
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => {
+                    setMessages([]);
+                    setCurrentChatId(null);
+                    setIsSidebarOpen(false);
+                  }}
+                  className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>New Chat</span>
+                </button>
+              </div>
+              <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
+                {chatHistories.map((chat, index) => {
+                  const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
+                  const chatPreview = isQuizReview 
+                    ? `Quiz Review #${chatHistories.length - index}`
+                    : chat.messages[0]?.content.slice(0, 30) + '...';
+
+                  return (
+                    <div
+                      key={chat._id}
+                      className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 ${
+                        currentChatId === chat._id
+                          ? 'bg-indigo-50 dark:bg-indigo-900/20'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      }`}
+                      onClick={() => {
+                        loadChat(chat._id);
+                        setIsSidebarOpen(false);
+                      }}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        <div className="flex-1 truncate">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {chatPreview}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(chat.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteChat(chat._id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Backdrop */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40"
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Main Chat Area */}
+        <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+          {/* Chat Header */}
+          <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
+                  <Bot className="w-7 h-7" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">AI Learning Assistant</h2>
+                  <p className="text-indigo-100 text-sm mt-1">Powered by advanced AI to help you learn</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    setMessages([]);
+                    setCurrentChatId(null);
+                  }}
+                  className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
+                >
+                  <Plus className="w-6 h-6" />
+                  <span className="text-sm font-medium">New Chat</span>
+                </button>
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
+                >
+                  <History className="w-6 h-6" />
+                  <span className="text-sm font-medium">History</span>
+                </button>
               </div>
             </div>
-          </motion.div>
-        ))}
-      </>
-    );
-  };
+          </div>
 
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex-grow overflow-y-auto p-4" ref={messagesEndRef}>
-        {renderMessages()}
-      </div>
-      
-      {/* Input section */}
-      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex items-center space-x-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask me anything..."
-            className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent"
-            disabled={loading}
-          />
-          <button
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-            className="p-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          {/* Chat Messages */}
+          <div 
+            className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
+            onScroll={handleScroll}
           >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
+            <AnimatePresence>
+              {messages.map((message, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex items-start space-x-4 ${
+                    message.role === 'assistant' ? 'bg-white dark:bg-gray-800' : ''
+                  } rounded-lg p-4`}
+                >
+                  <div className={`flex-shrink-0 p-2.5 rounded-xl ${
+                    message.role === 'assistant' 
+                      ? 'bg-purple-100 dark:bg-purple-900/50' 
+                      : 'bg-indigo-100 dark:bg-indigo-900/50'
+                  }`}>
+                    {message.role === 'assistant' ? (
+                      <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    ) : (
+                      <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    )}
+                  </div>
+                  <div
+                    className={`prose prose-sm max-w-none ${
+                      message.role === 'assistant'
+                        ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                        : 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'
+                    }`}
+                  >
+                    {message.role === 'assistant' ? (
+                      <div 
+                        className="markdown-content"
+                        dangerouslySetInnerHTML={{ 
+                          __html: message.content.includes('<div class="welcome-message">')
+                            ? message.content
+                            : `<div>${message.content}</div>`
+                        }}
+                      />
+                    ) : (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          code({ node, inline, className, children, ...props }) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <SyntaxHighlighter
+                                style={materialDark}
+                                language={match[1]}
+                                PreTag="div"
+                                {...props}
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            ) : (
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            );
+                          }
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {loading && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-start px-4"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
+                    <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md">
+                    <div className="flex items-center space-x-3">
+                      <Loader2 className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             )}
-          </button>
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="flex items-center space-x-4">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                placeholder="Ask about your quiz or any courses related topics..."
+                className="flex-1 p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+              />
+              <button
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+                className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl"
+              >
+                {loading ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Sending...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Send className="w-5 h-5" />
+                    <span>Send</span>
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
