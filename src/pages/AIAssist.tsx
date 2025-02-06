@@ -75,7 +75,7 @@ const AIAssist: React.FC = () => {
   const welcomeMessages = [
     {
       content: `<div class="welcome-message">
-        <h1 class="welcome-title">✨ Welcome to Your AI Learning Companion! ✨</h1>
+        <h1 class="welcome-title">✨ Welcome to Your AI Learning Assistant! ✨</h1>
 
         <div class="gradient-text-purple">
           <h2>🌟 Let's Make Learning Amazing Together!</h2>
@@ -141,7 +141,7 @@ const AIAssist: React.FC = () => {
         font-weight: bold;
         text-align: center;
         margin-bottom: 1.5rem;
-        background: linear-gradient(45deg, #9333ea, #4f46e5);
+        background: linear-gradient(45deg, #4f46e5, #7c3aed);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         animation: shimmer 2s infinite;
@@ -158,7 +158,7 @@ const AIAssist: React.FC = () => {
         font-size: 1.75rem;
         font-weight: bold;
         text-align: center;
-        background: linear-gradient(45deg, #9333ea, #4f46e5);
+        background: linear-gradient(45deg, #7c3aed, #4f46e5);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         animation: shimmer 2s infinite;
@@ -168,7 +168,7 @@ const AIAssist: React.FC = () => {
       .gradient-text-blue h3 {
         font-size: 1.5rem;
         font-weight: bold;
-        background: linear-gradient(45deg, #3b82f6, #06b6d4);
+        background: linear-gradient(45deg, #4f46e5, #0d9488);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         animation: shimmer 2s infinite;
@@ -176,10 +176,10 @@ const AIAssist: React.FC = () => {
       }
       
       .feature-card {
-        border-left: 4px solid #8b5cf6;
+        border-left: 4px solid #4f46e5;
         padding: 1rem;
         margin: 1rem 0;
-        background: rgba(139, 92, 246, 0.05);
+        background: rgba(79, 70, 229, 0.05);
         border-radius: 8px;
         animation: slideIn 0.5s ease-out;
       }
@@ -188,7 +188,7 @@ const AIAssist: React.FC = () => {
         font-size: 1.25rem;
         font-weight: 600;
         margin-bottom: 0.75rem;
-        color: #6d28d9;
+        color: #4f46e5;
       }
 
       .feature-card ul {
@@ -204,7 +204,7 @@ const AIAssist: React.FC = () => {
       }
       
       .tip-box {
-        background: linear-gradient(45deg, rgba(147, 51, 234, 0.1), rgba(79, 70, 229, 0.1));
+        background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
         border-radius: 8px;
         padding: 1.5rem;
         margin: 1.5rem 0;
@@ -212,7 +212,7 @@ const AIAssist: React.FC = () => {
       }
 
       .tip-box h3 {
-        color: #6d28d9;
+        color: #4f46e5;
         margin-bottom: 1rem;
       }
 
@@ -225,7 +225,7 @@ const AIAssist: React.FC = () => {
       }
       
       .quote-box {
-        background: linear-gradient(45deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.1));
+        background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(13, 148, 136, 0.1));
         border-radius: 8px;
         padding: 1.5rem;
         margin: 1.5rem 0;
@@ -233,19 +233,19 @@ const AIAssist: React.FC = () => {
       }
 
       .quote-box blockquote {
-        border-left: 4px solid #3b82f6;
+        border-left: 4px solid #4f46e5;
         padding-left: 1rem;
         margin: 0;
       }
 
       .quote-box p {
         font-style: italic;
-        color: #1e40af;
+        color: #4f46e5;
         margin: 0 0 0.5rem 0;
       }
 
       .quote-box footer {
-        color: #3b82f6;
+        color: #4f46e5;
         font-weight: 500;
       }
       
