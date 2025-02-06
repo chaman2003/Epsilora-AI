@@ -56,33 +56,135 @@ const AIAssist: React.FC = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
+  // Educational quotes array
+  const educationalQuotes = [
+    { quote: "Education is not preparation for life; education is life itself.", author: "John Dewey" },
+    { quote: "The beautiful thing about learning is that no one can take it away from you.", author: "B.B. King" },
+    { quote: "Live as if you were to die tomorrow. Learn as if you were to live forever.", author: "Mahatma Gandhi" },
+    { quote: "The mind is not a vessel to be filled but a fire to be ignited.", author: "Plutarch" },
+    { quote: "Education is the most powerful weapon which you can use to change the world.", author: "Nelson Mandela" },
+    { quote: "The more that you read, the more things you will know. The more that you learn, the more places you'll go.", author: "Dr. Seuss" }
+  ];
+
+  // Get random quote
+  const getRandomQuote = () => {
+    const randomIndex = Math.floor(Math.random() * educationalQuotes.length);
+    return educationalQuotes[randomIndex];
+  };
+
   const welcomeMessages = [
     {
-      content: `# 👋 Welcome to Your AI Learning Assistant! 
+      content: `<div class="welcome-message">
+# ✨ Welcome to Your AI Learning Companion! ✨
 
-🌟 I'm here to help you succeed in your learning journey! Here's what I can do:
+<div class="gradient-text-purple">
+## 🌟 Let's Make Learning Amazing Together! 
+</div>
 
-📚 **Learning Support**
-- Help explain complex topics
-- Answer your questions
-- Provide study tips and strategies
+### 🎯 Here's What I Can Do For You:
 
-💡 **Quick Tips**:
-- Type your question in the chat below
-- Be specific for better answers
-- Use code blocks for code-related questions
+<div class="feature-card">
+📚 **Smart Learning Support**
+- 🧠 Explain complex topics in simple terms
+- 💡 Answer your questions with examples
+- 📝 Provide study strategies that work
+</div>
 
-🎯 **Pro Tips**:
-1. Start with "explain" for detailed explanations
-2. Use "example" for practical examples
-3. Try "summarize" for quick overviews
+<div class="feature-card">
+🚀 **Interactive Features**
+- 💬 Natural conversations about any topic
+- 🎮 Learn through examples and practice
+- 📊 Track your progress and improve
+</div>
 
-> 💭 *"Education is not preparation for life; education is life itself." - John Dewey*
+<div class="tip-box">
+### 💡 Pro Tips for Better Results:
+1. 🎯 Use "explain [topic]" for detailed explanations
+2. 📝 Try "example of [concept]" for practical examples
+3. 🔍 Ask "summarize [topic]" for quick overviews
+4. ✨ Start with clear, specific questions
+</div>
 
-Ready to start learning? Ask me anything! 🚀`,
+<div class="quote-box">
+> *"${getRandomQuote().quote}"*
+> — ${getRandomQuote().author}
+</div>
+
+<div class="gradient-text-blue">
+### 🌈 Ready to Start Your Learning Journey?
+Just type your question below and let's begin! 🚀
+</div>
+</div>`,
       role: 'assistant' as const
     }
   ];
+
+  // Add CSS styles for the welcome message
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .welcome-message {
+        animation: fadeIn 1s ease-in;
+      }
+      
+      .gradient-text-purple {
+        background: linear-gradient(45deg, #9333ea, #4f46e5);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 2s infinite;
+      }
+      
+      .gradient-text-blue {
+        background: linear-gradient(45deg, #3b82f6, #06b6d4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 2s infinite;
+      }
+      
+      .feature-card {
+        border-left: 4px solid #8b5cf6;
+        padding-left: 1rem;
+        margin: 1rem 0;
+        animation: slideIn 0.5s ease-out;
+      }
+      
+      .tip-box {
+        background: linear-gradient(45deg, rgba(147, 51, 234, 0.1), rgba(79, 70, 229, 0.1));
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+        animation: fadeIn 0.5s ease-out;
+      }
+      
+      .quote-box {
+        background: linear-gradient(45deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.1));
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+        font-style: italic;
+        animation: slideIn 0.5s ease-out;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      
+      @keyframes slideIn {
+        from { transform: translateX(-20px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      
+      @keyframes shimmer {
+        0% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   useEffect(() => {
     if (!messages.length) {
@@ -728,87 +830,47 @@ Ready to start learning? Ask me anything! 🚀`,
                       )}
                     </div>
                     <div
-                      className={`rounded-2xl p-6 shadow-md ${
+                      className={`prose prose-sm max-w-none ${
                         message.role === 'assistant'
                           ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
                           : 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'
                       }`}
                     >
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          h1: ({children}) => (
-                            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-8">
-                              {children}
-                            </h1>
-                          ),
-                          h2: ({children}) => (
-                            <h2 className="text-2xl font-semibold text-indigo-600 dark:text-indigo-400 mb-6">
-                              {children}
-                            </h2>
-                          ),
-                          h3: ({children}) => (
-                            <h3 className={`text-xl font-semibold mb-4 ${
-                              String(children).includes('Questions to Review')
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : String(children).includes('Excellent')
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-indigo-600 dark:text-indigo-400'
-                            }`}>
-                              {children}
-                            </h3>
-                          ),
-                          h4: ({children}) => (
-                            <h4 className="text-lg font-semibold text-amber-600 dark:text-amber-400 mb-4">
-                              {children}
-                            </h4>
-                          ),
-                          strong: ({children}) => (
-                            <strong className={`font-semibold ${
-                              String(children).includes('Your Answer')
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : String(children).includes('Correct answer')
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : ''
-                            }`}>
-                              {children}
-                            </strong>
-                          ),
-                          em: ({children}) => (
-                            <em className="text-emerald-600 dark:text-emerald-400 not-italic font-semibold">
-                              {children}
-                            </em>
-                          ),
-                          hr: () => (
-                            <hr className="my-8 border-gray-200 dark:border-gray-700" />
-                          ),
-                          p: ({children}) => (
-                            <p className="text-base leading-relaxed mb-4">
-                              {children}
-                            </p>
-                          ),
-                          ul: ({children}) => (
-                            <ul className="my-4 space-y-2">
-                              {children}
-                            </ul>
-                          ),
-                          ol: ({children}) => (
-                            <ol className="my-4 space-y-2">
-                              {children}
-                            </ol>
-                          ),
-                          li: ({children, ordered}) => (
-                            <li className={`flex items-start space-x-2 ${
-                              ordered ? 'text-indigo-600 dark:text-indigo-400' : ''
-                            }`}>
-                              {children}
-                            </li>
-                          ),
-                        }}
-                        className="max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                      >
-                        {message.content}
-                      </ReactMarkdown>
+                      {message.role === 'assistant' ? (
+                        <div 
+                          className="markdown-content"
+                          dangerouslySetInnerHTML={{ 
+                            __html: message.content.includes('<div class="welcome-message">')
+                              ? message.content
+                              : `<div>${message.content}</div>`
+                          }}
+                        />
+                      ) : (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            code({ node, inline, className, children, ...props }) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              return !inline && match ? (
+                                <SyntaxHighlighter
+                                  style={materialDark}
+                                  language={match[1]}
+                                  PreTag="div"
+                                  {...props}
+                                >
+                                  {String(children).replace(/\n$/, '')}
+                                </SyntaxHighlighter>
+                              ) : (
+                                <code className={className} {...props}>
+                                  {children}
+                                </code>
+                              );
+                            }
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   </motion.div>
                 ))}
