@@ -18,6 +18,7 @@ interface ChatHistory {
   _id: string;
   messages: Message[];
   createdAt: string;
+  title: string;
 }
 
 interface QuizData {
@@ -74,167 +75,52 @@ const AIAssist: React.FC = () => {
 
   const welcomeMessages = [
     {
-      content: `<div class="welcome-message">
-        <h1 class="welcome-title">Welcome to Your AI Learning Assistant!✨</h1>
-        <div class="feature-card">
-          <h4>🎯 How I Can Help You</h4>
-          <ul>
-            <li>💡 Explain concepts clearly</li>
-            <li>📚 Provide learning resources</li>
-            <li>🔍 Answer your questions</li>
-          </ul>
-        </div>
-        <div class="tip-box">
-          <h3>Pro Tips</h3>
-          <ul>
-            <li>🎯 "explain [topic]" for detailed explanations</li>
-            <li>📝 "example [concept]" for practice</li>
-          </ul>
-        </div>
+      role: 'assistant' as const,
+      content: `# Welcome to Your AI Learning Assistant! ✨
 
-        <div class="quote-box">
-          <blockquote>
-            <p><em>"${getRandomQuote().quote}"</em></p>
-            <footer>— ${getRandomQuote().author}</footer>
-          </blockquote>
-        </div>
+## How I Can Help You
+- 💡 Explain concepts clearly
+- 📚 Provide learning resources
+- 🔍 Answer your questions
 
-        <div class="gradient-text-blue">
-          <p>Ready to learn? Ask me anything! 🚀</p>
-        </div>
-      </div>`,
-      role: 'assistant' as const
+## Pro Tips
+- 🎯 Use "explain [topic]" for detailed explanations
+- 📝 Use "example [concept]" for practice examples
+
+> "${getRandomQuote().quote}"
+> — ${getRandomQuote().author}
+
+Ready to learn? Ask me anything! 🚀`
     }
   ];
 
-  // Add CSS styles for the welcome message
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      .welcome-message {
-        animation: fadeIn 1s ease-in;
-        padding: 0.5rem;
-        max-width: 600px;
-        margin: 0 auto;
-      }
-      
-      .welcome-title {
-        font-size: 1.5rem;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 0.75rem;
-        background: linear-gradient(45deg, #4f46e5, #7c3aed);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: shimmer 2s infinite;
-      }
-      
-      .feature-card {
-        border-left: 4px solid #4f46e5;
-        padding: 0.5rem 0.75rem;
-        margin: 0.5rem 0;
-        background: rgba(79, 70, 229, 0.05);
-        border-radius: 6px;
-        animation: slideIn 0.5s ease-out;
-      }
+  const formatResponse = (content: string) => {
+    // Format programming language explanations
+    if (content.includes('**Definition:**')) {
+      const lines = content.split('\n');
+      let formatted = '';
+      let currentSection = '';
 
-      .feature-card h4 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin-bottom: 0.35rem;
-        color: #4f46e5;
-      }
-
-      .feature-card ul, .tip-box ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-      }
-
-      .feature-card li, .tip-box li {
-        margin: 0.25rem 0;
-        padding-left: 1.25rem;
-        position: relative;
-        font-size: 0.9rem;
-      }
-      
-      .tip-box {
-        background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
-        border-radius: 6px;
-        padding: 0.5rem 0.75rem;
-        margin: 0.5rem 0;
-        animation: fadeIn 0.5s ease-out;
-      }
-
-      .tip-box h3 {
-        color: #4f46e5;
-        margin-bottom: 0.35rem;
-        font-size: 1rem;
-        font-weight: 600;
-      }
-      
-      .quote-box {
-        background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(13, 148, 136, 0.1));
-        border-radius: 6px;
-        padding: 0.5rem 0.75rem;
-        margin: 0.5rem 0;
-        animation: slideIn 0.5s ease-out;
-      }
-
-      .quote-box blockquote {
-        border-left: 4px solid #4f46e5;
-        padding-left: 0.5rem;
-        margin: 0;
-      }
-
-      .quote-box p {
-        font-style: italic;
-        color: #4f46e5;
-        margin: 0 0 0.25rem 0;
-        font-size: 0.9rem;
-      }
-
-      .quote-box footer {
-        color: #4f46e5;
-        font-weight: 500;
-        font-size: 0.85rem;
-      }
-
-      .gradient-text-blue {
-        text-align: center;
-        margin-top: 0.75rem;
-      }
-
-      .gradient-text-blue p {
-        font-size: 1rem;
-        font-weight: 600;
-        background: linear-gradient(45deg, #4f46e5, #0d9488);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: shimmer 2s infinite;
-        margin: 0;
-      }
-      
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      
-      @keyframes slideIn {
-        from { transform: translateX(-20px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-      
-      @keyframes shimmer {
-        0% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-      }
-    `;
-    document.head.appendChild(style);
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
+      lines.forEach(line => {
+        if (line.startsWith('**') && line.endsWith('**') && !line.includes('Definition')) {
+          // This is a language name, make it a heading
+          formatted += `# ${line.replace(/\*\*/g, '')}\n\n`;
+        } else if (line.startsWith('**') && line.includes(':')) {
+          // This is a section header
+          currentSection = line.replace(/\*\*/g, '').trim();
+          formatted += `## ${currentSection}\n\n`;
+        } else if (line.trim().startsWith('*')) {
+          // This is a bullet point
+          formatted += `${line}\n`;
+        } else if (line.trim()) {
+          // This is normal text
+          formatted += `${line}\n\n`;
+        }
+      });
+      return formatted;
+    }
+    return content;
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -347,8 +233,20 @@ const AIAssist: React.FC = () => {
         setMessages(welcomeMessages);
         setCurrentChatId(null);
       }
+
+      // Remove any duplicate messages in existing chats
+      const cleanedChats = response.data.map((chat: ChatHistory) => ({
+        ...chat,
+        messages: chat.messages.filter((msg, index, self) => 
+          msg.role === 'assistant' || 
+          !self.slice(0, index).some(m => 
+            m.role === 'user' && 
+            m.content.toLowerCase().trim() === msg.content.toLowerCase().trim()
+          )
+        )
+      }));
       
-      setChatHistories(response.data);
+      setChatHistories(cleanedChats);
     } catch (error) {
       console.error('Error loading chat histories:', error);
       if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -367,9 +265,24 @@ const AIAssist: React.FC = () => {
         return null;
       }
 
-      // Create new chat for all quiz reviews
+      // Create a title based on the first message
+      const firstMessage = initialMessages[0]?.content || '';
+      let chatTitle = '';
+      
+      if (firstMessage.includes('Welcome to Your AI Learning Assistant')) {
+        chatTitle = 'New Learning Session';
+      } else if (firstMessage.includes('Quiz Review')) {
+        const courseMatch = firstMessage.match(/Course: (.*?)\n/);
+        const course = courseMatch ? courseMatch[1].trim() : 'Unknown Course';
+        chatTitle = `Quiz Review - ${course}`;
+      } else {
+        // Extract first line or first few words for the title
+        chatTitle = firstMessage.split('\n')[0].slice(0, 50) + (firstMessage.length > 50 ? '...' : '');
+      }
+
       const response = await axiosInstance.post('/api/chat-history', {
-        messages: initialMessages
+        messages: initialMessages,
+        title: chatTitle
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -491,13 +404,17 @@ const AIAssist: React.FC = () => {
     const userMessage = { role: 'user' as const, content: input.trim() };
     setInput('');
     
-    // Deduplicate messages by checking the last message
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.content === userMessage.content) {
-      toast.error('Please avoid sending duplicate messages');
+    // Check for duplicate messages in the entire chat history
+    const isDuplicate = messages.some(msg => 
+      msg.role === 'user' && 
+      msg.content.toLowerCase().trim() === userMessage.content.toLowerCase().trim()
+    );
+
+    if (isDuplicate) {
+      toast.error('This question has already been asked. Please check the previous answers.');
       return;
     }
-    
+
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setLoading(true);
@@ -526,7 +443,9 @@ const AIAssist: React.FC = () => {
         isQuizReview: messages.some(msg => msg.content.includes('Quiz Review'))
       });
 
-      const aiMessage = { role: 'assistant' as const, content: response.data.message };
+      // Format the response before saving
+      const formattedContent = formatResponse(response.data.message);
+      const aiMessage = { role: 'assistant' as const, content: formattedContent };
       const updatedMessages = [...newMessages, aiMessage];
       
       // Save AI response
