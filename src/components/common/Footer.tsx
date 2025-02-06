@@ -76,16 +76,6 @@ const Footer = () => {
             <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
               Transforming education through AI-powered learning experiences. Join us in revolutionizing how people learn and grow.
             </p>
-            <div className="flex items-center space-x-1">
-              <Star className="w-5 h-5 text-yellow-400" />
-              <Star className="w-5 h-5 text-yellow-400" />
-              <Star className="w-5 h-5 text-yellow-400" />
-              <Star className="w-5 h-5 text-yellow-400" />
-              <Star className="w-5 h-5 text-yellow-400" />
-              <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">
-                Trusted by 1000+ students
-              </span>
-            </div>
           </div>
 
           {/* Features Section */}
