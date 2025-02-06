@@ -46,17 +46,22 @@ app.use(cors({
     'http://localhost:5173',
     'http://localhost:3000',
     'https://epsilora.vercel.app',
-    'https://epsilora-chaman-ss-projects.vercel.app',
-    'https://epsilora-git-main-chaman-ss-projects.vercel.app'
+    'https://epsilora-git-main-chaman-ss-projects.vercel.app',
+    'https://epsilora-chaman-ss-projects.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
   exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
   maxAge: 86400
 }));
 
 app.use(express.json());
+
+// Enable pre-flight requests for all routes
+app.options('*', cors());
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
