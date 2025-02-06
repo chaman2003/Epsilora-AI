@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -89,27 +89,6 @@ const AppContent = () => {
 };
 
 function App() {
-  useEffect(() => {
-    // Disable automatic scroll restoration
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
-
-    // Handle scroll position on navigation
-    const handleNavigation = () => {
-      window.scrollTo(0, 0);
-    };
-
-    window.addEventListener('popstate', handleNavigation);
-    
-    return () => {
-      window.removeEventListener('popstate', handleNavigation);
-      if ('scrollRestoration' in window.history) {
-        window.history.scrollRestoration = 'auto';
-      }
-    };
-  }, []);
-
   return (
     <QuizProvider>
       <Router>
