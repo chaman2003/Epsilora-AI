@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, Award, Target, Calendar } from 'lucide-react';
-import axios from 'axios';
+import axiosInstance from '../../utils/axios';
 
 interface QuizHistoryModalProps {
   isOpen: boolean;
@@ -21,6 +21,12 @@ interface QuizAttempt {
   improvement: number;
 }
 
+interface QuizStats {
+  totalQuizzes: number;
+  averageScore: number;
+  latestScore: number;
+}
+
 const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
   isOpen,
   onClose,
@@ -29,23 +35,35 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
   const [quizHistory, setQuizHistory] = useState<QuizAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [totalQuizzes, setTotalQuizzes] = useState(0);
+  const [stats, setStats] = useState<QuizStats>({
+    totalQuizzes: 0,
+    averageScore: 0,
+    latestScore: 0
+  });
 
   useEffect(() => {
-    const fetchQuizHistory = async () => {
+    const fetchQuizData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Fetch quiz history and total count from our backend API
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/quiz-history/${userId}`);
+        console.log('Fetching quiz history...');
+        const historyResponse = await axiosInstance.get(`/api/quiz-history/${userId}`);
+        const statsResponse = await axiosInstance.get(`/api/quiz-stats/${userId}`);
         
-        if (response.data) {
-          setQuizHistory(response.data.history);
-          setTotalQuizzes(response.data.totalQuizzes);
+        console.log('Quiz history raw response:', historyResponse.data);
+        console.log('Quiz stats response:', statsResponse.data);
+
+        if (historyResponse.data && statsResponse.data) {
+          setQuizHistory(historyResponse.data.history);
+          setStats({
+            totalQuizzes: statsResponse.data.totalQuizzes,
+            averageScore: statsResponse.data.averageScore,
+            latestScore: statsResponse.data.latestScore
+          });
         }
       } catch (err) {
-        setError('Failed to fetch quiz history. Please try again later.');
+        setError('Failed to fetch quiz data. Please try again later.');
         console.error('Error fetching quiz history:', err);
       } finally {
         setLoading(false);
@@ -53,11 +71,15 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
     };
 
     if (isOpen) {
-      fetchQuizHistory();
+      fetchQuizData();
     }
   }, [isOpen, userId]);
 
   if (!isOpen) return null;
+
+  const formatPercentage = (value: number) => {
+    return value.toFixed(1) + '%';
+  };
 
   return (
     <AnimatePresence>
@@ -66,6 +88,7 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
+        onClick={onClose}
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
@@ -92,101 +115,73 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-400 text-sm">Total Quizzes</p>
-                    <p className="text-2xl font-bold text-white">{totalQuizzes}</p>
+                    <p className="text-2xl font-bold text-white">{stats.totalQuizzes}</p>
                   </div>
                   <Target className="w-8 h-8 text-blue-500" />
                 </div>
               </div>
-              {totalQuizzes > 0 && (
-                <>
-                  <div className="bg-gray-800/50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-gray-400 text-sm">Average Score</p>
-                        <p className="text-2xl font-bold text-white">
-                          {(quizHistory.reduce((acc, quiz) => acc + (quiz.score / quiz.totalQuestions * 100), 0) / quizHistory.length).toFixed(1)}%
-                        </p>
-                      </div>
-                      <Award className="w-8 h-8 text-green-500" />
-                    </div>
+              
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm">Average Score</p>
+                    <p className="text-2xl font-bold text-white">
+                      {formatPercentage(stats.averageScore)}
+                    </p>
                   </div>
-                  <div className="bg-gray-800/50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-gray-400 text-sm">Latest Score</p>
-                        <p className="text-2xl font-bold text-white">
-                          {quizHistory[0] ? `${(quizHistory[0].score / quizHistory[0].totalQuestions * 100).toFixed(1)}%` : 'N/A'}
-                        </p>
-                      </div>
-                      <Clock className="w-8 h-8 text-purple-500" />
-                    </div>
+                  <Award className="w-8 h-8 text-yellow-500" />
+                </div>
+              </div>
+
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm">Latest Performance</p>
+                    <p className="text-2xl font-bold text-white">
+                      {formatPercentage(stats.latestScore)}
+                    </p>
                   </div>
-                </>
-              )}
+                  <Clock className="w-8 h-8 text-green-500" />
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Content */}
-          <div className="p-4 overflow-y-auto max-h-[calc(80vh-120px)]">
+          {/* History List */}
+          <div className="p-4 max-h-[60vh] overflow-y-auto">
             {loading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-              </div>
+              <div className="text-center text-gray-400">Loading quiz history...</div>
             ) : error ? (
-              <div className="text-red-500 text-center py-4">{error}</div>
+              <div className="text-center text-red-400">{error}</div>
             ) : quizHistory.length === 0 ? (
-              <div className="text-center text-gray-400 py-8">
-                <p>No quiz attempts found. Start taking quizzes to build your history!</p>
-              </div>
+              <div className="text-center text-gray-400">No quiz attempts yet</div>
             ) : (
               <div className="space-y-4">
                 {quizHistory.map((attempt) => (
-                  <motion.div
+                  <div
                     key={attempt._id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 hover:border-gray-600/50 transition-colors"
+                    className="bg-gray-800/30 p-4 rounded-lg"
                   >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Left Column */}
+                    <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-200 mb-2">
-                          {attempt.courseName}
-                        </h3>
-                        <div className="space-y-2">
-                          <div className="flex items-center text-gray-400">
-                            <Award className="w-4 h-4 mr-2" />
-                            <span>Score: {attempt.score}/{attempt.totalQuestions}</span>
-                          </div>
-                          <div className="flex items-center text-gray-400">
-                            <Target className="w-4 h-4 mr-2" />
-                            <span>Difficulty: {attempt.difficulty}</span>
-                          </div>
+                        <h3 className="text-white font-medium">{attempt.courseName}</h3>
+                        <p className="text-gray-400 text-sm">
+                          Score: {formatPercentage(attempt.score)} • {attempt.difficulty}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                          <Calendar className="w-3 h-3" />
+                          {format(new Date(attempt.timestamp), 'MMM d, yyyy HH:mm')}
+                          <Clock className="w-3 h-3 ml-2" />
+                          {Math.round(attempt.timeSpent / 60)} min
                         </div>
                       </div>
-
-                      {/* Right Column */}
-                      <div>
-                        <div className="space-y-2">
-                          <div className="flex items-center text-gray-400">
-                            <Calendar className="w-4 h-4 mr-2" />
-                            <span>Date: {format(new Date(attempt.timestamp), 'PPp')}</span>
-                          </div>
-                          <div className="flex items-center text-gray-400">
-                            <Clock className="w-4 h-4 mr-2" />
-                            <span>Time per Question: {Math.round(attempt.timeSpent / attempt.totalQuestions)}s</span>
-                          </div>
-                          {attempt.improvement && (
-                            <div className="flex items-center">
-                              <span className={`text-sm ${attempt.improvement > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {attempt.improvement > 0 ? '+' : ''}{attempt.improvement}% from previous attempt
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      {attempt.improvement > 0 && (
+                        <span className="text-green-400 text-sm">
+                          +{attempt.improvement.toFixed(1)}% improvement
+                        </span>
+                      )}
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             )}
