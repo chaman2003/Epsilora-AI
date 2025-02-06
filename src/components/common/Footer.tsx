@@ -12,8 +12,12 @@ import {
   MessageSquare,
   Award,
   Users,
-  Sparkles
+  Sparkles,
+  BarChart2,
+  Brain,
+  Bot
 } from 'lucide-react';
+import { themeConfig } from '../../config/theme';
 
 const Footer = () => {
   const [suggestion, setSuggestion] = useState('');
@@ -38,19 +42,19 @@ const Footer = () => {
   };
 
   return (
-    <footer className="relative bg-gradient-to-br from-indigo-50/80 to-purple-50/80 dark:from-gray-900/90 dark:to-gray-800/90">
+    <footer className="relative bg-gradient-to-br from-slate-50/90 to-white/90 dark:from-slate-900/90 dark:to-gray-800/90 border-t border-gray-200/30 dark:border-gray-700/30">
       {/* Decorative Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
-          className="absolute -top-24 -right-20 w-72 h-72 bg-indigo-500/20 rounded-full mix-blend-multiply filter blur-xl animate-blob"
+          className="absolute -top-24 -right-20 w-72 h-72 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full mix-blend-multiply filter blur-xl animate-blob"
           style={{ animationDuration: '15s' }}
         />
         <div 
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] bg-purple-500/10 rounded-full mix-blend-multiply filter blur-xl animate-blob-spin"
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] bg-purple-500/10 dark:bg-purple-500/5 rounded-full mix-blend-multiply filter blur-xl animate-blob-spin"
           style={{ animationDuration: '25s' }}
         />
         <div 
-          className="absolute -bottom-32 -left-20 w-72 h-72 bg-pink-500/20 rounded-full mix-blend-multiply filter blur-xl animate-blob"
+          className="absolute -bottom-32 -left-20 w-72 h-72 bg-teal-500/10 dark:bg-teal-500/5 rounded-full mix-blend-multiply filter blur-xl animate-blob"
           style={{ animationDuration: '20s' }}
         />
       </div>
@@ -85,26 +89,35 @@ const Footer = () => {
                   to="/progress" 
                   className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300"
                 >
-                  <Award className="w-4 h-4 mr-2 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
+                  <BarChart2 className="w-4 h-4 mr-2 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
                   <span>Progress Tracking</span>
                 </Link>
               </li>
               <li>
                 <Link 
                   to="/quiz" 
-                  className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300"
+                  className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors duration-300"
                 >
-                  <BookOpen className="w-4 h-4 mr-2 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
+                  <Brain className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-300" />
                   <span>Interactive Quizzes</span>
                 </Link>
               </li>
               <li>
                 <Link 
                   to="/courses" 
-                  className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300"
+                  className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors duration-300"
                 >
-                  <Users className="w-4 h-4 mr-2 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
+                  <BookOpen className="w-4 h-4 mr-2 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform duration-300" />
                   <span>Course Management</span>
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  to="/ai-assist" 
+                  className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-rose-600 dark:hover:text-rose-400 transition-colors duration-300"
+                >
+                  <Bot className="w-4 h-4 mr-2 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform duration-300" />
+                  <span>AI Assistant</span>
                 </Link>
               </li>
             </ul>
@@ -114,15 +127,6 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Resources</h3>
             <ul className="space-y-2">
-              <li>
-                <Link 
-                  to="/ai-assist" 
-                  className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300"
-                >
-                  <MessageSquare className="w-4 h-4 mr-2 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
-                  <span>AI Assistant</span>
-                </Link>
-              </li>
               <li>
                 <Link 
                   to="/documentation" 
@@ -140,6 +144,17 @@ const Footer = () => {
                   <MessageSquare className="w-4 h-4 mr-2 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
                   <span>Support</span>
                 </Link>
+              </li>
+              <li>
+                <a 
+                  href="https://github.com/chaman-ss" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300"
+                >
+                  <Github className="w-4 h-4 mr-2 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
+                  <span>GitHub</span>
+                </a>
               </li>
             </ul>
           </div>
@@ -177,8 +192,8 @@ const Footer = () => {
                 </div>
               </form>
             ) : (
-              <div className="bg-green-50/50 dark:bg-green-900/20 p-3 rounded-lg backdrop-blur-sm">
-                <p className="text-green-600 dark:text-green-400 text-sm">
+              <div className="bg-teal-50/50 dark:bg-teal-900/20 p-3 rounded-lg backdrop-blur-sm">
+                <p className="text-teal-600 dark:text-teal-400 text-sm">
                   Thank you for your feedback!
                 </p>
               </div>
@@ -187,7 +202,7 @@ const Footer = () => {
         </div>
 
         {/* Bottom Section */}
-        <div className="relative pt-6 mt-6 border-t border-gray-200/50 dark:border-gray-700/50">
+        <div className="relative pt-6 mt-6 border-t border-gray-200/30 dark:border-gray-700/30">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="flex items-center space-x-4">
               <a 
@@ -223,7 +238,7 @@ const Footer = () => {
             </div>
             
             <p className="text-gray-600 dark:text-gray-300 text-xs text-center flex items-center">
-              Made with <Heart className="w-3 h-3 mx-1 text-red-500" /> by Chammy
+              Made with <Heart className="w-3 h-3 mx-1 text-rose-500" /> by Chammy
             </p>
 
             <button
