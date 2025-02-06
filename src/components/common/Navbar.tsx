@@ -128,8 +128,8 @@ const Navbar: React.FC = () => {
 
             {user && (
               <>
-                <div className="flex items-center px-3 py-1.5 rounded-2xl bg-white/10 dark:bg-gray-800/10 border border-gray-200/10 dark:border-gray-700/10">
-                  <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark theme-transition truncate max-w-[200px]">
+                <div className="flex items-center px-4 py-2 rounded-2xl bg-gradient-to-r from-gray-50/30 via-white/20 to-gray-50/30 dark:from-gray-800/30 dark:via-gray-700/20 dark:to-gray-800/30 border border-gray-200/20 dark:border-gray-700/20 hover:shadow-lg hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 group">
+                  <span className="text-sm font-medium bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-400 bg-clip-text text-transparent group-hover:bg-gradient-to-r group-hover:from-indigo-500 group-hover:via-purple-500 group-hover:to-indigo-500 dark:group-hover:from-indigo-300 dark:group-hover:via-purple-300 dark:group-hover:to-indigo-300 transition-all duration-300">
                     {user.email}
                   </span>
                 </div>
