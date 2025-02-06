@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with default config
 export const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend-production.up.railway.app',
+  baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend-chaman-ss-projects.vercel.app',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
