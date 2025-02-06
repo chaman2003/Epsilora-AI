@@ -52,269 +52,84 @@ const AIAssist: React.FC = () => {
     courseName?: string;
     correctQuestions?: number[];
   } | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
-  // Educational quotes array
-  const educationalQuotes = [
-    { quote: "Education is not preparation for life; education is life itself.", author: "John Dewey" },
-    { quote: "The beautiful thing about learning is that no one can take it away from you.", author: "B.B. King" },
-    { quote: "Live as if you were to die tomorrow. Learn as if you were to live forever.", author: "Mahatma Gandhi" },
-    { quote: "The mind is not a vessel to be filled but a fire to be ignited.", author: "Plutarch" },
-    { quote: "Education is the most powerful weapon which you can use to change the world.", author: "Nelson Mandela" },
-    { quote: "The more that you read, the more things you will know. The more that you learn, the more places you'll go.", author: "Dr. Seuss" }
-  ];
-
-  // Get random quote
-  const getRandomQuote = () => {
-    const randomIndex = Math.floor(Math.random() * educationalQuotes.length);
-    return educationalQuotes[randomIndex];
-  };
-
-  const welcomeMessages = [
-    {
-      content: `<div class="welcome-message">
-        <h1 class="welcome-title">Welcome to Your AI Learning Assistant!✨</h1>
-        <div class="feature-card">
-          <h4>🎯 How I Can Help You</h4>
-          <ul>
-            <li>💡 Explain concepts clearly</li>
-            <li>📚 Provide learning resources</li>
-            <li>🔍 Answer your questions</li>
-          </ul>
-        </div>
-        <div class="tip-box">
-          <h3>Pro Tips</h3>
-          <ul>
-            <li>🎯 "explain [topic]" for detailed explanations</li>
-            <li>📝 "example [concept]" for practice</li>
-          </ul>
-        </div>
-
-        <div class="quote-box">
-          <blockquote>
-            <p><em>"${getRandomQuote().quote}"</em></p>
-            <footer>— ${getRandomQuote().author}</footer>
-          </blockquote>
-        </div>
-
-        <div class="gradient-text-blue">
-          <p>Ready to learn? Ask me anything! 🚀</p>
-        </div>
-      </div>`,
-      role: 'assistant' as const
-    }
-  ];
-
-  // Add CSS styles for the welcome message
   useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      .welcome-message {
-        animation: fadeIn 1s ease-in;
-        padding: 0.5rem;
-        max-width: 600px;
-        margin: 0 auto;
-      }
-      
-      .welcome-title {
-        font-size: 1.5rem;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 0.75rem;
-        background: linear-gradient(45deg, #4f46e5, #7c3aed);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: shimmer 2s infinite;
-      }
-      
-      .feature-card {
-        border-left: 4px solid #4f46e5;
-        padding: 0.5rem 0.75rem;
-        margin: 0.5rem 0;
-        background: rgba(79, 70, 229, 0.05);
-        border-radius: 6px;
-        animation: slideIn 0.5s ease-out;
-      }
-
-      .feature-card h4 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin-bottom: 0.35rem;
-        color: #4f46e5;
-      }
-
-      .feature-card ul, .tip-box ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-      }
-
-      .feature-card li, .tip-box li {
-        margin: 0.25rem 0;
-        padding-left: 1.25rem;
-        position: relative;
-        font-size: 0.9rem;
-      }
-      
-      .tip-box {
-        background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
-        border-radius: 6px;
-        padding: 0.5rem 0.75rem;
-        margin: 0.5rem 0;
-        animation: fadeIn 0.5s ease-out;
-      }
-
-      .tip-box h3 {
-        color: #4f46e5;
-        margin-bottom: 0.35rem;
-        font-size: 1rem;
-        font-weight: 600;
-      }
-      
-      .quote-box {
-        background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(13, 148, 136, 0.1));
-        border-radius: 6px;
-        padding: 0.5rem 0.75rem;
-        margin: 0.5rem 0;
-        animation: slideIn 0.5s ease-out;
-      }
-
-      .quote-box blockquote {
-        border-left: 4px solid #4f46e5;
-        padding-left: 0.5rem;
-        margin: 0;
-      }
-
-      .quote-box p {
-        font-style: italic;
-        color: #4f46e5;
-        margin: 0 0 0.25rem 0;
-        font-size: 0.9rem;
-      }
-
-      .quote-box footer {
-        color: #4f46e5;
-        font-weight: 500;
-        font-size: 0.85rem;
-      }
-
-      .gradient-text-blue {
-        text-align: center;
-        margin-top: 0.75rem;
-      }
-
-      .gradient-text-blue p {
-        font-size: 1rem;
-        font-weight: 600;
-        background: linear-gradient(45deg, #4f46e5, #0d9488);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: shimmer 2s infinite;
-        margin: 0;
-      }
-      
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      
-      @keyframes slideIn {
-        from { transform: translateX(-20px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-      
-      @keyframes shimmer {
-        0% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-      }
-    `;
-    document.head.appendChild(style);
-    return () => {
-      document.head.removeChild(style);
-    };
+    loadChatHistories();
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
+    // Show welcome message when there are no messages or when starting a new chat
+    if (messages.length === 0 && showWelcome) {
+      setMessages([{
+        role: 'assistant',
+        content: `
+          <div class="welcome-message">
+            <h2 class="text-2xl font-bold mb-4 text-indigo-600 dark:text-indigo-400">Welcome to Your AI Learning Assistant! 👋</h2>
+            <p class="mb-3">I'm here to help you with:</p>
+            <ul class="space-y-2 mb-4">
+              <li class="flex items-center space-x-2">
+                <span class="text-indigo-500">📚</span>
+                <span>Understanding complex programming concepts</span>
+              </li>
+              <li class="flex items-center space-x-2">
+                <span class="text-indigo-500">🔍</span>
+                <span>Reviewing your quiz answers</span>
+              </li>
+              <li class="flex items-center space-x-2">
+                <span class="text-indigo-500">💡</span>
+                <span>Providing coding examples and explanations</span>
+              </li>
+              <li class="flex items-center space-x-2">
+                <span class="text-indigo-500">🎯</span>
+                <span>Answering your course-related questions</span>
+              </li>
+            </ul>
+            <p class="text-gray-600 dark:text-gray-400">Feel free to ask me anything about your courses or programming concepts!</p>
+          </div>
+        `
+      }]);
     }
+  }, [messages, showWelcome]);
 
-    const initializeChat = async () => {
-      await loadChatHistories();
-      
-      // Only set welcome message locally, don't save to chat history
-      const storedMessages = localStorage.getItem('aiAssistMessages');
-      if (chatHistories.length === 0 && !storedMessages && messages.length === 0) {
-        setMessages(welcomeMessages);
-        // Removed createNewChat(welcomeMessages) to prevent saving welcome message
-      } else if (storedMessages) {
-        try {
-          const parsedMessages = JSON.parse(storedMessages);
-          setMessages(parsedMessages);
-        } catch (error) {
-          console.error('Error parsing stored messages:', error);
-          setMessages(welcomeMessages);
-        }
+  const handleNewChat = () => {
+    setMessages([]);
+    setCurrentChatId(null);
+    setShowWelcome(true);
+    setIsSidebarOpen(false);
+  };
+
+  const loadChat = async (chatId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
       }
-    };
 
-    initializeChat();
-  }, [isAuthenticated, navigate]);
-
-  useEffect(() => {
-    if (quizData && !currentChatId) {
-      const summary = generateQuizSummary(quizData);
-      
-      // Only create chat if we have valid quiz data
-      if (summary) {
-        const quizMessage = { role: 'assistant' as const, content: summary };
-        
-        // Check if we already have this quiz review in chat histories
-        const existingQuizChat = chatHistories.find(chat => 
-          chat.messages.some(msg => 
-            msg.content.includes('Quiz Review') && 
-            msg.content.includes(quizData.courseName)
-          )
-        );
-
-        if (existingQuizChat) {
-          setCurrentChatId(existingQuizChat._id);
-          setMessages(existingQuizChat.messages);
-        } else {
-          // Only create a new chat if we have valid quiz data
-          createNewChat([quizMessage]);
-          setMessages([quizMessage]);
-        }
+      // Find chat from local state
+      const chat = chatHistories.find(ch => ch._id === chatId);
+      if (chat) {
+        setShowWelcome(false); // Hide welcome message when loading a chat
+        // Remove duplicate messages and format responses
+        const uniqueMessages = removeDuplicateMessages(chat.messages);
+        const formattedMessages = uniqueMessages.map(msg => ({
+          ...msg,
+          content: msg.role === 'assistant' ? formatAIResponse(msg.content) : msg.content
+        }));
+        setMessages(formattedMessages);
+        setCurrentChatId(chatId);
+      } else {
+        toast.error('Chat not found');
       }
+    } catch (error) {
+      console.error('Error loading chat:', error);
+      toast.error('Failed to load chat');
     }
-  }, [quizData, currentChatId, chatHistories]);
-
-  const generateQuizSummary = (quizData: QuizData) => {
-    // Only generate quiz review if we have valid quiz data
-    if (!quizData || !quizData.courseName || quizData.totalQuestions === 0) {
-      return null;
-    }
-
-    let summary = `# 🎓 Quiz Review\n\n`;
-    summary += `## 📘 Course: ${quizData.courseName}\n`;
-    summary += `**🧠 Difficulty:** ${quizData.difficulty || 'Standard'}\n`;
-    summary += `**🏆 Score:** ${quizData.score}/${quizData.totalQuestions}\n\n`;
-
-    if (quizData.questions && quizData.questions.length > 0) {
-      summary += `### Question Review\n\n`;
-      quizData.questions.forEach((q, index) => {
-        summary += `#### Question ${index + 1}\n`;
-        summary += `${q.question}\n\n`;
-        summary += `Your Answer: ${q.userAnswer}\n`;
-        summary += `${q.isCorrect ? '✅ Correct!' : `❌ Incorrect. Correct answer: ${q.correctAnswer}`}\n\n`;
-      });
-    }
-
-    return summary;
   };
 
   const loadChatHistories = async () => {
@@ -331,7 +146,7 @@ const AIAssist: React.FC = () => {
       
       // For new users, ensure we start with a clean slate
       if (response.data.length === 0) {
-        setMessages(welcomeMessages);
+        setMessages([]);
         setCurrentChatId(null);
       }
       
@@ -377,27 +192,29 @@ const AIAssist: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem('aiAssistMessages', JSON.stringify(messages));
+  const generateQuizSummary = (quizData: QuizData) => {
+    // Only generate quiz review if we have valid quiz data
+    if (!quizData || !quizData.courseName || quizData.totalQuestions === 0) {
+      return null;
     }
-  }, [messages]);
 
-  useEffect(() => {
-    return () => {
-      localStorage.removeItem('aiAssistMessages');
-    };
-  }, []);
+    let summary = `# 🎓 Quiz Review\n\n`;
+    summary += `## 📘 Course: ${quizData.courseName}\n`;
+    summary += `**🧠 Difficulty:** ${quizData.difficulty || 'Standard'}\n`;
+    summary += `**🏆 Score:** ${quizData.score}/${quizData.totalQuestions}\n\n`;
 
-  useEffect(() => {
-    // Update quiz data whenever messages change
-    const quizMessage = messages.find(msg => msg.content.includes('Quiz Review'));
-    if (quizMessage) {
-      setCurrentQuizData(parseQuizReview(quizMessage.content));
-    } else {
-      setCurrentQuizData(null);
+    if (quizData.questions && quizData.questions.length > 0) {
+      summary += `### Question Review\n\n`;
+      quizData.questions.forEach((q, index) => {
+        summary += `#### Question ${index + 1}\n`;
+        summary += `${q.question}\n\n`;
+        summary += `Your Answer: ${q.userAnswer}\n`;
+        summary += `${q.isCorrect ? '✅ Correct!' : `❌ Incorrect. Correct answer: ${q.correctAnswer}`}\n\n`;
+      });
     }
-  }, [messages]);
+
+    return summary;
+  };
 
   const parseQuizReview = (content: string) => {
     const scoreMatch = content.match(/🏆 Score: (\d+)\/(\d+)/);
@@ -413,126 +230,6 @@ const AIAssist: React.FC = () => {
       courseName: courseMatch ? courseMatch[1] : undefined,
       correctQuestions
     };
-  };
-
-  const loadChat = async (chatId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      // Find chat from local state
-      const chat = chatHistories.find(ch => ch._id === chatId);
-      if (chat) {
-        // Remove duplicate messages and format responses
-        const uniqueMessages = removeDuplicateMessages(chat.messages);
-        const formattedMessages = uniqueMessages.map(msg => ({
-          ...msg,
-          content: msg.role === 'assistant' ? formatAIResponse(msg.content) : msg.content
-        }));
-        setMessages(formattedMessages);
-        setCurrentChatId(chatId);
-      } else {
-        toast.error('Chat not found');
-      }
-    } catch (error) {
-      console.error('Error loading chat:', error);
-      toast.error('Failed to load chat');
-    }
-  };
-
-  const removeDuplicateMessages = (messages: Message[]): Message[] => {
-    const seen = new Set<string>();
-    return messages.filter(msg => {
-      const key = `${msg.role}-${msg.content}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  };
-
-  const formatAIResponse = (content: string) => {
-    // Skip formatting if it's a welcome message
-    if (content.includes('Welcome to Your AI Learning Assistant')) {
-      return content;
-    }
-
-    try {
-      // Clean up the content first
-      content = content.trim();
-
-      // Split content into sections
-      const sections = content.split(/(?=\b(?:Key Features|Applications|Advantages|Disadvantages|Examples|Note|Important):\s)/);
-      
-      let formatted = sections[0].trim(); // Keep the introduction clean
-
-      if (sections.length > 1) {
-        sections.slice(1).forEach(section => {
-          const [title, ...content] = section.split(':');
-          const sectionContent = content.join(':').trim();
-          
-          // Add emoji based on section title
-          const emoji = getSectionEmoji(title.trim());
-          
-          // Format section content with proper line breaks
-          const formattedContent = sectionContent
-            .split(/[•.](?=\s+[A-Z])/)  // Split on period followed by capital letter or bullet points
-            .map(s => s.trim())
-            .filter(s => s)
-            .map(s => {
-              // If the sentence doesn't start with a bullet point, add one
-              if (!s.startsWith('•')) {
-                s = '• ' + s;
-              }
-              // Remove any extra bullet points that might have been captured
-              s = s.replace(/^[•\s]+/, '• ');
-              return s;
-            })
-            .join('\n\n');  // Add double line break between points
-
-          formatted += `\n\n\n${emoji} **${title.trim()}**\n\n${formattedContent}`;
-        });
-      }
-
-      // Add special formatting
-      formatted = formatted
-        // Format code snippets with proper spacing
-        .replace(/\b(class|struct|namespace|template|virtual|public|private|protected)\b/g, '`$1`')
-        // Add emphasis to important terms
-        .replace(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)\b(?=:)/g, '**$1**')
-        // Ensure proper spacing after punctuation
-        .replace(/([.!?])\s*([A-Z])/g, '$1\n\n$2')
-        // Clean up any excessive newlines
-        .replace(/\n{4,}/g, '\n\n\n')
-        // Ensure proper list formatting with consistent bullet points
-        .replace(/(?:^|\n)[-*]\s+/g, '\n• ')
-        // Add extra line break after each bullet point
-        .replace(/([.!?])(?=\s+•)/g, '$1\n');
-
-      return formatted;
-    } catch (error) {
-      console.error('Error formatting response:', error);
-      return content; // Return original content if formatting fails
-    }
-  };
-
-  const getSectionEmoji = (title: string): string => {
-    const emojis: { [key: string]: string } = {
-      'Key Features': '🔑',
-      'Applications': '🚀',
-      'Advantages': '✨',
-      'Disadvantages': '⚠️',
-      'Examples': '📌',
-      'Note': '📝',
-      'Important': '❗',
-      'Summary': '📋',
-      'Steps': '📝',
-      'Usage': '🛠️',
-      'Syntax': '📖'
-    };
-    return emojis[title] || '📍';
   };
 
   const saveMessagesToChat = async (chatId: string, messages: Message[]) => {
@@ -599,12 +296,6 @@ const AIAssist: React.FC = () => {
     // For regular chats, use the first user message
     const title = firstUserMessage.content.slice(0, 30);
     return title.length < firstUserMessage.content.length ? `${title}...` : title;
-  };
-
-  const handleNewChat = () => {
-    setMessages(welcomeMessages);
-    setCurrentChatId(null);
-    setInput('');
   };
 
   const handleSend = async () => {
@@ -801,6 +492,7 @@ const AIAssist: React.FC = () => {
               className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50"
             >
               <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Chat History</h2>
                 <button
                   onClick={() => setIsSidebarOpen(false)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -810,11 +502,7 @@ const AIAssist: React.FC = () => {
               </div>
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <button
-                  onClick={() => {
-                    setMessages([]);
-                    setCurrentChatId(null);
-                    setIsSidebarOpen(false);
-                  }}
+                  onClick={handleNewChat}
                   className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
                 >
                   <Plus className="w-5 h-5" />
@@ -822,48 +510,44 @@ const AIAssist: React.FC = () => {
                 </button>
               </div>
               <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
-                {chatHistories.map((chat, index) => {
-                  const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
-                  const chatPreview = isQuizReview 
-                    ? `Quiz Review #${chatHistories.length - index}`
-                    : chat.messages[0]?.content.slice(0, 30) + '...';
-
-                  return (
-                    <div
-                      key={chat._id}
-                      className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-                        currentChatId === chat._id
-                          ? 'bg-indigo-50 dark:bg-indigo-900/20'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      }`}
-                      onClick={() => {
-                        loadChat(chat._id);
-                        setIsSidebarOpen(false);
-                      }}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        <div className="flex-1 truncate">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {chat.title}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {new Date(chat.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteChat(chat._id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-                        </button>
+                {chatHistories.map((chat, index) => (
+                  <motion.div
+                    key={chat._id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 ${
+                      currentChatId === chat._id
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    }`}
+                    onClick={() => {
+                      loadChat(chat._id);
+                      setIsSidebarOpen(false);
+                    }}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      <div className="flex-1 truncate">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {chat.title || 'New Chat'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(chat.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteChat(chat._id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      </button>
                     </div>
-                  );
-                })}
+                  </motion.div>
+                ))}
               </div>
             </motion.div>
           )}
@@ -896,6 +580,13 @@ const AIAssist: React.FC = () => {
                 </button>
                 <h1 className="text-xl font-semibold">AI Learning Assistant</h1>
               </div>
+              <button
+                onClick={handleNewChat}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2"
+              >
+                <Plus className="w-6 h-6" />
+                <span>New Chat</span>
+              </button>
             </div>
           </div>
 
