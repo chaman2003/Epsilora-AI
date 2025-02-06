@@ -17,6 +17,7 @@ interface Message {
 interface ChatHistory {
   _id: string;
   messages: Message[];
+  title: string;
   createdAt: string;
 }
 
@@ -345,7 +346,7 @@ const AIAssist: React.FC = () => {
     }
   };
 
-  const createNewChat = async (initialMessages: Message[] = []) => {
+  const createNewChat = async (initialMessages: Message[] = [], title: string = 'New Chat') => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -353,15 +354,14 @@ const AIAssist: React.FC = () => {
         return null;
       }
 
-      // Don't create chat for welcome messages or empty quiz reviews
-      if (initialMessages.length === 0 || 
-          (initialMessages[0].content.includes('Quiz Review') && 
-           initialMessages[0].content.includes('Not specified'))) {
+      // Don't create chat for empty messages
+      if (initialMessages.length === 0) {
         return null;
       }
 
       const response = await axiosInstance.post('/api/chat-history', {
-        messages: initialMessages
+        messages: initialMessages,
+        title: title
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -509,6 +509,29 @@ const AIAssist: React.FC = () => {
     }
   };
 
+  const generateChatTitle = (messages: Message[]) => {
+    if (!messages.length) return 'New Chat';
+    
+    const firstUserMessage = messages.find(m => m.role === 'user');
+    if (!firstUserMessage) return 'New Chat';
+
+    // If it's a quiz review
+    if (messages[0].content.includes('Quiz Review')) {
+      const courseMatch = messages[0].content.match(/Course: (.*?)\n/);
+      return courseMatch ? `Quiz Review - ${courseMatch[1]}` : 'Quiz Review';
+    }
+
+    // For regular chats, use the first user message
+    const title = firstUserMessage.content.slice(0, 30);
+    return title.length < firstUserMessage.content.length ? `${title}...` : title;
+  };
+
+  const handleNewChat = () => {
+    setMessages(welcomeMessages);
+    setCurrentChatId(null);
+    setInput('');
+  };
+
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
@@ -528,8 +551,10 @@ const AIAssist: React.FC = () => {
       return;
     }
     
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    // Filter out welcome message when creating new chat
+    const chatMessages = messages.filter(m => !m.content.includes('Welcome to Your AI Learning Assistant'));
+    const newMessages = [...chatMessages, userMessage];
+    setMessages([...messages, userMessage]); // Keep welcome message in UI
     setLoading(true);
 
     try {
@@ -537,7 +562,8 @@ const AIAssist: React.FC = () => {
 
       // Create new chat if needed
       if (!chatId) {
-        const newChatId = await createNewChat(newMessages);
+        const chatTitle = generateChatTitle(newMessages);
+        const newChatId = await createNewChat(newMessages, chatTitle);
         if (!newChatId) {
           throw new Error('Failed to create new chat');
         }
@@ -556,12 +582,20 @@ const AIAssist: React.FC = () => {
         isQuizReview: messages.some(msg => msg.content.includes('Quiz Review'))
       });
 
-      const aiMessage = { role: 'assistant' as const, content: response.data.message };
+      const aiMessage = { 
+        role: 'assistant' as const, 
+        content: formatAIResponse(response.data.message)
+      };
+      
       const updatedMessages = [...newMessages, aiMessage];
       
       // Save AI response
       await saveMessagesToChat(chatId, updatedMessages);
-      setMessages(updatedMessages);
+      setMessages([...messages.filter(m => m.content.includes('Welcome')), ...updatedMessages]); // Keep welcome message
+      
+      // Update chat title
+      const title = generateChatTitle(updatedMessages);
+      await updateChatTitle(chatId, title);
       
       // Refresh chat histories
       await loadChatHistories();
@@ -570,6 +604,37 @@ const AIAssist: React.FC = () => {
       toast.error('Failed to get AI response. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const formatAIResponse = (content: string) => {
+    // Add line breaks between sections
+    content = content.replace(/([.!?])\s+([A-Z])/g, '$1\n\n$2');
+    
+    // Add bullet points for lists
+    content = content.replace(/(\d+\.\s+)/g, '\n$1');
+    
+    // Add emphasis to important points
+    content = content.replace(/(Important:|Note:|Key points:)/g, '**$1**');
+    
+    // Add code block formatting
+    content = content.replace(/`([^`]+)`/g, '```\n$1\n```');
+    
+    return content;
+  };
+
+  const updateChatTitle = async (chatId: string, title: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      await axiosInstance.put(`/api/chat-history/${chatId}/title`, {
+        title
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error('Error updating chat title:', error);
     }
   };
 
@@ -665,7 +730,7 @@ const AIAssist: React.FC = () => {
                         <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                         <div className="flex-1 truncate">
                           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {chatPreview}
+                            {chat.title}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             {new Date(chat.createdAt).toLocaleDateString()}
