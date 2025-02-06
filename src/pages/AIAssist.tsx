@@ -75,8 +75,7 @@ const AIAssist: React.FC = () => {
   const welcomeMessages = [
     {
       content: `<div class="welcome-message">
-        <h1 class="welcome-title">✨ Welcome to Your AI Learning Assistant! ✨</h1>
-
+        <h1 class="welcome-title">✨Welcome to Your AI Learning Assistant!✨</h1>
         <div class="feature-card">
           <h4>🎯 How I Can Help You</h4>
           <ul>
@@ -85,7 +84,6 @@ const AIAssist: React.FC = () => {
             <li>🔍 Answer your questions</li>
           </ul>
         </div>
-
         <div class="tip-box">
           <h3>Pro Tips</h3>
           <ul>
