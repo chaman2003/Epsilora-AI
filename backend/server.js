@@ -46,10 +46,8 @@ app.use(cors({
     'http://localhost:5173',
     'http://localhost:3000',
     'https://epsilora.vercel.app',
-    'https://epsilora-git-main-chaman-ss-projects.vercel.app',
-    'https://epsilora.vercel.app',
-    process.env.FRONTEND_URL
-  ].filter(Boolean),
+    'https://epsilora-chaman-ss-projects.vercel.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
