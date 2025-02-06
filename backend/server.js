@@ -134,22 +134,46 @@ const connectDB = async (retries = 5) => {
   }
 })();
 
-// Authentication middleware
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'Authentication token required' });
-  }
-
+// Authentication middleware with enhanced security
+const authenticateToken = async (req, res, next) => {
   try {
-    const user = jwt.verify(token, JWT_SECRET);
-    req.user = user;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ message: 'Access token required' });
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await User.findById(decoded.id);
+      
+      if (!user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      req.user = decoded;
+      next();
+    } catch (error) {
+      return res.status(403).json({ message: 'Invalid or expired token' });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Middleware to verify resource ownership
+const verifyResourceOwnership = (userIdField = 'userId') => async (req, res, next) => {
+  try {
+    const resourceUserId = req.params[userIdField] || req.body[userIdField];
+    
+    if (resourceUserId && resourceUserId !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied: Resource belongs to another user' });
+    }
+    
     next();
   } catch (error) {
-    console.error('Token verification error:', error);
-    return res.status(403).json({ message: 'Invalid or expired token' });
+    next(error);
   }
 };
 
@@ -825,7 +849,7 @@ function calculateImprovement(currentQuiz, allQuizzes) {
 }
 
 // Quiz history endpoints
-app.get('/api/quiz-history/:userId', authenticateToken, async (req, res) => {
+app.get('/api/quiz-history/:userId', authenticateToken, verifyResourceOwnership('userId'), async (req, res) => {
   try {
     const { userId } = req.params;
     
@@ -989,6 +1013,123 @@ app.get('/api/quiz/stats/:userId', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching quiz stats:', error);
     res.status(500).json({ message: 'Error fetching quiz statistics' });
+  }
+});
+
+// Quiz routes with enhanced security
+app.get('/api/quiz-history/:userId', authenticateToken, verifyResourceOwnership('userId'), async (req, res) => {
+  try {
+    const quizAttempts = await QuizAttempt.find({ userId: req.user.id })
+      .sort({ createdAt: -1 })
+      .populate('courseId', 'name');
+    res.json(quizAttempts);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/quiz/save-result', authenticateToken, async (req, res) => {
+  try {
+    const { courseId, questions, score, totalQuestions } = req.body;
+    
+    const newQuizAttempt = new QuizAttempt({
+      userId: req.user.id,
+      courseId,
+      questions,
+      score,
+      totalQuestions,
+      createdAt: new Date()
+    });
+
+    await newQuizAttempt.save();
+    res.status(201).json(newQuizAttempt);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Course progress routes with security
+app.get('/api/progress/:courseId', authenticateToken, async (req, res) => {
+  try {
+    const progress = await Progress.findOne({
+      userId: req.user.id,
+      courseId: req.params.courseId
+    });
+    
+    if (!progress) {
+      return res.json({ completed: false, progress: 0 });
+    }
+    
+    res.json(progress);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// AI Assist chat history routes
+app.get('/api/chat-history', authenticateToken, async (req, res) => {
+  try {
+    const chatHistories = await ChatHistory.find({ userId: req.user.id })
+      .sort({ createdAt: -1 });
+    res.json(chatHistories);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/chat-history', authenticateToken, async (req, res) => {
+  try {
+    const { messages } = req.body;
+    const newChat = new ChatHistory({
+      userId: req.user.id,
+      messages,
+      createdAt: new Date()
+    });
+    await newChat.save();
+    res.status(201).json(newChat);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
+  try {
+    const chat = await ChatHistory.findOne({
+      _id: req.params.chatId,
+      userId: req.user.id
+    });
+    
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found or access denied' });
+    }
+    
+    const updatedChat = await ChatHistory.findByIdAndUpdate(
+      req.params.chatId,
+      { messages: req.body.messages },
+      { new: true }
+    );
+    
+    res.json(updatedChat);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
+  try {
+    const chat = await ChatHistory.findOne({
+      _id: req.params.chatId,
+      userId: req.user.id
+    });
+    
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found or access denied' });
+    }
+    
+    await ChatHistory.findByIdAndDelete(req.params.chatId);
+    res.json({ message: 'Chat deleted successfully' });
+  } catch (error) {
+    next(error);
   }
 });
 
