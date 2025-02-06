@@ -349,16 +349,25 @@ const Quiz: React.FC = () => {
   }, [showHistory, isAuthenticated, fetchQuizHistory, historyFetched]);
 
   const fetchQuizStatistics = async () => {
+    if (!user?._id) {
+      setQuizStats({
+        totalQuizzes: 0,
+        averageScore: 0,
+        latestScore: 0
+      });
+      return;
+    }
+
     try {
-      const response = await axiosInstance.get('/api/quiz/stats');
+      const response = await axiosInstance.get(`/api/quiz/stats/${user._id}`);
       console.log('Quiz stats response:', response.data);
-      if (response.data) {
-        setQuizStats({
-          totalQuizzes: response.data.totalQuizzes || 0,
-          averageScore: response.data.averageScore || 0,
-          latestScore: response.data.latestScore || 0
-        });
-      }
+      
+      // Always set to 0 for new users or when no data is available
+      setQuizStats({
+        totalQuizzes: response.data?.totalQuizzes || 0,
+        averageScore: response.data?.averageScore || 0,
+        latestScore: response.data?.latestScore || 0
+      });
     } catch (error) {
       console.error('Error fetching quiz statistics:', error);
       setQuizStats({
@@ -369,10 +378,16 @@ const Quiz: React.FC = () => {
     }
   };
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user?._id) {
       fetchQuizStatistics();
+    } else {
+      setQuizStats({
+        totalQuizzes: 0,
+        averageScore: 0,
+        latestScore: 0
+      });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?._id]);
   const generateQuiz = async () => {
     if (!selectedCourse) {
       toast.error('Please select a course first');

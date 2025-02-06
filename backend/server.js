@@ -954,6 +954,44 @@ app.get('/api/quiz/stats', async (req, res) => {
   }
 });
 
+// Quiz stats endpoint
+app.get('/api/quiz/stats/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Verify that the requesting user is accessing their own stats
+    if (userId !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Get all quiz attempts for the user
+    const quizAttempts = await QuizAttempt.find({ userId })
+      .sort({ createdAt: -1 });
+
+    // Calculate stats
+    const stats = {
+      totalQuizzes: quizAttempts.length,
+      averageScore: 0,
+      latestScore: 0
+    };
+
+    if (quizAttempts.length > 0) {
+      // Calculate average score
+      const totalScore = quizAttempts.reduce((sum, quiz) => 
+        sum + (quiz.score || 0), 0);
+      stats.averageScore = Math.round(totalScore / quizAttempts.length);
+
+      // Get latest score
+      stats.latestScore = Math.round(quizAttempts[0].score || 0);
+    }
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching quiz stats:', error);
+    res.status(500).json({ message: 'Error fetching quiz statistics' });
+  }
+});
+
 // Error Handler Middleware
 const errorHandler = (err, req, res, next) => {
   console.error(err.stack);
