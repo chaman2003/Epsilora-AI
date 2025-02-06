@@ -75,46 +75,54 @@ const AIAssist: React.FC = () => {
   const welcomeMessages = [
     {
       content: `<div class="welcome-message">
-# ✨ Welcome to Your AI Learning Companion! ✨
+        <h1 class="welcome-title">✨ Welcome to Your AI Learning Companion! ✨</h1>
 
-<div class="gradient-text-purple">
-## 🌟 Let's Make Learning Amazing Together! 
-</div>
+        <div class="gradient-text-purple">
+          <h2>🌟 Let's Make Learning Amazing Together!</h2>
+        </div>
 
-### 🎯 Here's What I Can Do For You:
+        <h3 class="section-title">🎯 Here's What I Can Do For You:</h3>
 
-<div class="feature-card">
-📚 **Smart Learning Support**
-- 🧠 Explain complex topics in simple terms
-- 💡 Answer your questions with examples
-- 📝 Provide study strategies that work
-</div>
+        <div class="feature-card">
+          <h4>📚 Smart Learning Support</h4>
+          <ul>
+            <li>🧠 Explain complex topics in simple terms</li>
+            <li>💡 Answer your questions with examples</li>
+            <li>📝 Provide study strategies that work</li>
+          </ul>
+        </div>
 
-<div class="feature-card">
-🚀 **Interactive Features**
-- 💬 Natural conversations about any topic
-- 🎮 Learn through examples and practice
-- 📊 Track your progress and improve
-</div>
+        <div class="feature-card">
+          <h4>🚀 Interactive Features</h4>
+          <ul>
+            <li>💬 Natural conversations about any topic</li>
+            <li>🎮 Learn through examples and practice</li>
+            <li>📊 Track your progress and improve</li>
+          </ul>
+        </div>
 
-<div class="tip-box">
-### 💡 Pro Tips for Better Results:
-1. 🎯 Use "explain [topic]" for detailed explanations
-2. 📝 Try "example of [concept]" for practical examples
-3. 🔍 Ask "summarize [topic]" for quick overviews
-4. ✨ Start with clear, specific questions
-</div>
+        <div class="tip-box">
+          <h3>💡 Pro Tips for Better Results:</h3>
+          <ol>
+            <li>🎯 Use "explain [topic]" for detailed explanations</li>
+            <li>📝 Try "example of [concept]" for practical examples</li>
+            <li>🔍 Ask "summarize [topic]" for quick overviews</li>
+            <li>✨ Start with clear, specific questions</li>
+          </ol>
+        </div>
 
-<div class="quote-box">
-> *"${getRandomQuote().quote}"*
-> — ${getRandomQuote().author}
-</div>
+        <div class="quote-box">
+          <blockquote>
+            <p><em>"${getRandomQuote().quote}"</em></p>
+            <footer>— ${getRandomQuote().author}</footer>
+          </blockquote>
+        </div>
 
-<div class="gradient-text-blue">
-### 🌈 Ready to Start Your Learning Journey?
-Just type your question below and let's begin! 🚀
-</div>
-</div>`,
+        <div class="gradient-text-blue">
+          <h3>🌈 Ready to Start Your Learning Journey?</h3>
+          <p>Just type your question below and let's begin! 🚀</p>
+        </div>
+      </div>`,
       role: 'assistant' as const
     }
   ];
@@ -125,44 +133,120 @@ Just type your question below and let's begin! 🚀
     style.textContent = `
       .welcome-message {
         animation: fadeIn 1s ease-in;
+        padding: 1rem;
       }
       
-      .gradient-text-purple {
+      .welcome-title {
+        font-size: 2rem;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 1.5rem;
         background: linear-gradient(45deg, #9333ea, #4f46e5);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         animation: shimmer 2s infinite;
       }
+
+      .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 1.5rem 0 1rem;
+        color: #4f46e5;
+      }
       
-      .gradient-text-blue {
+      .gradient-text-purple h2 {
+        font-size: 1.75rem;
+        font-weight: bold;
+        text-align: center;
+        background: linear-gradient(45deg, #9333ea, #4f46e5);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 2s infinite;
+        margin-bottom: 1.5rem;
+      }
+      
+      .gradient-text-blue h3 {
+        font-size: 1.5rem;
+        font-weight: bold;
         background: linear-gradient(45deg, #3b82f6, #06b6d4);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         animation: shimmer 2s infinite;
+        margin-bottom: 0.5rem;
       }
       
       .feature-card {
         border-left: 4px solid #8b5cf6;
-        padding-left: 1rem;
+        padding: 1rem;
         margin: 1rem 0;
+        background: rgba(139, 92, 246, 0.05);
+        border-radius: 8px;
         animation: slideIn 0.5s ease-out;
+      }
+
+      .feature-card h4 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: #6d28d9;
+      }
+
+      .feature-card ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .feature-card li {
+        margin: 0.5rem 0;
+        padding-left: 1.5rem;
+        position: relative;
       }
       
       .tip-box {
         background: linear-gradient(45deg, rgba(147, 51, 234, 0.1), rgba(79, 70, 229, 0.1));
         border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
         animation: fadeIn 0.5s ease-out;
+      }
+
+      .tip-box h3 {
+        color: #6d28d9;
+        margin-bottom: 1rem;
+      }
+
+      .tip-box ol {
+        padding-left: 1.5rem;
+      }
+
+      .tip-box li {
+        margin: 0.5rem 0;
       }
       
       .quote-box {
         background: linear-gradient(45deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.1));
         border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-        font-style: italic;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
         animation: slideIn 0.5s ease-out;
+      }
+
+      .quote-box blockquote {
+        border-left: 4px solid #3b82f6;
+        padding-left: 1rem;
+        margin: 0;
+      }
+
+      .quote-box p {
+        font-style: italic;
+        color: #1e40af;
+        margin: 0 0 0.5rem 0;
+      }
+
+      .quote-box footer {
+        color: #3b82f6;
+        font-weight: 500;
       }
       
       @keyframes fadeIn {
