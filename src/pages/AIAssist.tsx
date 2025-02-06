@@ -423,10 +423,16 @@ const AIAssist: React.FC = () => {
         return;
       }
 
-      // Find chat from local state instead of making API call
+      // Find chat from local state
       const chat = chatHistories.find(ch => ch._id === chatId);
       if (chat) {
-        setMessages(chat.messages);
+        // Remove duplicate messages and format responses
+        const uniqueMessages = removeDuplicateMessages(chat.messages);
+        const formattedMessages = uniqueMessages.map(msg => ({
+          ...msg,
+          content: msg.role === 'assistant' ? formatAIResponse(msg.content) : msg.content
+        }));
+        setMessages(formattedMessages);
         setCurrentChatId(chatId);
       } else {
         toast.error('Chat not found');
@@ -437,27 +443,126 @@ const AIAssist: React.FC = () => {
     }
   };
 
-  const deleteChat = async (chatId: string) => {
+  const removeDuplicateMessages = (messages: Message[]): Message[] => {
+    const seen = new Set<string>();
+    return messages.filter(msg => {
+      const key = `${msg.role}-${msg.content}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  const formatAIResponse = (content: string) => {
+    // Skip formatting if it's a welcome message
+    if (content.includes('Welcome to Your AI Learning Assistant')) {
+      return content;
+    }
+
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
+      // Clean up the content first
+      content = content.trim()
+        .replace(/\n{3,}/g, '\n\n')  // Remove excessive newlines
+        .replace(/\s+/g, ' ')        // Remove excessive spaces
+        .replace(/\*\*/g, '')        // Remove existing bold markers
+        .replace(/`/g, '');          // Remove existing code markers
+
+      // Split content into sections
+      const sections = content.split(/(?=\b(?:Key Features|Applications|Advantages|Disadvantages|Examples|Note|Important):\s)/);
+      
+      let formatted = sections[0].trim(); // Keep the introduction
+
+      if (sections.length > 1) {
+        sections.slice(1).forEach(section => {
+          const [title, ...content] = section.split(':');
+          const sectionContent = content.join(':').trim();
+          
+          // Add emoji based on section title
+          const emoji = getSectionEmoji(title.trim());
+          
+          // Format section content
+          const formattedContent = sectionContent
+            .split(/[.!?]\s+/)                    // Split into sentences
+            .filter(s => s.trim())                // Remove empty lines
+            .map(s => `• ${s.trim()}`)           // Add bullet points
+            .join('\n');
+
+          formatted += `\n\n${emoji} **${title.trim()}**\n${formattedContent}`;
+        });
       }
 
-      await axiosInstance.delete(`/api/chat-history/${chatId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (currentChatId === chatId) {
-        setMessages([]);
-        setCurrentChatId(null);
-      }
-      await loadChatHistories();
-      toast.success('Chat deleted successfully');
+      // Add special formatting
+      formatted = formatted
+        // Format code snippets
+        .replace(/\b(class|struct|namespace|template|virtual|public|private|protected)\b/g, '`$1`')
+        // Add emphasis to important terms
+        .replace(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)\b(?=:)/g, '**$1**')
+        // Format lists
+        .replace(/(?:^|\n)[-*•]\s+/g, '\n• ');
+
+      return formatted;
     } catch (error) {
-      console.error('Error deleting chat:', error);
-      toast.error('Failed to delete chat');
+      console.error('Error formatting response:', error);
+      return content; // Return original content if formatting fails
     }
+  };
+
+  const getSectionEmoji = (title: string): string => {
+    const emojis: { [key: string]: string } = {
+      'Key Features': '🔑',
+      'Applications': '🚀',
+      'Advantages': '✨',
+      'Disadvantages': '⚠️',
+      'Examples': '📌',
+      'Note': '📝',
+      'Important': '❗',
+      'Summary': '📋',
+      'Steps': '📝',
+      'Usage': '🛠️',
+      'Syntax': '📖'
+    };
+    return emojis[title] || '📍';
+  };
+
+  const renderMessage = (message: Message) => {
+    if (message.role === 'assistant') {
+      return (
+        <div className="prose dark:prose-invert max-w-none">
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p: ({node, ...props}) => (
+                <p className="my-2 leading-relaxed" {...props} />
+              ),
+              strong: ({node, ...props}) => (
+                <strong className="font-semibold text-indigo-600 dark:text-indigo-400" {...props} />
+              ),
+              code: ({node, inline, ...props}) => (
+                inline ? 
+                  <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-sm" {...props} /> :
+                  <code className="block p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm overflow-x-auto" {...props} />
+              ),
+              ul: ({node, ...props}) => (
+                <ul className="space-y-1 my-2" {...props} />
+              ),
+              li: ({node, ...props}) => (
+                <li className="flex items-start space-x-2">
+                  <span className="text-indigo-500 mt-1">•</span>
+                  <span {...props} />
+                </li>
+              )
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </div>
+      );
+    }
+    return (
+      <div className="text-gray-800 dark:text-gray-200">
+        {message.content}
+      </div>
+    );
   };
 
   const saveMessagesToChat = async (chatId: string, messages: Message[]) => {
@@ -604,37 +709,6 @@ const AIAssist: React.FC = () => {
       toast.error('Failed to get AI response. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const formatAIResponse = (content: string) => {
-    // Add line breaks between sections
-    content = content.replace(/([.!?])\s+([A-Z])/g, '$1\n\n$2');
-    
-    // Add bullet points for lists
-    content = content.replace(/(\d+\.\s+)/g, '\n$1');
-    
-    // Add emphasis to important points
-    content = content.replace(/(Important:|Note:|Key points:)/g, '**$1**');
-    
-    // Add code block formatting
-    content = content.replace(/`([^`]+)`/g, '```\n$1\n```');
-    
-    return content;
-  };
-
-  const updateChatTitle = async (chatId: string, title: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      await axiosInstance.put(`/api/chat-history/${chatId}/title`, {
-        title
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } catch (error) {
-      console.error('Error updating chat title:', error);
     }
   };
 
@@ -838,41 +912,7 @@ const AIAssist: React.FC = () => {
                         : 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'
                     }`}
                   >
-                    {message.role === 'assistant' ? (
-                      <div 
-                        className="markdown-content"
-                        dangerouslySetInnerHTML={{ 
-                          __html: message.content.includes('<div class="welcome-message">')
-                            ? message.content
-                            : `<div>${message.content}</div>`
-                        }}
-                      />
-                    ) : (
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          code({ node, inline, className, children, ...props }) {
-                            const match = /language-(\w+)/.exec(className || '');
-                            return !inline && match ? (
-                              <SyntaxHighlighter
-                                style={materialDark}
-                                language={match[1]}
-                                PreTag="div"
-                                {...props}
-                              >
-                                {String(children).replace(/\n$/, '')}
-                              </SyntaxHighlighter>
-                            ) : (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            );
-                          }
-                        }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
-                    )}
+                    {renderMessage(message)}
                   </div>
                 </motion.div>
               ))}
