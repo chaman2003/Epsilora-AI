@@ -128,10 +128,8 @@ const Navbar: React.FC = () => {
 
             {user && (
               <>
-                <div className="relative flex items-center px-4 py-2 rounded-2xl">
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20"></div>
-                  <div className="absolute inset-[1px] rounded-xl bg-white dark:bg-gray-900"></div>
-                  <span className="relative text-sm text-gray-600 dark:text-gray-300">
+                <div className="flex items-center px-3 py-1.5 rounded-2xl bg-white/10 dark:bg-gray-800/10 border border-gray-200/10 dark:border-gray-700/10">
+                  <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark theme-transition truncate max-w-[200px]">
                     {user.email}
                   </span>
                 </div>
