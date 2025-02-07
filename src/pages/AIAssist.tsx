@@ -8,7 +8,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '../context/QuizContext';
-import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
 
 interface Message {
@@ -47,7 +46,6 @@ interface QuizData {
 
 const AIAssist: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const { quizData, setQuizData } = useQuiz();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -59,6 +57,7 @@ const AIAssist: React.FC = () => {
     correctQuestions?: number[];
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isAuthenticated = localStorage.getItem('token') !== null;
 
   // Define welcome message outside of any effects
   const welcomeMessage = useMemo(() => ({
@@ -79,7 +78,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
   // Initialize messages on mount only
   useEffect(() => {
     setMessages([welcomeMessage]);
-  }, []);
+  }, [welcomeMessage]);
 
   // Handle authentication changes
   useEffect(() => {
