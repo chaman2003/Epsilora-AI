@@ -125,6 +125,18 @@ router.post('/ai', authenticateToken, async (req, res) => {
     const response = await result.response;
     const aiMessage = response.text();
 
+    // Save chat message
+    const chat = new AIChat({
+      userId,
+      messages: [
+        { role: 'user', content: message },
+        { role: 'assistant', content: aiMessage }
+      ],
+      type: courseId ? 'quiz_review' : 'general',
+      metadata: courseId ? { courseName, quizScore, totalQuestions } : {}
+    });
+    await chat.save();
+
     res.json({ message: aiMessage });
   } catch (error) {
     console.error('Error in chat endpoint:', error);
@@ -132,38 +144,8 @@ router.post('/ai', authenticateToken, async (req, res) => {
   }
 });
 
-// Save new chat
-router.post('/ai/save', authenticateToken, async (req, res) => {
-  try {
-    const { messages, type = 'general', metadata = {} } = req.body;
-    const userId = req.user.id;
-
-    let title = '';
-    if (type === 'quiz_review' && metadata.courseName) {
-      title = `Quiz Review: ${metadata.courseName}`;
-    } else {
-      const firstUserMessage = messages.find(m => m.role === 'user');
-      title = firstUserMessage ? firstUserMessage.content.slice(0, 50) : 'New Chat';
-    }
-
-    const chat = new AIChat({
-      userId,
-      title,
-      messages,
-      type,
-      metadata
-    });
-
-    await chat.save();
-    res.json({ success: true, chatId: chat._id });
-  } catch (error) {
-    console.error('Error saving chat:', error);
-    res.status(500).json({ error: 'Failed to save chat' });
-  }
-});
-
 // Get chat history
-router.get('/ai/history', authenticateToken, async (req, res) => {
+router.get('/history', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const chats = await AIChat.find({ userId })
@@ -177,7 +159,7 @@ router.get('/ai/history', authenticateToken, async (req, res) => {
 });
 
 // Get single chat
-router.get('/ai/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const chat = await AIChat.findOne({ _id: req.params.id, userId });
@@ -192,7 +174,7 @@ router.get('/ai/:id', authenticateToken, async (req, res) => {
 });
 
 // Update chat
-router.put('/ai/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { messages } = req.body;
@@ -203,15 +185,9 @@ router.put('/ai/:id', authenticateToken, async (req, res) => {
     }
 
     chat.messages = messages;
-    if (chat.type === 'general') {
-      const firstUserMessage = messages.find(m => m.role === 'user');
-      if (firstUserMessage) {
-        chat.title = firstUserMessage.content.slice(0, 50);
-      }
-    }
-    chat.lastUpdated = new Date();
-
+    chat.lastUpdated = Date.now();
     await chat.save();
+
     res.json(chat);
   } catch (error) {
     console.error('Error updating chat:', error);
@@ -220,7 +196,7 @@ router.put('/ai/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete chat
-router.delete('/ai/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const chat = await AIChat.findOneAndDelete({ _id: req.params.id, userId });
