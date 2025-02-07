@@ -12,6 +12,7 @@ import Course from './models/Course.js';
 import Quiz from './models/Quiz.js'; // Import Quiz model
 import QuizAttempt from './models/QuizAttempt.js';
 import Chat from './models/Chat.js';
+import AIChat from './models/AIChat.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import progressRoutes from './routes/progress.js';
 import chatRoutes from './routes/chat.js';
@@ -392,6 +393,94 @@ app.delete('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error deleting chat history:', error);
     res.status(500).json({ error: 'Failed to delete chat history' });
+  }
+});
+
+// Chat History Routes
+app.post('/api/chat/save', authenticateToken, async (req, res) => {
+  try {
+    const { messages, type = 'general', metadata = {} } = req.body;
+    const userId = req.user.id;
+
+    // Create a new chat
+    const chat = new AIChat({
+      userId,
+      title: messages[0]?.content.slice(0, 50) || 'New Chat',
+      messages,
+      type,
+      metadata
+    });
+
+    await chat.save();
+    res.json({ success: true, chatId: chat._id });
+  } catch (error) {
+    console.error('Error saving chat:', error);
+    res.status(500).json({ error: 'Failed to save chat' });
+  }
+});
+
+app.get('/api/chat/history', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chats = await AIChat.find({ userId })
+      .sort({ lastUpdated: -1 })
+      .limit(50);
+    res.json(chats);
+  } catch (error) {
+    console.error('Error fetching chat history:', error);
+    res.status(500).json({ error: 'Failed to fetch chat history' });
+  }
+});
+
+app.get('/api/chat/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chat = await AIChat.findOne({ _id: req.params.id, userId });
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    res.json(chat);
+  } catch (error) {
+    console.error('Error fetching chat:', error);
+    res.status(500).json({ error: 'Failed to fetch chat' });
+  }
+});
+
+app.put('/api/chat/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { messages } = req.body;
+    const chat = await AIChat.findOneAndUpdate(
+      { _id: req.params.id, userId },
+      { 
+        $set: { 
+          messages,
+          lastUpdated: new Date()
+        }
+      },
+      { new: true }
+    );
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    res.json(chat);
+  } catch (error) {
+    console.error('Error updating chat:', error);
+    res.status(500).json({ error: 'Failed to update chat' });
+  }
+});
+
+app.delete('/api/chat/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chat = await AIChat.findOneAndDelete({ _id: req.params.id, userId });
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting chat:', error);
+    res.status(500).json({ error: 'Failed to delete chat' });
   }
 });
 
@@ -938,8 +1027,8 @@ app.get('/api/quiz/stats', async (req, res) => {
 
     const result = {
       totalQuizzes: stats[0].totalQuizzes[0]?.count || 0,
-      averageScore: parseFloat((stats[0].averageScore[0]?.averageScore || 0).toFixed(1)),
-      latestScore: parseFloat((stats[0].latestQuiz[0]?.latestScore || 0).toFixed(1))
+      averageScore: Math.round(parseFloat(stats[0].averageScore[0]?.averageScore || 0) * 10) / 10,
+      latestScore: Math.round(parseFloat(stats[0].latestQuiz[0]?.latestScore || 0) * 10) / 10
     };
 
     console.log('Final calculated stats:', result);
@@ -1027,4 +1116,41 @@ app.use('/api/chat', chatRoutes);
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+app.get('/api/quiz-stats/:courseId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const courseId = req.params.courseId;
+
+    // Get all quiz attempts for this user and course
+    const attempts = await QuizAttempt.find({ userId, courseId })
+      .sort({ createdAt: 1 });
+
+    if (!attempts.length) {
+      return res.json({
+        totalQuizzes: 0,
+        averageScore: 0,
+        latestScore: 0,
+        improvement: 0
+      });
+    }
+
+    // Calculate stats
+    const totalQuizzes = attempts.length;
+    const averageScore = Math.round(attempts.reduce((sum, attempt) => sum + attempt.score, 0) / totalQuizzes);
+    const latestScore = Math.round(attempts[attempts.length - 1].score);
+    const firstScore = attempts[0].score;
+    const improvement = Math.round(((latestScore - firstScore) / firstScore) * 100);
+
+    res.json({
+      totalQuizzes,
+      averageScore,
+      latestScore,
+      improvement: isNaN(improvement) ? 0 : improvement
+    });
+  } catch (error) {
+    console.error('Error fetching quiz stats:', error);
+    res.status(500).json({ error: 'Failed to fetch quiz statistics' });
+  }
 });

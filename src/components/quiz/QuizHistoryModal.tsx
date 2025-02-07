@@ -78,7 +78,7 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
   if (!isOpen) return null;
 
   const formatPercentage = (value: number) => {
-    return (Math.round(value * 10) / 10).toFixed(1) + '%';
+    return Math.round(value) + '%';
   };
 
   const formatImprovement = (value: number) => {
