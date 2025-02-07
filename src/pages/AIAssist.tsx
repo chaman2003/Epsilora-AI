@@ -257,7 +257,7 @@ ${q.options.map(opt => {
     marker = '✅';
   }
   
-  return `${text} ${marker}\n`;
+  return `${label}. ${text} ${marker}\n`;
 }).join('\n')}
 ---`).join('\n\n')}
 
