@@ -20,6 +20,12 @@ interface ChatHistory {
   _id: string;
   messages: Message[];
   createdAt: string;
+  type: 'quiz_review' | 'general';
+  metadata: {
+    courseName: string;
+    quizScore: number;
+    totalQuestions: number;
+  };
 }
 
 interface QuizData {
@@ -94,7 +100,7 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    loadChatHistories();
+    loadChatHistory();
 
     const initializeQuizData = async () => {
       let quizDataToUse = quizData;
@@ -127,14 +133,12 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
 
       if (!quizDataToUse) {
         setMessages([welcomeMessage]);
-        createNewChat([welcomeMessage]);
         return;
       }
 
       const summary = generateQuizSummary(quizDataToUse);
       const messages = [welcomeMessage, { role: 'assistant', content: summary }];
       setMessages(messages);
-      createNewChat(messages);
     };
 
     initializeQuizData();
@@ -144,7 +148,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     if (quizData && !currentChatId) {
       // Find existing quiz review chat
       const existingQuizChat = chatHistories.find(chat => 
-        chat.messages.some(msg => msg.content.includes('Quiz Review'))
+        chat.type === 'quiz_review' && chat.metadata.courseName === quizData.courseName
       );
 
       if (existingQuizChat) {
@@ -160,7 +164,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
         // Append to existing chat
         const updatedMessages = [...messages, quizMessage];
         setMessages(updatedMessages);
-        saveMessagesToChat(existingQuizChat._id, updatedMessages);
+        saveChat(updatedMessages);
       } else {
         // Create new chat
         createNewChat([quizMessage]);
@@ -206,53 +210,29 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     };
   };
 
-  const loadChatHistories = async () => {
+  const loadChatHistory = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      const response = await axiosInstance.get('/api/chat-history', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      // For new users, ensure we start with a clean slate
-      if (response.data.length === 0) {
-        setMessages([]);
-        setCurrentChatId(null);
-      }
-      
+      const response = await axios.get('/api/chat/history');
       setChatHistories(response.data);
     } catch (error) {
-      console.error('Error loading chat histories:', error);
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        navigate('/login');
-      } else {
-        toast.error('Failed to load chat history');
-      }
+      console.error('Error loading chat history:', error);
     }
   };
 
   const createNewChat = async (initialMessages: Message[] = []) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return null;
-      }
-
-      // Create new chat for all quiz reviews
-      const response = await axiosInstance.post('/api/chat-history', {
-        messages: initialMessages
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await axios.post('/api/chat', {
+        messages: initialMessages,
+        type: quizData ? 'quiz_review' : 'general',
+        metadata: quizData ? {
+          courseName: quizData.courseName,
+          quizScore: quizData.score,
+          totalQuestions: quizData.totalQuestions
+        } : {}
       });
-      
       const newChatId = response.data._id;
       setCurrentChatId(newChatId);
-      await loadChatHistories();
+      await loadChatHistory();
       return newChatId;
     } catch (error) {
       console.error('Error creating new chat:', error);
@@ -263,36 +243,22 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
 
   const loadChat = async (chatId: string) => {
     try {
-      const chat = chatHistories.find(ch => ch._id === chatId);
-      if (chat) {
-        setMessages(chat.messages);
-        setCurrentChatId(chatId);
-        setIsSidebarOpen(false); // Close sidebar after selection
-      } else {
-        toast.error('Chat not found');
-      }
+      const response = await axios.get(`/api/chat/${chatId}`);
+      setMessages(response.data.messages || []);
+      setCurrentChatId(chatId);
     } catch (error) {
       console.error('Error loading chat:', error);
-      toast.error('Failed to load chat');
     }
   };
 
   const deleteChat = async (chatId: string) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      await axiosInstance.delete(`/api/chat-history/${chatId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(`/api/chat/${chatId}`);
       if (currentChatId === chatId) {
         setMessages([]);
         setCurrentChatId(null);
       }
-      await loadChatHistories();
+      await loadChatHistory();
       toast.success('Chat deleted successfully');
     } catch (error) {
       console.error('Error deleting chat:', error);
@@ -300,26 +266,17 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     }
   };
 
-  const saveMessagesToChat = async (chatId: string, messages: Message[]) => {
-    const token = localStorage.getItem('token');
-    if (!token) return false;
+  const saveChat = async (messages: Message[]) => {
+    if (!currentChatId) return false;
 
     try {
-      await axiosInstance.put(`/api/chat-history/${chatId}`, {
-        messages: messages
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
+      await axios.put(`/api/chat/${currentChatId}`, {
+        messages
       });
-      
-      // Update local chat histories
-      setChatHistories(prev => prev.map(chat => 
-        chat._id === chatId ? { ...chat, messages } : chat
-      ));
-      
       return true;
     } catch (error) {
-      console.error('Error saving messages:', error);
-      toast.error('Failed to save messages');
+      console.error('Error saving chat:', error);
+      toast.error('Failed to save chat');
       return false;
     }
   };
@@ -327,110 +284,52 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-
-    const userMessage = { role: 'user' as const, content: input };
+    const userMessage = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
     setLoading(true);
 
     try {
-      let chatId = currentChatId;
-      let saveAttempts = 0;
-      const maxAttempts = 3;
-
-      // Create or get chat ID
-      if (!chatId) {
-        try {
-          const response = await axiosInstance.post('/api/chat-history', {
-            messages: newMessages,
-            message: userMessage
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          chatId = response.data._id;
-          setCurrentChatId(chatId);
-        } catch (e) {
-          console.error('Failed to create chat:', e);
-          // Fallback: try creating with just the message
-          const response = await axiosInstance.post('/api/chat-history', {
-            message: userMessage
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          chatId = response.data._id;
-          setCurrentChatId(chatId);
-        }
-      }
-
-      // Save user message
-      while (saveAttempts < maxAttempts && chatId) {
-        const saved = await saveMessagesToChat(chatId, newMessages);
-        if (saved) break;
-        saveAttempts++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      // Get current chat context
-      const currentChat = chatHistories.find(ch => ch._id === chatId);
-      const contextMessage = currentChat?.messages[0]?.content || '';
-      const isQuizReview = contextMessage.includes('Quiz Review');
-
-      // Get AI response with context
-      const response = await axiosInstance.post('/api/ai-assist', {
-        messages: newMessages,
-        quizContext: null,
-        chatContext: {
-          isQuizReview,
-          chatId,
-          firstMessage: contextMessage,
-          quizData: currentQuizData
-        }
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await axios.post('/api/chat', {
+        message: input,
+        courseId: quizData?.courseId,
+        quizScore: quizData?.score,
+        totalQuestions: quizData?.totalQuestions
       });
 
-      const assistantMessage = {
-        role: 'assistant' as const,
-        content: response.data.message
-      };
+      const assistantMessage = { role: 'assistant', content: response.data.message };
+      const updatedMessages = [...messages, userMessage, assistantMessage];
+      setMessages(updatedMessages);
 
-      const finalMessages = [...newMessages, assistantMessage];
-      setMessages(finalMessages);
-      
-      // Save final messages with AI response
-      saveAttempts = 0;
-      while (saveAttempts < maxAttempts && chatId) {
-        const saved = await saveMessagesToChat(chatId, finalMessages);
-        if (saved) break;
-        saveAttempts++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Save chat history
+      if (!currentChatId) {
+        const chatType = quizData ? 'quiz_review' : 'general';
+        const metadata = quizData ? {
+          courseName: quizData.courseName,
+          quizScore: quizData.score,
+          totalQuestions: quizData.totalQuestions
+        } : {};
+
+        const saveResponse = await axios.post('/api/chat/save', {
+          messages: updatedMessages,
+          type: chatType,
+          metadata
+        });
+        setCurrentChatId(saveResponse.data.chatId);
+      } else {
+        await axios.put(`/api/chat/${currentChatId}`, {
+          messages: updatedMessages
+        });
       }
 
-      await loadChatHistories();
-      const savedChat = chatHistories.find(ch => ch._id === chatId);
-      if (!savedChat || savedChat.messages.length !== finalMessages.length) {
-        await saveMessagesToChat(chatId!, finalMessages);
-        await loadChatHistories();
-      }
-
+      loadChatHistory(); // Refresh chat history
     } catch (error) {
       console.error('Error sending message:', error);
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401) {
-          navigate('/login');
-        } else {
-          const errorMessage = error.response?.data?.message || 'Failed to send message';
-          toast.error(errorMessage);
-        }
-      } else {
-        toast.error('An unexpected error occurred');
-      }
+      const errorMessage = {
+        role: 'assistant',
+        content: 'Sorry, there was an error processing your request. Please try again.'
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
@@ -484,6 +383,20 @@ Let me know if you have any questions about the quiz or would like to review spe
     setIsSidebarOpen(false);
   };
 
+  const getChatPreview = (chat: ChatHistory) => {
+    if (chat.type === 'quiz_review') {
+      const { courseName, quizScore, totalQuestions } = chat.metadata;
+      return `📝 Quiz Review: ${courseName} (${quizScore}/${totalQuestions})`;
+    }
+
+    // For general chats, use the first user message or a fallback
+    const firstUserMessage = chat.messages.find(m => m.role === 'user');
+    if (firstUserMessage) {
+      return firstUserMessage.content.slice(0, 40) + (firstUserMessage.content.length > 40 ? '...' : '');
+    }
+    return 'New Chat';
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -531,10 +444,7 @@ Let me know if you have any questions about the quiz or would like to review spe
                 </div>
                 <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
                   {chatHistories.map((chat, index) => {
-                    const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
-                    const chatPreview = isQuizReview 
-                      ? `📝 Quiz Review #${chatHistories.length - index}`
-                      : chat.messages[0]?.content.slice(0, 30) + '...';
+                    const chatPreview = getChatPreview(chat);
                     const formattedDate = format(new Date(chat.createdAt), 'MMM d, yyyy • HH:mm');
 
                     return (
@@ -553,15 +463,17 @@ Let me know if you have any questions about the quiz or would like to review spe
                         }}
                       >
                         <div className="flex items-center space-x-3">
-                          {isQuizReview ? (
-                            <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            chat.type === 'quiz_review'
+                              ? 'bg-purple-100 dark:bg-purple-900/30'
+                              : 'bg-indigo-100 dark:bg-indigo-900/30'
+                          }`}>
+                            {chat.type === 'quiz_review' ? (
                               <span className="text-lg">📝</span>
-                            </div>
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                            ) : (
                               <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                            </div>
-                          )}
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                               {chatPreview}

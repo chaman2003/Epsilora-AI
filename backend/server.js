@@ -396,16 +396,58 @@ app.delete('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
   }
 });
 
-// Chat History Routes
+// Chat endpoint
+app.post('/api/chat', authenticateToken, async (req, res) => {
+  try {
+    const { message, courseId, quizScore, totalQuestions } = req.body;
+    const userId = req.user.id;
+
+    // If this is a quiz review, get the course name
+    let courseName = '';
+    if (courseId) {
+      const course = await Course.findById(courseId);
+      courseName = course ? course.name : 'Unknown Course';
+    }
+
+    // Generate AI response
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+
+    let prompt = message;
+    if (quizScore !== undefined && totalQuestions !== undefined) {
+      prompt = `Context: User just completed a quiz in ${courseName} with score ${quizScore}/${totalQuestions}.\n\nUser message: ${message}`;
+    }
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const aiMessage = response.text();
+
+    res.json({ message: aiMessage });
+  } catch (error) {
+    console.error('Error in chat endpoint:', error);
+    res.status(500).json({ error: 'Failed to process chat message' });
+  }
+});
+
+// Save chat
 app.post('/api/chat/save', authenticateToken, async (req, res) => {
   try {
     const { messages, type = 'general', metadata = {} } = req.body;
     const userId = req.user.id;
 
-    // Create a new chat
+    // Get chat title based on type and content
+    let title = '';
+    if (type === 'quiz_review' && metadata.courseName) {
+      title = `Quiz Review: ${metadata.courseName}`;
+    } else {
+      // Use the first user message as title
+      const firstUserMessage = messages.find(m => m.role === 'user');
+      title = firstUserMessage ? firstUserMessage.content.slice(0, 50) : 'New Chat';
+    }
+
     const chat = new AIChat({
       userId,
-      title: messages[0]?.content.slice(0, 50) || 'New Chat',
+      title,
       messages,
       type,
       metadata
@@ -419,6 +461,38 @@ app.post('/api/chat/save', authenticateToken, async (req, res) => {
   }
 });
 
+// Update chat
+app.put('/api/chat/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { messages } = req.body;
+    
+    // Find the existing chat
+    const chat = await AIChat.findOne({ _id: req.params.id, userId });
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    // Update messages and title
+    chat.messages = messages;
+    if (chat.type === 'general') {
+      // Update title for general chats based on first user message
+      const firstUserMessage = messages.find(m => m.role === 'user');
+      if (firstUserMessage) {
+        chat.title = firstUserMessage.content.slice(0, 50);
+      }
+    }
+    chat.lastUpdated = new Date();
+
+    await chat.save();
+    res.json(chat);
+  } catch (error) {
+    console.error('Error updating chat:', error);
+    res.status(500).json({ error: 'Failed to update chat' });
+  }
+});
+
+// Get chat history
 app.get('/api/chat/history', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -432,6 +506,7 @@ app.get('/api/chat/history', authenticateToken, async (req, res) => {
   }
 });
 
+// Get single chat
 app.get('/api/chat/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -446,30 +521,7 @@ app.get('/api/chat/:id', authenticateToken, async (req, res) => {
   }
 });
 
-app.put('/api/chat/:id', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { messages } = req.body;
-    const chat = await AIChat.findOneAndUpdate(
-      { _id: req.params.id, userId },
-      { 
-        $set: { 
-          messages,
-          lastUpdated: new Date()
-        }
-      },
-      { new: true }
-    );
-    if (!chat) {
-      return res.status(404).json({ error: 'Chat not found' });
-    }
-    res.json(chat);
-  } catch (error) {
-    console.error('Error updating chat:', error);
-    res.status(500).json({ error: 'Failed to update chat' });
-  }
-});
-
+// Delete chat
 app.delete('/api/chat/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
