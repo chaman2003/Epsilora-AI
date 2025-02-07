@@ -40,7 +40,20 @@ interface QuizData {
 const AIAssist: React.FC = () => {
   const { quizData, setQuizData } = useQuiz();
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([{
+    role: 'assistant',
+    content: `# 👋 Welcome to Epsilora AI! ✨
+
+I'm your personal AI assistant, ready to help you learn and grow! 🌱
+
+Here's what I can do for you:
+* 📚 Answer your questions about any topic
+* 🧠 Help you understand complex concepts
+* 💡 Provide study tips and strategies
+* 🎯 Guide you through problem-solving
+
+Feel free to ask me anything - I'm here to support your learning journey! 🚀`
+  }]);
   const [loading, setLoading] = useState(false);
   const [chatHistories, setChatHistories] = useState<ChatHistory[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
