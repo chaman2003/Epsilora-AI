@@ -47,97 +47,19 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configure CORS
-const corsOptions = {
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://epsilora.vercel.app',
-    'https://epsilora-git-main-chaman-ss-projects.vercel.app',
-    'https://epsilora-chaman-ss-projects.vercel.app',
-    'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app'
-  ],
+// CORS configuration
+app.use(cors({
+  origin: ['https://epsilora.vercel.app', 'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range']
-};
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-app.use(cors(corsOptions));
+// Import routes
+import chatRoutes from './routes/chat.js';
 
-// Enable pre-flight requests for all routes
-app.options('*', cors(corsOptions));
-
-// MongoDB connection with retry logic
-const connectDB = async (retries = 5) => {
-  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/epsilora';
-  console.log('Attempting to connect to MongoDB...');
-  
-  // Add mongoose debug logging
-  mongoose.set('debug', true);
-  
-  while (retries > 0) {
-    try {
-      console.log(`Connection attempt ${6 - retries}/5`);
-      await mongoose.connect(MONGODB_URI, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        serverSelectionTimeoutMS: 5000,
-        heartbeatFrequencyMS: 2000,
-        family: 4 // Force IPv4
-      });
-      
-      // Test the connection
-      await mongoose.connection.db.admin().ping();
-      console.log('MongoDB Connected Successfully');
-      
-      // Add connection event listeners
-      mongoose.connection.on('error', err => {
-        console.error('MongoDB connection error:', err);
-      });
-      
-      mongoose.connection.on('disconnected', () => {
-        console.log('MongoDB disconnected');
-      });
-      
-      mongoose.connection.on('reconnected', () => {
-        console.log('MongoDB reconnected');
-      });
-      
-      return;
-    } catch (err) {
-      console.error(`MongoDB connection attempt failed (${retries} retries left):`, {
-        message: err.message,
-        code: err.code,
-        name: err.name,
-        stack: err.stack
-      });
-      
-      retries -= 1;
-      if (retries === 0) {
-        console.error('All connection attempts failed. Last error:', err);
-        throw new Error('Failed to connect to MongoDB after multiple attempts');
-      }
-      console.log('Waiting 5 seconds before next retry...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-  }
-};
-
-// Initialize MongoDB connection
-(async () => {
-  try {
-    await connectDB();
-  } catch (err) {
-    console.error('Fatal: Could not connect to MongoDB:', {
-      message: err.message,
-      code: err.code,
-      name: err.name,
-      stack: err.stack
-    });
-    process.exit(1);
-  }
-})();
+// Use routes
+app.use('/api/chat', chatRoutes);
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -1163,7 +1085,6 @@ app.use(errorHandler);
 
 // Routes
 app.use('/api/progress', progressRoutes);
-app.use('/api/chat', chatRoutes);
 
 // Start server
 app.listen(PORT, () => {
