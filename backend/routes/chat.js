@@ -99,7 +99,7 @@ router.get('/chats/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// AI Chat endpoint
+// Chat endpoint for AI responses
 router.post('/ai', authenticateToken, async (req, res) => {
   try {
     const { message, courseId, quizScore, totalQuestions } = req.body;
@@ -132,7 +132,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
   }
 });
 
-// Save new AI chat
+// Save new chat
 router.post('/ai/save', authenticateToken, async (req, res) => {
   try {
     const { messages, type = 'general', metadata = {} } = req.body;
@@ -151,8 +151,7 @@ router.post('/ai/save', authenticateToken, async (req, res) => {
       title,
       messages,
       type,
-      metadata,
-      lastUpdated: new Date()
+      metadata
     });
 
     await chat.save();
@@ -163,7 +162,7 @@ router.post('/ai/save', authenticateToken, async (req, res) => {
   }
 });
 
-// Get AI chat history
+// Get chat history
 router.get('/ai/history', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -177,7 +176,7 @@ router.get('/ai/history', authenticateToken, async (req, res) => {
   }
 });
 
-// Get single AI chat
+// Get single chat
 router.get('/ai/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -192,7 +191,7 @@ router.get('/ai/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Update AI chat
+// Update chat
 router.put('/ai/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -220,7 +219,7 @@ router.put('/ai/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete AI chat
+// Delete chat
 router.delete('/ai/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
