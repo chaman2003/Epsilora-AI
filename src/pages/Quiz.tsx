@@ -1004,6 +1004,25 @@ const Quiz: React.FC = () => {
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
   };
+
+  const updateQuizStats = (history: QuizAttempt[]) => {
+    if (history.length === 0) return;
+
+    const totalQuizzes = history.length;
+    const totalScore = history.reduce((sum, quiz) => sum + quiz.score, 0);
+    const averageScore = Math.round((totalScore / totalQuizzes) * 10) / 10; // Round to 1 decimal place
+    const latestScore = Math.round(history[0].score); // Round to whole number
+
+    setQuizStats({
+      totalQuizzes,
+      averageScore,
+      latestScore
+    });
+
+    // Update chart data
+    updateChartData(history);
+  };
+
   if (!quizStarted && !loading) {
     return (
       <motion.div
@@ -1223,7 +1242,7 @@ const Quiz: React.FC = () => {
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">Average Score</p>
                           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                            {quizStats.totalQuizzes === 0 ? '—' : `${quizStats.averageScore}%`}
+                            {quizStats.averageScore}%
                           </p>
                         </div>
                         <div className="bg-green-100 dark:bg-green-900 p-2 rounded-lg">
@@ -1237,7 +1256,7 @@ const Quiz: React.FC = () => {
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">Latest Performance</p>
                           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                            {quizStats.totalQuizzes === 0 ? '—' : `${quizStats.latestScore}%`}
+                            {quizStats.latestScore}%
                           </p>
                         </div>
                         <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
