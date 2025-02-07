@@ -49,25 +49,34 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Configure CORS
-const corsOptions = {
+app.use(cors({
   origin: [
     'http://localhost:5173',
     'http://localhost:3000',
     'https://epsilora.vercel.app',
-    'https://epsilora-git-main-chaman-ss-projects.vercel.app',
-    'https://epsilora-chaman-ss-projects.vercel.app',
-    'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app'
+    'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app',
+    /\.vercel\.app$/  // Allow all subdomains of vercel.app
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   exposedHeaders: ['Content-Range', 'X-Content-Range']
-};
-
-app.use(cors(corsOptions));
+}));
 
 // Enable pre-flight requests for all routes
-app.options('*', cors(corsOptions));
+app.options('*', cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://epsilora.vercel.app',
+    'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app',
+    /\.vercel\.app$/  // Allow all subdomains of vercel.app
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+}));
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
