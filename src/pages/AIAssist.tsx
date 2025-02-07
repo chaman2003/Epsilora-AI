@@ -151,18 +151,30 @@ Would you like me to explain any specific questions in more detail? I'm here to 
       setMessages(prev => [...prev, userMessage]);
 
       const token = localStorage.getItem('token');
-      const response = await axios.post('/api/chats', { 
-        messages: [userMessage],
-        title: 'AI Chat'
+      
+      // Get AI response
+      const aiResponse = await axios.post('/api/chat/ai', { 
+        message,
+        type: 'general'
       }, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      if (response.data && response.data.messages) {
-        const assistantMessage = response.data.messages[response.data.messages.length - 1];
+      if (aiResponse.data && aiResponse.data.message) {
+        const assistantMessage = { role: 'assistant', content: aiResponse.data.message };
         setMessages(prev => [...prev, assistantMessage]);
+
+        // Save the chat
+        await axios.post('/api/chat/ai/save', {
+          messages: [...messages, userMessage, assistantMessage],
+          type: 'general'
+        }, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -189,19 +201,16 @@ Correct Answer: ${question.correctAnswer.replace(/[^A-D]/g, '')}
 
 Explain in two clear, concise sentences why this answer is correct. Focus on the specific context and concepts involved.`;
 
-      const response = await axios.post('/api/chats', {
-        messages: [{ role: 'user', content: prompt }],
-        title: 'Quiz Explanation'
+      const response = await axios.post('/api/chat/ai', {
+        message: prompt,
+        type: 'quiz_explanation'
       }, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      if (response.data && response.data.messages) {
-        return response.data.messages[response.data.messages.length - 1].content;
-      }
-      return 'Unable to generate explanation.';
+      return response.data.message || 'Unable to generate explanation.';
     } catch (error) {
       console.error('Error getting explanation:', error);
       return 'Unable to generate explanation.';
