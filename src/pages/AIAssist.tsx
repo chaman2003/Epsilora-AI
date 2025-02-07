@@ -645,7 +645,7 @@ Let me know if you have any questions about the quiz or would like to review spe
 
             {/* Chat Messages */}
             <div className="h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50">
-              <AnimatePresence initial={false}>
+              <AnimatePresence mode="wait">
                 {messages.map((message, index) => (
                   <motion.div
                     key={index}
@@ -753,10 +753,6 @@ Let me know if you have any questions about the quiz or would like to review spe
                     </div>
                   </motion.div>
                 ))}
-              </AnimatePresence>
-              
-              {/* Separate AnimatePresence for loading indicator */}
-              <AnimatePresence>
                 {loading && (
                   <motion.div
                     key="loading"
