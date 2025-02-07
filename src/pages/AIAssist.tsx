@@ -212,7 +212,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
 
   const loadChatHistory = async () => {
     try {
-      const response = await axios.get('/api/chat/history');
+      const response = await axios.get('/api/chat/ai/history');
       setChatHistories(response.data);
     } catch (error) {
       console.error('Error loading chat history:', error);
@@ -221,7 +221,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
 
   const createNewChat = async (initialMessages: Message[] = []) => {
     try {
-      const response = await axios.post('/api/chat', {
+      const response = await axios.post('/api/chat/ai/save', {
         messages: initialMessages,
         type: quizData ? 'quiz_review' : 'general',
         metadata: quizData ? {
@@ -230,7 +230,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
           totalQuestions: quizData.totalQuestions
         } : {}
       });
-      const newChatId = response.data._id;
+      const newChatId = response.data.chatId;
       setCurrentChatId(newChatId);
       await loadChatHistory();
       return newChatId;
@@ -243,7 +243,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
 
   const loadChat = async (chatId: string) => {
     try {
-      const response = await axios.get(`/api/chat/${chatId}`);
+      const response = await axios.get(`/api/chat/ai/${chatId}`);
       setMessages(response.data.messages || []);
       setCurrentChatId(chatId);
     } catch (error) {
@@ -253,7 +253,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
 
   const deleteChat = async (chatId: string) => {
     try {
-      await axios.delete(`/api/chat/${chatId}`);
+      await axios.delete(`/api/chat/ai/${chatId}`);
       if (currentChatId === chatId) {
         setMessages([]);
         setCurrentChatId(null);
@@ -270,7 +270,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     if (!currentChatId) return false;
 
     try {
-      await axios.put(`/api/chat/${currentChatId}`, {
+      await axios.put(`/api/chat/ai/${currentChatId}`, {
         messages
       });
       return true;
@@ -290,7 +290,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/chat', {
+      const response = await axios.post('/api/chat/ai', {
         message: input,
         courseId: quizData?.courseId,
         quizScore: quizData?.score,
@@ -310,14 +310,14 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
           totalQuestions: quizData.totalQuestions
         } : {};
 
-        const saveResponse = await axios.post('/api/chat/save', {
+        const saveResponse = await axios.post('/api/chat/ai/save', {
           messages: updatedMessages,
           type: chatType,
           metadata
         });
         setCurrentChatId(saveResponse.data.chatId);
       } else {
-        await axios.put(`/api/chat/${currentChatId}`, {
+        await axios.put(`/api/chat/ai/${currentChatId}`, {
           messages: updatedMessages
         });
       }
@@ -350,7 +350,7 @@ ${data.questions.map((q, index) => `
 Question ${index + 1}: ${q.isCorrect ? '✅' : '❌'}
 ${q.question}
 Your Answer: ${q.userAnswer}
-${!q.isCorrect ? `Correct Answer: ${q.correctAnswer}` : ''}`).join('\n')}
+${!q.isCorrect ? `Correct answer: ${q.correctAnswer}` : ''}`).join('\n')}
 
 Let me know if you have any questions about the quiz or would like to review specific topics! 📚`;
   };
@@ -557,29 +557,54 @@ Let me know if you have any questions about the quiz or would like to review spe
 
             {/* Chat Messages */}
             <div className="h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50">
-              <AnimatePresence mode="wait">
-                {messages.map((message, index) => (
+              <AnimatePresence initial={false}>
+                {Array.isArray(messages) && messages.map((message, index) => (
                   <motion.div
                     key={index}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 40,
+                      mass: 1
+                    }}
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className="flex items-start max-w-3xl space-x-4">
-                      <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                        message.role === 'user'
-                          ? 'bg-indigo-100 dark:bg-indigo-900/50'
-                          : 'bg-purple-100 dark:bg-purple-900/50'
-                      }`}>
+                      <motion.div 
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ 
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 30,
+                          mass: 1,
+                          delay: 0.1 
+                        }}
+                        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                          message.role === 'user'
+                            ? 'bg-indigo-100 dark:bg-indigo-900/50'
+                            : 'bg-purple-100 dark:bg-purple-900/50'
+                        }`}
+                      >
                         {message.role === 'user' ? (
                           <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                         ) : (
                           <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                         )}
-                      </div>
-                      <div
+                      </motion.div>
+                      <motion.div
+                        initial={{ x: message.role === 'user' ? 20 : -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ 
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 30,
+                          mass: 1,
+                          delay: 0.15 
+                        }}
                         className={`rounded-2xl p-6 shadow-md ${
                           message.role === 'user'
                             ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'
@@ -661,7 +686,7 @@ Let me know if you have any questions about the quiz or would like to review spe
                         >
                           {message.content}
                         </ReactMarkdown>
-                      </div>
+                      </motion.div>
                     </div>
                   </motion.div>
                 ))}
