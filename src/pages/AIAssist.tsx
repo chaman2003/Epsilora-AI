@@ -40,20 +40,7 @@ interface QuizData {
 const AIAssist: React.FC = () => {
   const { quizData, setQuizData } = useQuiz();
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([{
-    role: 'assistant',
-    content: `# 👋 Welcome to Epsilora AI! ✨
-
-I'm your personal AI assistant, ready to help you learn and grow! 🌱
-
-Here's what I can do for you:
-* 📚 Answer your questions about any topic
-* 🧠 Help you understand complex concepts
-* 💡 Provide study tips and strategies
-* 🎯 Guide you through problem-solving
-
-Feel free to ask me anything - I'm here to support your learning journey! 🚀`
-  }]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [chatHistories, setChatHistories] = useState<ChatHistory[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -84,7 +71,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
           localStorage.removeItem('aiAssistMessages');
           localStorage.removeItem('quiz_data');
           localStorage.removeItem('quizData');
-          setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
+          setMessages([]);
           setQuizData(null);
           setChatHistories([]);
           setCurrentChatId(null);
@@ -121,30 +108,31 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
         }
       }
 
+      const welcomeMessage = {
+        role: 'assistant' as const,
+        content: `# 👋 Welcome to Epsilora AI! ✨
+
+I'm your personal AI assistant, ready to help you learn and grow! 🌱
+
+Here's what I can do for you:
+* 📚 Answer your questions about any topic
+* 🧠 Help you understand complex concepts
+* 💡 Provide study tips and strategies
+* 🎯 Guide you through problem-solving
+
+Feel free to ask me anything - I'm here to support your learning journey! 🚀`
+      };
+
       if (!quizDataToUse) {
-        console.warn('No quiz data available, proceeding without quiz data.');
-        // Allow access to AI Assist even without quiz data
-        setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
+        setMessages([welcomeMessage]);
+        createNewChat([welcomeMessage]);
         return;
       }
 
-      console.log('Using quiz data:', quizDataToUse);
       const summary = generateQuizSummary(quizDataToUse);
-
-      const storedMessages = localStorage.getItem('aiAssistMessages');
-      if (storedMessages) {
-        try {
-          const parsedMessages = JSON.parse(storedMessages);
-          setMessages(parsedMessages);
-        } catch (error) {
-          console.error('Error parsing stored messages:', error);
-          setMessages([{ role: 'assistant', content: summary }]);
-        }
-      } else {
-        setMessages([{ role: 'assistant', content: summary }]);
-
-        createNewChat([{ role: 'assistant', content: summary }]);
-      }
+      const messages = [welcomeMessage, { role: 'assistant', content: summary }];
+      setMessages(messages);
+      createNewChat(messages);
     };
 
     initializeQuizData();
@@ -230,7 +218,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
       
       // For new users, ensure we start with a clean slate
       if (response.data.length === 0) {
-        setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
+        setMessages([]);
         setCurrentChatId(null);
       }
       
@@ -321,46 +309,21 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     if (!token) return false;
 
     try {
-      // Try multiple ways to save messages
-      try {
-        // Method 1: Save as messages array
-        await axiosInstance.put(`/api/chat-history/${chatId}`, {
-          messages: messages
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      } catch (e) {
-        console.log('Method 1 failed, trying method 2');
-        // Method 2: Save messages one by one
-        for (const message of messages) {
-          await axiosInstance.put(`/api/chat-history/${chatId}`, {
-            message: message
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-        }
-      }
-
-      // Verify messages were saved
-      const savedChat = chatHistories.find(ch => ch._id === chatId);
-      if (!savedChat || savedChat.messages.length !== messages.length) {
-        // If verification fails, try one more time with both methods
-        try {
-          await axiosInstance.put(`/api/chat-history/${chatId}`, {
-            messages: messages,
-            message: messages[messages.length - 1]
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-        } catch (e) {
-          console.error('Final save attempt failed:', e);
-          return false;
-        }
-      }
-
+      await axiosInstance.put(`/api/chat-history/${chatId}`, {
+        messages: messages
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Update local chat histories
+      setChatHistories(prev => prev.map(chat => 
+        chat._id === chatId ? { ...chat, messages } : chat
+      ));
+      
       return true;
     } catch (error) {
       console.error('Error saving messages:', error);
+      toast.error('Failed to save messages');
       return false;
     }
   };
@@ -478,37 +441,23 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
   };
 
   const generateQuizSummary = (data: QuizData) => {
-    console.log('Generating summary for quiz data:', data);
+    // Calculate percentage with 1 decimal point
+    const percentage = ((data.score / data.totalQuestions) * 100).toFixed(1);
     
-    let summary = `# 🎓 Quiz Review\n\n`;
-    summary += `## 📘 Course: ${data.courseName} \n`;
-    summary += `**🧠 Difficulty:** ${data.difficulty} \n`;
-    summary += `**🏆 Score:** ${data.score}/${data.totalQuestions} \n\n`;
+    return `# 📊 Quiz Review Summary
 
-    summary += `## 🔍 Questions \n\n`;
-    data.questions.forEach((q, index) => {
-      summary += `### 📝 Question ${index + 1} ${q.isCorrect ? '✅' : '❌'} \n\n`;
-      summary += `**${q.question}** \n\n`;
-      
-      summary += `**Options:** \n\n`;
-      if (Array.isArray(q.options)) {
-        q.options.forEach(opt => {
-          const isUserAnswer = opt.label === q.userAnswer;
-          const isCorrectAnswer = opt.label === q.correctAnswer;
-          summary += `${isUserAnswer ? '👉 ' : ''}${opt.text} ${isCorrectAnswer ? '✅' : ''}\n\n`;
-        });
-      }
-      
-      summary += `\n**Your Answer:** ${q.userAnswer} `;
-      if (q.isCorrect) {
-        summary += `✅ Correct!\n\n`;
-      } else {
-        summary += `❌ Wrong\n\n`;
-        summary += `\n**_Correct answer was ${q.correctAnswer}_**\n\n`;
-      }
-    });
+📘 Course: ${data.courseName}
+🎯 Difficulty: ${data.difficulty}
+🏆 Score: ${data.score}/${data.totalQuestions} (${percentage}%)
 
-    return summary;
+## Question Details:
+${data.questions.map((q, index) => `
+Question ${index + 1}: ${q.isCorrect ? '✅' : '❌'}
+${q.question}
+Your Answer: ${q.userAnswer}
+${!q.isCorrect ? `Correct Answer: ${q.correctAnswer}` : ''}`).join('\n')}
+
+Let me know if you have any questions about the quiz or would like to review specific topics! 📚`;
   };
 
   const StyledComponents = {
