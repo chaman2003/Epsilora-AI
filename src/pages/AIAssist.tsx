@@ -115,10 +115,12 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
 
   useEffect(() => {
     if (quizData) {
-      const summary = generateQuizSummary(quizData);
-      const quizMessage = { role: 'assistant' as const, content: summary };
-      const updatedMessages = [...messages, quizMessage];
-      setMessages(updatedMessages);
+      const loadQuizSummary = async () => {
+        const summary = await generateQuizSummary(quizData);
+        const updatedMessages = [...messages, { role: 'assistant' as const, content: summary }];
+        setMessages(updatedMessages);
+      };
+      loadQuizSummary();
     }
   }, [quizData]);
 
@@ -191,7 +193,28 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     }
   };
 
-  const generateQuizSummary = (quizData: QuizData) => {
+  const getExplanation = async (question: any) => {
+    try {
+      const prompt = `Question: ${question.question}
+Options:
+${question.options.map(opt => `${opt.label.replace(/[^A-D]/g, '')}. ${opt.text}`).join('\n')}
+Correct Answer: ${question.correctAnswer.replace(/[^A-D]/g, '')}
+
+Explain in two clear, concise sentences why this answer is correct. Focus on the specific context and concepts involved.`;
+
+      const response = await axios.post('/api/chat/ai', {
+        message: prompt,
+        type: 'quiz_explanation'
+      });
+
+      return response.data.message;
+    } catch (error) {
+      console.error('Error getting explanation:', error);
+      return 'Unable to generate explanation.';
+    }
+  };
+
+  const generateQuizSummary = async (quizData: QuizData) => {
     const { courseName, score, totalQuestions, questions } = quizData;
     const percentage = (score / totalQuestions) * 100;
 
@@ -218,27 +241,25 @@ ${performanceText}
 ${questions.map((q, index) => `### ${q.isCorrect ? '✅' : '❌'} Question ${index + 1}
 ${q.question}
 
-**Options:**
 ${q.options.map(opt => {
-  const isUserAnswer = opt.label === q.userAnswer;
-  const isCorrectAnswer = opt.label === q.correctAnswer;
+  // Clean up the option format and remove A., B., etc.
+  const label = opt.label.replace(/[^A-D]/g, '').replace(/.*([A-D]).*/, '$1');
+  const text = opt.text.replace(/^[A-D][.)]?\s*[A-D][.)]?\s*/, '').trim();
+  
+  const isUserAnswer = label === q.userAnswer.replace(/[^A-D]/g, '');
+  const isCorrectAnswer = label === q.correctAnswer.replace(/[^A-D]/g, '');
+  
   let marker = '';
   if (isUserAnswer && isCorrectAnswer) {
-    marker = '✅ (Your correct answer)';
+    marker = '✅';
   } else if (isUserAnswer) {
-    marker = '❌ (Your answer)';
+    marker = '❌';
   } else if (isCorrectAnswer) {
-    marker = '✅ (Correct answer)';
+    marker = '✅';
   }
-  return `* ${opt.label}. ${opt.text} ${marker}`;
+  
+  return `${text} ${marker}`;
 }).join('\n')}
-
-${q.isCorrect ? 
-  `**✨ Great job!** You got this right.` : 
-  `**Explanation:** ${q.correctAnswer === 'A' ? 'This is the most accurate option as it directly addresses the core concept.' :
-    q.correctAnswer === 'B' ? 'This option provides the most comprehensive and accurate explanation.' :
-    q.correctAnswer === 'C' ? 'This is the technically correct answer based on the given context.' :
-    'This option represents the most precise and accurate answer.'}`}
 
 ---`).join('\n\n')}
 
