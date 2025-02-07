@@ -59,6 +59,21 @@ const AIAssist: React.FC = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
+  const welcomeMessage: Message = {
+    role: 'assistant',
+    content: `# 👋 Welcome to Epsilora AI! ✨
+
+I'm your personal AI assistant, ready to help you learn and grow! 🌱
+
+Here's what I can do for you:
+* 📚 Answer your questions about any topic
+* 🧠 Help you understand complex concepts
+* 💡 Provide study tips and strategies
+* 🎯 Guide you through problem-solving
+
+Feel free to ask me anything - I'm here to support your learning journey! 🚀`
+  };
+
   // Check if this is a new session and reset data if needed
   useEffect(() => {
     const lastUserId = localStorage.getItem('lastUserId');
@@ -94,25 +109,9 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    const welcomeMessage = {
-      role: 'assistant' as const,
-      content: `# 👋 Welcome to Epsilora AI! ✨
-
-I'm your personal AI assistant, ready to help you learn and grow! 🌱
-
-Here's what I can do for you:
-* 📚 Answer your questions about any topic
-* 🧠 Help you understand complex concepts
-* 💡 Provide study tips and strategies
-* 🎯 Guide you through problem-solving
-
-Feel free to ask me anything - I'm here to support your learning journey! 🚀`
-    };
-
-    // Reset conversation on mount and when auth state changes
     setMessages([welcomeMessage]);
     setQuizData(null);
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, welcomeMessage]);
 
   useEffect(() => {
     if (quizData) {
@@ -122,14 +121,14 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
       };
       loadQuizSummary();
     }
-  }, [quizData]);
+  }, [quizData, welcomeMessage]);
 
   useEffect(() => {
     return () => {
       setMessages([welcomeMessage]);
       setQuizData(null);
     };
-  }, []);
+  }, [welcomeMessage]);
 
   useEffect(() => {
     if (messages.length > 0) {
