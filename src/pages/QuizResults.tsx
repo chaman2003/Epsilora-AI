@@ -25,10 +25,21 @@ const QuizResults: React.FC = () => {
   }
 
   const { score, totalQuestions, courseName, difficulty } = quizData;
-  const percentage = ((score / totalQuestions) * 100).toFixed(1);
+  const percentage = ((score / totalQuestions) * 100);
+
+  const formatScore = (score: number) => {
+    return Math.round(score) + '%';
+  };
+
+  const getScoreColor = (score: number) => {
+    const roundedScore = Math.round(score);
+    if (roundedScore >= 80) return 'text-emerald-500';
+    if (roundedScore >= 60) return 'text-amber-500';
+    return 'text-rose-500';
+  };
 
   const getMessage = () => {
-    const percentageNum = parseFloat(percentage);
+    const percentageNum = Math.round(percentage);
     if (percentageNum >= 90) return "Outstanding! You've mastered this topic! 🌟";
     if (percentageNum >= 80) return "Excellent work! You have a strong grasp of the material! 💪";
     if (percentageNum >= 70) return "Good job! Keep up the great work! 👍";
@@ -79,7 +90,7 @@ const QuizResults: React.FC = () => {
                     cy="64"
                   />
                   <circle
-                    className="text-indigo-600 dark:text-indigo-400"
+                    className={`text-indigo-600 dark:text-indigo-400 ${getScoreColor(percentage)}`}
                     strokeWidth="8"
                     strokeLinecap="round"
                     stroke="currentColor"
@@ -87,12 +98,12 @@ const QuizResults: React.FC = () => {
                     r="58"
                     cx="64"
                     cy="64"
-                    strokeDasharray={`${parseFloat(percentage) * 3.64} 364`}
+                    strokeDasharray={`${Math.round(percentage) * 3.64} 364`}
                     transform="rotate(-90 64 64)"
                   />
                 </svg>
                 <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-bold">
-                  {percentage}%
+                  {formatScore(percentage)}
                 </span>
               </div>
             </div>
@@ -104,7 +115,7 @@ const QuizResults: React.FC = () => {
                   <Award className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Score</p>
-                    <p className="text-lg font-semibold">{score} / {totalQuestions}</p>
+                    <p className="text-lg font-semibold">{formatScore(percentage)}</p>
                   </div>
                 </div>
               </div>
