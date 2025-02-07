@@ -94,7 +94,6 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    // Reset messages and show welcome message on login
     const welcomeMessage = {
       role: 'assistant' as const,
       content: `# 👋 Welcome to Epsilora AI! ✨
@@ -110,31 +109,33 @@ Here's what I can do for you:
 Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     };
 
+    // Reset conversation on mount and when auth state changes
     setMessages([welcomeMessage]);
+    setQuizData(null);
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     if (quizData) {
       const loadQuizSummary = async () => {
         const summary = await generateQuizSummary(quizData);
-        const updatedMessages = [...messages, { role: 'assistant' as const, content: summary }];
-        setMessages(updatedMessages);
+        setMessages([welcomeMessage, { role: 'assistant' as const, content: summary }]);
       };
       loadQuizSummary();
     }
   }, [quizData]);
 
   useEffect(() => {
+    return () => {
+      setMessages([welcomeMessage]);
+      setQuizData(null);
+    };
+  }, []);
+
+  useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem('aiAssistMessages', JSON.stringify(messages));
     }
   }, [messages]);
-
-  useEffect(() => {
-    return () => {
-      localStorage.removeItem('aiAssistMessages');
-    };
-  }, []);
 
   useEffect(() => {
     // Update quiz data whenever messages change
