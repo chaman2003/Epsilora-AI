@@ -28,23 +28,23 @@ const QuizResults: React.FC = () => {
   const percentage = ((score / totalQuestions) * 100);
 
   const formatScore = (score: number) => {
-    return Math.round(score) + '%';
+    return Math.floor(score) + '%';
   };
 
   const getScoreColor = (score: number) => {
-    const roundedScore = Math.round(score);
+    const roundedScore = Math.floor(score);
     if (roundedScore >= 80) return 'text-emerald-500';
     if (roundedScore >= 60) return 'text-amber-500';
     return 'text-rose-500';
   };
 
   const getMessage = () => {
-    const percentageNum = Math.round(percentage);
+    const percentageNum = Math.floor(percentage);
     if (percentageNum >= 90) return "Outstanding! You've mastered this topic! 🌟";
     if (percentageNum >= 80) return "Excellent work! You have a strong grasp of the material! 💪";
     if (percentageNum >= 70) return "Good job! Keep up the great work! 👍";
-    if (percentageNum >= 60) return "Nice effort! A bit more practice will help you improve! 📚";
-    return "Keep learning! Every attempt brings you closer to mastery! 💡";
+    if (percentageNum >= 60) return "You're making progress! A bit more practice will help! 📚";
+    return "Keep practicing! You'll get better with time! 💪";
   };
 
   const handleTryAgain = () => {
@@ -98,7 +98,7 @@ const QuizResults: React.FC = () => {
                     r="58"
                     cx="64"
                     cy="64"
-                    strokeDasharray={`${Math.round(percentage) * 3.64} 364`}
+                    strokeDasharray={`${Math.floor(percentage) * 3.64} 364`}
                     transform="rotate(-90 64 64)"
                   />
                 </svg>
