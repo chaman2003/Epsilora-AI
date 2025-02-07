@@ -47,22 +47,11 @@ const app = express();
 // CORS setup
 app.use(cors({
   origin: 'https://epsilora.vercel.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 204,
-  preflightContinue: false
+  credentials: true
 }));
 
 // Handle preflight requests
-app.options('*', cors({
-  origin: 'https://epsilora.vercel.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 204,
-  preflightContinue: false
-}));
+app.options('*', cors());
 
 // Parse JSON
 app.use(express.json());
