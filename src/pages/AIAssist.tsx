@@ -94,23 +94,10 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    const initializeQuizData = async () => {
-      let quizDataToUse = quizData;
-      const storedQuizData = localStorage.getItem('quizData');
-
-      if (!quizDataToUse && storedQuizData) {
-        try {
-          quizDataToUse = JSON.parse(storedQuizData);
-          console.log('Retrieved quiz data from localStorage:', quizDataToUse);
-          setQuizData(quizDataToUse);
-        } catch (error) {
-          console.error('Error parsing quiz data from localStorage:', error);
-        }
-      }
-
-      const welcomeMessage = {
-        role: 'assistant' as const,
-        content: `# 👋 Welcome to Epsilora AI! ✨
+    // Reset messages and show welcome message on login
+    const welcomeMessage = {
+      role: 'assistant' as const,
+      content: `# 👋 Welcome to Epsilora AI! ✨
 
 I'm your personal AI assistant, ready to help you learn and grow! 🌱
 
@@ -121,20 +108,10 @@ Here's what I can do for you:
 * 🎯 Guide you through problem-solving
 
 Feel free to ask me anything - I'm here to support your learning journey! 🚀`
-      };
-
-      if (!quizDataToUse) {
-        setMessages([welcomeMessage]);
-        return;
-      }
-
-      const summary = generateQuizSummary(quizDataToUse);
-      const messages = [welcomeMessage, { role: 'assistant', content: summary }];
-      setMessages(messages);
     };
 
-    initializeQuizData();
-  }, [isAuthenticated, navigate, quizData, setQuizData]);
+    setMessages([welcomeMessage]);
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     if (quizData) {
@@ -214,24 +191,63 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     }
   };
 
-  const generateQuizSummary = (data: QuizData) => {
-    // Calculate percentage with 1 decimal point
-    const percentage = ((data.score / data.totalQuestions) * 100).toFixed(1);
-    
-    return `# 📊 Quiz Review Summary
+  const generateQuizSummary = (quizData: QuizData) => {
+    const { courseName, score, totalQuestions, questions } = quizData;
+    const percentage = (score / totalQuestions) * 100;
 
-📘 Course: ${data.courseName}
-🎯 Difficulty: ${data.difficulty}
-🏆 Score: ${data.score}/${data.totalQuestions} (${percentage}%)
+    let performanceText = '';
+    if (percentage >= 90) {
+      performanceText = '🌟 Excellent performance!';
+    } else if (percentage >= 70) {
+      performanceText = '👏 Good job!';
+    } else if (percentage >= 50) {
+      performanceText = '💪 Keep practicing!';
+    } else {
+      performanceText = '📚 Let\'s work on improving!';
+    }
 
-## Question Details:
-${data.questions.map((q, index) => `
-Question ${index + 1}: ${q.isCorrect ? '✅' : '❌'}
+    return `# Quiz Review: ${courseName}
+
+${performanceText}
+
+## 📊 Score Overview
+* 🎯 Score: ${score}/${totalQuestions} (${percentage.toFixed(1)}%)
+
+## 📝 Detailed Question Review
+
+${questions.map((q, index) => `### ${q.isCorrect ? '✅' : '❌'} Question ${index + 1}
 ${q.question}
-Your Answer: ${q.userAnswer}
-${!q.isCorrect ? `Correct answer: ${q.correctAnswer}` : ''}`).join('\n')}
 
-Let me know if you have any questions about the quiz or would like to review specific topics! 📚`;
+**Options:**
+${q.options.map(opt => {
+  const isUserAnswer = opt.label === q.userAnswer;
+  const isCorrectAnswer = opt.label === q.correctAnswer;
+  let marker = '';
+  if (isUserAnswer && isCorrectAnswer) {
+    marker = '✅ (Your correct answer)';
+  } else if (isUserAnswer) {
+    marker = '❌ (Your answer)';
+  } else if (isCorrectAnswer) {
+    marker = '✅ (Correct answer)';
+  }
+  return `* ${opt.label}. ${opt.text} ${marker}`;
+}).join('\n')}
+
+${q.isCorrect ? 
+  `**✨ Great job!** You got this right.` : 
+  `**Explanation:** ${q.correctAnswer === 'A' ? 'This is the most accurate option as it directly addresses the core concept.' :
+    q.correctAnswer === 'B' ? 'This option provides the most comprehensive and accurate explanation.' :
+    q.correctAnswer === 'C' ? 'This is the technically correct answer based on the given context.' :
+    'This option represents the most precise and accurate answer.'}`}
+
+---`).join('\n\n')}
+
+## 📈 Key Takeaways
+* ${percentage >= 70 ? '🌟' : '💡'} You performed ${percentage >= 70 ? 'well' : 'adequately'} in this quiz
+* ✅ Correctly answered: ${score} questions
+* ${percentage < 100 ? `❌ Areas to review: ${questions.filter(q => !q.isCorrect).length} questions` : '🏆 Perfect score!'}
+
+Would you like me to explain any specific questions in more detail? I'm here to help! 🤓`;
   };
 
   const StyledComponents = {
