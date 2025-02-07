@@ -150,13 +150,18 @@ Would you like me to explain any specific questions in more detail? I'm here to 
       const userMessage = { role: 'user', content: message };
       setMessages(prev => [...prev, userMessage]);
 
-      const response = await axios.post('/api/chat', { 
-        message,
-        type: 'general'
+      const token = localStorage.getItem('token');
+      const response = await axios.post('/api/chats', { 
+        messages: [userMessage],
+        title: 'AI Chat'
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
-      if (response.data && response.data.message) {
-        const assistantMessage = { role: 'assistant', content: response.data.message };
+      if (response.data && response.data.messages) {
+        const assistantMessage = response.data.messages[response.data.messages.length - 1];
         setMessages(prev => [...prev, assistantMessage]);
       }
     } catch (error) {
@@ -169,13 +174,14 @@ Would you like me to explain any specific questions in more detail? I'm here to 
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
-
     await handleSubmit(input);
     setInput('');
   };
 
+  // Get AI explanation for quiz questions
   const getExplanation = async (question: any) => {
     try {
+      const token = localStorage.getItem('token');
       const prompt = `Question: ${question.question}
 Options:
 ${question.options.map(opt => `${opt.label.replace(/[^A-D]/g, '')}. ${opt.text}`).join('\n')}
@@ -183,12 +189,19 @@ Correct Answer: ${question.correctAnswer.replace(/[^A-D]/g, '')}
 
 Explain in two clear, concise sentences why this answer is correct. Focus on the specific context and concepts involved.`;
 
-      const response = await axios.post('/api/chat', {
-        message: prompt,
-        type: 'quiz_explanation'
+      const response = await axios.post('/api/chats', {
+        messages: [{ role: 'user', content: prompt }],
+        title: 'Quiz Explanation'
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
-      return response.data.message;
+      if (response.data && response.data.messages) {
+        return response.data.messages[response.data.messages.length - 1].content;
+      }
+      return 'Unable to generate explanation.';
     } catch (error) {
       console.error('Error getting explanation:', error);
       return 'Unable to generate explanation.';
