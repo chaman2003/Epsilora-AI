@@ -44,18 +44,25 @@ try {
 
 const app = express();
 
-// Basic CORS setup
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://epsilora.vercel.app');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
+// CORS setup
+app.use(cors({
+  origin: 'https://epsilora.vercel.app',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204,
+  preflightContinue: false
+}));
+
+// Handle preflight requests
+app.options('*', cors({
+  origin: 'https://epsilora.vercel.app',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204,
+  preflightContinue: false
+}));
 
 // Parse JSON
 app.use(express.json());
