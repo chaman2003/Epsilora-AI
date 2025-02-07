@@ -1,12 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../config/axios';
 import axios from 'axios';
+import { MessageSquare, Send, Bot, User, Sparkles, Loader2, History, Trash2, Plus, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, User, Send, Loader2, MessageSquare, History, Plus, X, Trash2 } from 'lucide-react';
-import { format } from 'date-fns';
-import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '../context/QuizContext';
 import ChatHistorySidebar from '../components/chat/ChatHistory';
@@ -20,12 +19,6 @@ interface ChatHistory {
   _id: string;
   messages: Message[];
   createdAt: string;
-  type: 'general' | 'quiz_review';
-  metadata?: {
-    courseName?: string;
-    quizScore?: number;
-    totalQuestions?: number;
-  };
 }
 
 interface QuizData {
@@ -50,9 +43,9 @@ const AIAssist: React.FC = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatHistories, setChatHistories] = useState<ChatHistory[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentQuizData, setCurrentQuizData] = useState<{
     score?: string;
     totalQuestions?: number;
@@ -100,7 +93,7 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    fetchChatHistory();
+    loadChatHistories();
 
     const initializeQuizData = async () => {
       let quizDataToUse = quizData;
@@ -212,7 +205,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     };
   };
 
-  const fetchChatHistory = async () => {
+  const loadChatHistories = async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -258,7 +251,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
       
       const newChatId = response.data._id;
       setCurrentChatId(newChatId);
-      await fetchChatHistory();
+      await loadChatHistories();
       return newChatId;
     } catch (error) {
       console.error('Error creating new chat:', error);
@@ -298,7 +291,7 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
         setMessages([]);
         setCurrentChatId(null);
       }
-      await fetchChatHistory();
+      await loadChatHistories();
       toast.success('Chat deleted successfully');
     } catch (error) {
       console.error('Error deleting chat:', error);
@@ -354,7 +347,8 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
       if (!chatId) {
         try {
           const response = await axiosInstance.post('/api/chat-history', {
-            messages: newMessages
+            messages: newMessages,
+            message: userMessage
           }, {
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -417,11 +411,11 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      await fetchChatHistory();
+      await loadChatHistories();
       const savedChat = chatHistories.find(ch => ch._id === chatId);
       if (!savedChat || savedChat.messages.length !== finalMessages.length) {
         await saveMessagesToChat(chatId!, finalMessages);
-        await fetchChatHistory();
+        await loadChatHistories();
       }
 
     } catch (error) {

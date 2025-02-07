@@ -13,7 +13,6 @@ import Quiz from './models/Quiz.js'; // Import Quiz model
 import QuizAttempt from './models/QuizAttempt.js';
 import Chat from './models/Chat.js';
 import AIChat from './models/AIChat.js';
-import ChatHistory from './models/ChatHistory.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import progressRoutes from './routes/progress.js';
 import chatRoutes from './routes/chat.js';
@@ -44,146 +43,30 @@ try {
 
 const app = express();
 
-// CORS setup
-app.use(cors({
-  origin: 'https://epsilora.vercel.app',
-  credentials: true
-}));
-
-// Handle preflight requests
-app.options('*', cors());
-
-// Parse JSON
+// Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Cookie parser
-// app.use(cookieParser());
-
-// Authentication middleware
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'Authentication token required' });
-  }
-
-  try {
-    const user = jwt.verify(token, JWT_SECRET);
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('Token verification error:', error);
-    return res.status(403).json({ message: 'Invalid or expired token' });
-  }
+// Configure CORS
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://epsilora.vercel.app',
+    'https://epsilora-git-main-chaman-ss-projects.vercel.app',
+    'https://epsilora-chaman-ss-projects.vercel.app',
+    'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
 
-// Auth routes
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    
-    // Find user
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+app.use(cors(corsOptions));
 
-    // Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Generate token
-    const token = jwt.sign(
-      { id: user._id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    // Set cookie
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    });
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name
-      }
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    // Check if user exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ error: 'User already exists' });
-    }
-
-    // Create user
-    user = new User({
-      name,
-      email,
-      password
-    });
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
-
-    await user.save();
-
-    // Generate token
-    const token = jwt.sign(
-      { id: user._id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    // Set cookie
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    });
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name
-      }
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'none'
-  });
-  res.json({ message: 'Logged out successfully' });
-});
+// Enable pre-flight requests for all routes
+app.options('*', cors(corsOptions));
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
@@ -256,6 +139,25 @@ const connectDB = async (retries = 5) => {
   }
 })();
 
+// Authentication middleware
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Authentication token required' });
+  }
+
+  try {
+    const user = jwt.verify(token, JWT_SECRET);
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return res.status(403).json({ message: 'Invalid or expired token' });
+  }
+};
+
 // Auth Routes
 app.post('/api/auth/signup', async (req, res, next) => {
   try {
@@ -293,6 +195,47 @@ app.post('/api/auth/signup', async (req, res, next) => {
     );
 
     res.status(201).json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/auth/login', async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    // Find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
       token,
       user: {
         id: user._id,
@@ -384,92 +327,6 @@ app.delete('/api/courses/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error deleting course:', error);
     res.status(500).json({ message: 'Error deleting course', error: error.message });
-  }
-});
-
-// Chat History Routes
-app.post('/api/chat-history', authenticateToken, async (req, res) => {
-  try {
-    const { messages, type = 'general', metadata = {} } = req.body;
-    const userId = req.user.id;
-
-    const chat = new ChatHistory({
-      userId,
-      messages,
-      type,
-      metadata
-    });
-
-    await chat.save();
-    res.json(chat);
-  } catch (error) {
-    console.error('Error creating chat history:', error);
-    res.status(500).json({ error: 'Failed to create chat history' });
-  }
-});
-
-app.get('/api/chat-history', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const chats = await ChatHistory.find({ userId })
-      .sort({ lastUpdated: -1 })
-      .limit(50);
-    res.json(chats);
-  } catch (error) {
-    console.error('Error fetching chat history:', error);
-    res.status(500).json({ error: 'Failed to fetch chat history' });
-  }
-});
-
-app.get('/api/chat-history/:id', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const chat = await ChatHistory.findOne({ _id: req.params.id, userId });
-    if (!chat) {
-      return res.status(404).json({ error: 'Chat not found' });
-    }
-    res.json(chat);
-  } catch (error) {
-    console.error('Error fetching chat:', error);
-    res.status(500).json({ error: 'Failed to fetch chat' });
-  }
-});
-
-app.put('/api/chat-history/:id', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { messages } = req.body;
-    const chat = await ChatHistory.findOneAndUpdate(
-      { _id: req.params.id, userId },
-      { 
-        $set: { 
-          messages,
-          lastUpdated: new Date()
-        }
-      },
-      { new: true }
-    );
-    if (!chat) {
-      return res.status(404).json({ error: 'Chat not found' });
-    }
-    res.json(chat);
-  } catch (error) {
-    console.error('Error updating chat:', error);
-    res.status(500).json({ error: 'Failed to update chat' });
-  }
-});
-
-app.delete('/api/chat-history/:id', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const chat = await ChatHistory.findOneAndDelete({ _id: req.params.id, userId });
-    if (!chat) {
-      return res.status(404).json({ error: 'Chat not found' });
-    }
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting chat:', error);
-    res.status(500).json({ error: 'Failed to delete chat' });
   }
 });
 
