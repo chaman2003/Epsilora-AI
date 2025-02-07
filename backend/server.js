@@ -938,8 +938,8 @@ app.get('/api/quiz/stats', async (req, res) => {
 
     const result = {
       totalQuizzes: stats[0].totalQuizzes[0]?.count || 0,
-      averageScore: Math.round(stats[0].averageScore[0]?.averageScore || 0),
-      latestScore: Math.round(stats[0].latestQuiz[0]?.latestScore || 0)
+      averageScore: parseFloat((stats[0].averageScore[0]?.averageScore || 0).toFixed(1)),
+      latestScore: parseFloat((stats[0].latestQuiz[0]?.latestScore || 0).toFixed(1))
     };
 
     console.log('Final calculated stats:', result);
