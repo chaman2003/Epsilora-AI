@@ -1,4 +1,9 @@
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -8,13 +13,14 @@ export const authenticateToken = (req, res, next) => {
     return res.status(401).json({ message: 'No token provided' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid token' });
-    }
-    req.user = user;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
     next();
-  });
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return res.status(401).json({ message: 'Invalid token' });
+  }
 };
 
 export const generateToken = (user) => {
@@ -24,7 +30,7 @@ export const generateToken = (user) => {
       email: user.email,
       name: user.name 
     },
-    process.env.JWT_SECRET,
+    JWT_SECRET,
     { expiresIn: '24h' }
   );
 };

@@ -11,8 +11,10 @@ import User from './models/User.js';
 import Course from './models/Course.js';
 import Quiz from './models/Quiz.js'; // Import Quiz model
 import QuizAttempt from './models/QuizAttempt.js';
+import Chat from './models/Chat.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import progressRoutes from './routes/progress.js';
+import chatRoutes from './routes/chat.js';
 import { MongoClient } from 'mongodb';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -41,27 +43,29 @@ try {
 const app = express();
 
 // Middleware
-app.use(cors({
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Configure CORS
+const corsOptions = {
   origin: [
     'http://localhost:5173',
     'http://localhost:3000',
     'https://epsilora.vercel.app',
     'https://epsilora-git-main-chaman-ss-projects.vercel.app',
-    'https://epsilora-chaman-ss-projects.vercel.app'
+    'https://epsilora-chaman-ss-projects.vercel.app',
+    'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
-  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
-  maxAge: 86400
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+};
 
-app.use(express.json());
+app.use(cors(corsOptions));
 
 // Enable pre-flight requests for all routes
-app.options('*', cors());
+app.options('*', cors(corsOptions));
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
@@ -1016,7 +1020,9 @@ const errorHandler = (err, req, res, next) => {
 // Error handling middleware
 app.use(errorHandler);
 
+// Routes
 app.use('/api/progress', progressRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Start server
 app.listen(PORT, () => {

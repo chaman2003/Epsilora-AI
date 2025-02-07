@@ -8,7 +8,6 @@ export const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
-    // Removed Origin header as it's automatically set by the browser
   }
 });
 
@@ -18,11 +17,6 @@ axiosInstance.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      // If no token is found and we're not on the login page, redirect to login
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
     }
     return config;
   },
@@ -34,17 +28,38 @@ axiosInstance.interceptors.request.use(
 // Add response interceptor to handle common errors
 axiosInstance.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.code === 'ECONNABORTED') {
       // Handle timeout error
-      console.error('Request timed out:', error.config.url);
-    } else if (error.response?.status === 401) {
-      // Clear token and redirect to login
+      console.error('Request timed out:', error.config?.url);
+      throw new Error('Request timed out. Please try again.');
+    }
+    
+    if (error.response?.status === 401) {
+      // Clear token on unauthorized
       localStorage.removeItem('token');
-      if (!window.location.pathname.includes('/login')) {
+      
+      // Only redirect if we're not already on the login page and not trying to log in
+      const isLoginPage = window.location.pathname.includes('/login');
+      const isLoginRequest = error.config?.url?.includes('/login');
+      
+      if (!isLoginPage && !isLoginRequest) {
         window.location.href = '/login';
       }
     }
+    
+    // Network errors
+    if (error.message === 'Network Error') {
+      console.error('Network error:', error);
+      throw new Error('Unable to connect to server. Please check your internet connection.');
+    }
+
+    // Handle CORS errors
+    if (error.message?.includes('CORS')) {
+      console.error('CORS error:', error);
+      throw new Error('Unable to connect to server due to CORS policy.');
+    }
+
     return Promise.reject(error);
   }
 );

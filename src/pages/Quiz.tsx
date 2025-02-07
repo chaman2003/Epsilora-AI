@@ -362,11 +362,13 @@ const Quiz: React.FC = () => {
       const response = await axiosInstance.get(`/api/quiz/stats/${user._id}`);
       console.log('Quiz stats response:', response.data);
       
-      // Always set to 0 for new users or when no data is available
+      // Calculate stats from the quiz history
+      const stats = calculateStats(quizHistory);
+      
       setQuizStats({
-        totalQuizzes: response.data?.totalQuizzes || 0,
-        averageScore: response.data?.averageScore || 0,
-        latestScore: response.data?.latestScore || 0
+        totalQuizzes: stats.totalQuizzes || 0,
+        averageScore: parseFloat(stats.averageScore) || 0,
+        latestScore: parseFloat(stats.latestScore) || 0
       });
     } catch (error) {
       console.error('Error fetching quiz statistics:', error);
@@ -378,16 +380,15 @@ const Quiz: React.FC = () => {
     }
   };
   useEffect(() => {
-    if (isAuthenticated && user?._id) {
-      fetchQuizStatistics();
-    } else {
+    if (quizHistory.length > 0) {
+      const stats = calculateStats(quizHistory);
       setQuizStats({
-        totalQuizzes: 0,
-        averageScore: 0,
-        latestScore: 0
+        totalQuizzes: stats.totalQuizzes || 0,
+        averageScore: parseFloat(stats.averageScore) || 0,
+        latestScore: parseFloat(stats.latestScore) || 0
       });
     }
-  }, [isAuthenticated, user?._id]);
+  }, [quizHistory]);
   const generateQuiz = async () => {
     if (!selectedCourse) {
       toast.error('Please select a course first');
@@ -1382,7 +1383,7 @@ const Quiz: React.FC = () => {
         className={`container mx-auto px-4 py-8`}
       >
         <div className={`max-w-2xl mx-auto bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-xl shadow-lg p-8`}>
-          <h2 className="text-3xl font-bold text-center mb-6 text-gray-900 dark:text-white">
+          <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6 text-center">
             Multiple Choice Questions
           </h2>
           {renderQuestion()}
@@ -1401,7 +1402,7 @@ const Quiz: React.FC = () => {
         className={`container mx-auto px-4 py-8`}
       >
         <div className={`max-w-2xl mx-auto bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-xl shadow-lg p-8`}>
-          <h2 className="text-3xl font-bold text-center mb-6 text-gray-900 dark:text-white">
+          <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6 text-center">
             Quiz Completed!
           </h2>
 
@@ -1574,18 +1575,25 @@ const Quiz: React.FC = () => {
 
 const calculateStats = (history: any[]) => {
     const totalQuizzes = history.length;
-    const totalQuestions = history.reduce((sum, quiz) => 
-        sum + (quiz.questions?.length || 0), 0);
-    const totalCorrect = history.reduce((sum, quiz) => 
-        sum + (quiz.correctAnswers || 0), 0);
+    let totalScore = 0;
+    let totalQuestions = 0;
     
+    history.forEach(quiz => {
+        if (quiz.score !== undefined && quiz.totalQuestions) {
+            totalScore += quiz.score;
+            totalQuestions += quiz.totalQuestions;
+        }
+    });
+
+    const averageScore = totalQuestions > 0 ? (totalScore / totalQuestions) * 100 : 0;
+    const latestScore = history.length > 0 && history[0].score !== undefined && history[0].totalQuestions 
+        ? (history[0].score / history[0].totalQuestions) * 100 
+        : 0;
+
     return {
         totalQuizzes,
-        questionsAnswered: totalQuestions,
-        averageScore: totalQuestions > 0 ? 
-            ((totalCorrect / totalQuestions) * 100).toFixed(1) : '0',
-        latestScore: history.length > 0 ? 
-            ((history[0].correctAnswers / history[0].questions.length) * 100).toFixed(1) : '0'
+        averageScore,
+        latestScore
     };
 };
 export default Quiz;

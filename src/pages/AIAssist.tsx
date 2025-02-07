@@ -59,8 +59,10 @@ const AIAssist: React.FC = () => {
   const isAuthenticated = localStorage.getItem('token') !== null;
 
   useEffect(() => {
-    loadChatHistories();
-  }, []);
+    if (isAuthenticated) {
+      loadChatHistories();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // Show welcome message when there are no messages or when starting a new chat
@@ -103,35 +105,6 @@ const AIAssist: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
-  const loadChat = async (chatId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      // Find chat from local state
-      const chat = chatHistories.find(ch => ch._id === chatId);
-      if (chat) {
-        setShowWelcome(false); // Hide welcome message when loading a chat
-        // Remove duplicate messages and format responses
-        const uniqueMessages = removeDuplicateMessages(chat.messages);
-        const formattedMessages = uniqueMessages.map(msg => ({
-          ...msg,
-          content: msg.role === 'assistant' ? formatAIResponse(msg.content) : msg.content
-        }));
-        setMessages(formattedMessages);
-        setCurrentChatId(chatId);
-      } else {
-        toast.error('Chat not found');
-      }
-    } catch (error) {
-      console.error('Error loading chat:', error);
-      toast.error('Failed to load chat');
-    }
-  };
-
   const loadChatHistories = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -140,55 +113,173 @@ const AIAssist: React.FC = () => {
         return;
       }
 
-      const response = await axiosInstance.get('/api/chat-history', {
+      const response = await axiosInstance.get('/api/chat', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+      if (!Array.isArray(response.data)) {
+        console.error('Invalid response format:', response.data);
+        toast.error('Failed to load chat history');
+        return;
+      }
+
       // For new users, ensure we start with a clean slate
       if (response.data.length === 0) {
         setMessages([]);
         setCurrentChatId(null);
+        setShowWelcome(true);
       }
       
       setChatHistories(response.data);
     } catch (error) {
       console.error('Error loading chat histories:', error);
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        navigate('/login');
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/login');
+        } else {
+          toast.error(error.response?.data?.message || 'Failed to load chat history');
+        }
       } else {
         toast.error('Failed to load chat history');
       }
+      setChatHistories([]);
     }
   };
 
-  const createNewChat = async (initialMessages: Message[] = [], title: string = 'New Chat') => {
+  const loadChat = async (chatId: string) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         navigate('/login');
-        return null;
+        return;
       }
 
-      // Don't create chat for empty messages
-      if (initialMessages.length === 0) {
-        return null;
-      }
-
-      const response = await axiosInstance.post('/api/chat-history', {
-        messages: initialMessages,
-        title: title
-      }, {
+      const response = await axiosInstance.get(`/api/chat/${chatId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
-      const newChatId = response.data._id;
-      setCurrentChatId(newChatId);
-      await loadChatHistories();
-      return newChatId;
+
+      if (!response.data || !response.data.messages) {
+        toast.error('Invalid chat data received');
+        return;
+      }
+
+      setShowWelcome(false);
+      const uniqueMessages = removeDuplicateMessages(response.data.messages);
+      const formattedMessages = uniqueMessages.map(msg => ({
+        ...msg,
+        content: msg.role === 'assistant' ? formatAIResponse(msg.content) : msg.content
+      }));
+      setMessages(formattedMessages);
+      setCurrentChatId(chatId);
     } catch (error) {
-      console.error('Error creating new chat:', error);
-      toast.error('Failed to create new chat');
-      return null;
+      console.error('Error loading chat:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          toast.error('Chat not found');
+          // Remove the chat from local state if it's not found on server
+          setChatHistories(prev => prev.filter(ch => ch._id !== chatId));
+        } else if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/login');
+        } else {
+          toast.error(error.response?.data?.message || 'Failed to load chat');
+        }
+      } else {
+        toast.error('Failed to load chat');
+      }
+    }
+  };
+
+  const saveChat = async (messages: Message[]) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      if (currentChatId) {
+        // Update existing chat
+        await axiosInstance.put(`/api/chat/${currentChatId}`, {
+          messages
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else if (messages.length > 0) {
+        // Create new chat with a meaningful title
+        const firstUserMessage = messages.find(m => m.role === 'user');
+        const title = firstUserMessage 
+          ? firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')
+          : 'New Chat';
+
+        const response = await axiosInstance.post('/api/chat', {
+          messages,
+          title
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        setCurrentChatId(response.data._id);
+      }
+
+      // Reload chat histories to get the latest changes
+      await loadChatHistories();
+    } catch (error) {
+      console.error('Error saving chat:', error);
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/login');
+      } else {
+        toast.error('Failed to save chat');
+      }
+    }
+  };
+
+  const deleteChat = async (chatId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      // First update the local state to make the UI feel more responsive
+      setChatHistories(prev => prev.filter(ch => ch._id !== chatId));
+      if (currentChatId === chatId) {
+        setMessages([]);
+        setCurrentChatId(null);
+        setShowWelcome(true);
+      }
+
+      const response = await axiosInstance.delete(`/api/chat/${chatId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.status === 200) {
+        toast.success('Chat deleted successfully');
+      } else {
+        // If the delete request fails, revert the local state changes
+        loadChatHistories();
+        toast.error('Failed to delete chat');
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+      // Revert local state changes on error
+      loadChatHistories();
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/login');
+        } else if (error.response?.status === 404) {
+          // If the chat doesn't exist on the server, keep it deleted locally
+          toast.success('Chat deleted successfully');
+        } else {
+          toast.error(error.response?.data?.message || 'Failed to delete chat');
+        }
+      } else {
+        toast.error('Failed to delete chat');
+      }
     }
   };
 
@@ -240,7 +331,7 @@ const AIAssist: React.FC = () => {
       // Try multiple ways to save messages
       try {
         // Method 1: Save as messages array
-        await axiosInstance.put(`/api/chat-history/${chatId}`, {
+        await axiosInstance.put(`/api/chat/${chatId}`, {
           messages: messages
         }, {
           headers: { Authorization: `Bearer ${token}` }
@@ -249,7 +340,7 @@ const AIAssist: React.FC = () => {
         console.log('Method 1 failed, trying method 2');
         // Method 2: Save messages one by one
         for (const message of messages) {
-          await axiosInstance.put(`/api/chat-history/${chatId}`, {
+          await axiosInstance.put(`/api/chat/${chatId}`, {
             message: message
           }, {
             headers: { Authorization: `Bearer ${token}` }
@@ -262,7 +353,7 @@ const AIAssist: React.FC = () => {
       if (!savedChat || savedChat.messages.length !== messages.length) {
         // If verification fails, try one more time with both methods
         try {
-          await axiosInstance.put(`/api/chat-history/${chatId}`, {
+          await axiosInstance.put(`/api/chat/${chatId}`, {
             messages: messages,
             message: messages[messages.length - 1]
           }, {
@@ -408,7 +499,7 @@ const AIAssist: React.FC = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      await axiosInstance.put(`/api/chat-history/${chatId}/title`, {
+      await axiosInstance.put(`/api/chat/${chatId}/title`, {
         title
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -503,51 +594,64 @@ const AIAssist: React.FC = () => {
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <button
                   onClick={handleNewChat}
-                  className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
+                  className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
                 >
                   <Plus className="w-5 h-5" />
                   <span>New Chat</span>
                 </button>
               </div>
-              <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
-                {chatHistories.map((chat, index) => (
-                  <motion.div
-                    key={chat._id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-                      currentChatId === chat._id
-                        ? 'bg-indigo-50 dark:bg-indigo-900/20'
-                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                    }`}
-                    onClick={() => {
-                      loadChat(chat._id);
-                      setIsSidebarOpen(false);
-                    }}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      <div className="flex-1 truncate">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {chat.title || 'New Chat'}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(chat.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteChat(chat._id);
+              <div className="overflow-y-auto h-[calc(100vh-120px)]">
+                {chatHistories.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                    No chat history yet. Start a new chat!
+                  </div>
+                ) : (
+                  <div className="space-y-2 p-2">
+                    {chatHistories.map((chat) => (
+                      <div
+                        key={chat._id}
+                        className={`group relative p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                          currentChatId === chat._id ? 'bg-indigo-50 dark:bg-indigo-900/30 border-l-4 border-indigo-500' : ''
+                        }`}
+                        onClick={() => {
+                          loadChat(chat._id);
+                          setIsSidebarOpen(false);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
                       >
-                        <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate pr-8">
+                              {chat.title}
+                            </h3>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              {new Date(chat.createdAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                            {chat.messages.length > 0 && (
+                              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 truncate">
+                                {chat.messages[chat.messages.length - 1].content.substring(0, 50)}
+                                {chat.messages[chat.messages.length - 1].content.length > 50 ? '...' : ''}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteChat(chat._id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 absolute right-2 top-2 p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -572,21 +676,24 @@ const AIAssist: React.FC = () => {
           <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setIsSidebarOpen(true)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                >
-                  <MessageSquare className="w-6 h-6" />
-                </button>
                 <h1 className="text-xl font-semibold">AI Learning Assistant</h1>
               </div>
-              <button
-                onClick={handleNewChat}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2"
-              >
-                <Plus className="w-6 h-6" />
-                <span>New Chat</span>
-              </button>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2"
+                >
+                  <History className="w-6 h-6" />
+                  <span>Chat History</span>
+                </button>
+                <button
+                  onClick={handleNewChat}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2"
+                >
+                  <Plus className="w-6 h-6" />
+                  <span>New Chat</span>
+                </button>
+              </div>
             </div>
           </div>
 
