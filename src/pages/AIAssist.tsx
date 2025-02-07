@@ -153,28 +153,17 @@ Would you like me to explain any specific questions in more detail? I'm here to 
       const token = localStorage.getItem('token');
       
       // Get AI response
-      const aiResponse = await axios.post('/api/chat/ai', { 
-        message,
-        type: 'general'
+      const response = await axios.post('/api/chat/ai', { 
+        message
       }, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      if (aiResponse.data && aiResponse.data.message) {
-        const assistantMessage = { role: 'assistant', content: aiResponse.data.message };
+      if (response.data && response.data.message) {
+        const assistantMessage = { role: 'assistant', content: response.data.message };
         setMessages(prev => [...prev, assistantMessage]);
-
-        // Save the chat
-        await axios.post('/api/chat/ai/save', {
-          messages: [...messages, userMessage, assistantMessage],
-          type: 'general'
-        }, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -202,8 +191,7 @@ Correct Answer: ${question.correctAnswer.replace(/[^A-D]/g, '')}
 Explain in two clear, concise sentences why this answer is correct. Focus on the specific context and concepts involved.`;
 
       const response = await axios.post('/api/chat/ai', {
-        message: prompt,
-        type: 'quiz_explanation'
+        message: prompt
       }, {
         headers: {
           'Authorization': `Bearer ${token}`
