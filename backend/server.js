@@ -13,6 +13,7 @@ import Quiz from './models/Quiz.js'; // Import Quiz model
 import QuizAttempt from './models/QuizAttempt.js';
 import Chat from './models/Chat.js';
 import AIChat from './models/AIChat.js';
+import ChatHistory from './models/ChatHistory.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import progressRoutes from './routes/progress.js';
 import chatRoutes from './routes/chat.js';
@@ -327,6 +328,92 @@ app.delete('/api/courses/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error deleting course:', error);
     res.status(500).json({ message: 'Error deleting course', error: error.message });
+  }
+});
+
+// Chat History Routes
+app.post('/api/chat-history', authenticateToken, async (req, res) => {
+  try {
+    const { messages, type = 'general', metadata = {} } = req.body;
+    const userId = req.user.id;
+
+    const chat = new ChatHistory({
+      userId,
+      messages,
+      type,
+      metadata
+    });
+
+    await chat.save();
+    res.json(chat);
+  } catch (error) {
+    console.error('Error creating chat history:', error);
+    res.status(500).json({ error: 'Failed to create chat history' });
+  }
+});
+
+app.get('/api/chat-history', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chats = await ChatHistory.find({ userId })
+      .sort({ lastUpdated: -1 })
+      .limit(50);
+    res.json(chats);
+  } catch (error) {
+    console.error('Error fetching chat history:', error);
+    res.status(500).json({ error: 'Failed to fetch chat history' });
+  }
+});
+
+app.get('/api/chat-history/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chat = await ChatHistory.findOne({ _id: req.params.id, userId });
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    res.json(chat);
+  } catch (error) {
+    console.error('Error fetching chat:', error);
+    res.status(500).json({ error: 'Failed to fetch chat' });
+  }
+});
+
+app.put('/api/chat-history/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { messages } = req.body;
+    const chat = await ChatHistory.findOneAndUpdate(
+      { _id: req.params.id, userId },
+      { 
+        $set: { 
+          messages,
+          lastUpdated: new Date()
+        }
+      },
+      { new: true }
+    );
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    res.json(chat);
+  } catch (error) {
+    console.error('Error updating chat:', error);
+    res.status(500).json({ error: 'Failed to update chat' });
+  }
+});
+
+app.delete('/api/chat-history/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chat = await ChatHistory.findOneAndDelete({ _id: req.params.id, userId });
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting chat:', error);
+    res.status(500).json({ error: 'Failed to delete chat' });
   }
 });
 
