@@ -1072,52 +1072,16 @@ app.get('/api/quiz/stats/:userId', authenticateToken, async (req, res) => {
       // Calculate average score
       const totalScore = quizAttempts.reduce((sum, quiz) => 
         sum + (quiz.score || 0), 0);
-      stats.averageScore = Math.floor(totalScore / quizAttempts.length);
+      stats.averageScore = Math.round(totalScore / quizAttempts.length);
 
       // Get latest score
-      stats.latestScore = Math.floor(quizAttempts[0].score || 0);
+      stats.latestScore = Math.round(quizAttempts[0].score || 0);
     }
 
     res.json(stats);
   } catch (error) {
     console.error('Error fetching quiz stats:', error);
     res.status(500).json({ message: 'Error fetching quiz statistics' });
-  }
-});
-
-// Quiz Stats Route with fixed integer average
-app.get('/api/quiz-stats/:courseId', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const courseId = req.params.courseId;
-
-    const attempts = await QuizAttempt.find({ 
-      userId: mongoose.Types.ObjectId(userId),
-      courseId: mongoose.Types.ObjectId(courseId)
-    });
-
-    if (!attempts.length) {
-      return res.json({
-        totalQuizzes: 0,
-        averageScore: 0,
-        latestScore: 0
-      });
-    }
-
-    const totalQuizzes = attempts.length;
-    const totalScore = attempts.reduce((sum, attempt) => sum + attempt.score, 0);
-    const averageScore = Math.floor(totalScore / totalQuizzes);
-    const latestScore = Math.floor(attempts[attempts.length - 1].score);
-
-    res.json({
-      totalQuizzes,
-      averageScore,
-      latestScore
-    });
-
-  } catch (error) {
-    console.error('Error fetching quiz stats:', error);
-    res.status(500).json({ error: 'Failed to fetch quiz statistics' });
   }
 });
 
@@ -1152,4 +1116,57 @@ app.use('/api/chat', chatRoutes);
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+app.get('/api/quiz-stats/:courseId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const courseId = req.params.courseId;
+
+    const stats = await QuizAttempt.aggregate([
+      {
+        $match: {
+          userId: mongoose.Types.ObjectId(userId),
+          courseId: mongoose.Types.ObjectId(courseId)
+        }
+      },
+      {
+        $facet: {
+          totalQuizzes: [
+            { $count: 'count' }
+          ],
+          averageScore: [
+            {
+              $group: {
+                _id: null,
+                averageScore: { 
+                  $floor: { $avg: '$score' }
+                }
+              }
+            }
+          ],
+          latestQuiz: [
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            {
+              $project: {
+                latestScore: { $floor: '$score' }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    const result = {
+      totalQuizzes: stats[0].totalQuizzes[0]?.count || 0,
+      averageScore: Math.floor(stats[0].averageScore[0]?.averageScore || 0),
+      latestScore: Math.floor(stats[0].latestQuiz[0]?.latestScore || 0)
+    };
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching quiz stats:', error);
+    res.status(500).json({ error: 'Failed to fetch quiz statistics' });
+  }
 });
