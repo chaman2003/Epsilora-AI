@@ -44,34 +44,24 @@ try {
 
 const app = express();
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// CORS configuration
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://epsilora.vercel.app',
-  'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app'
-];
-
-// CORS middleware
+// Basic CORS setup
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin) || (origin && origin.endsWith('.vercel.app'))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Origin', 'https://epsilora.vercel.app');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
   
-  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
   next();
 });
+
+// Parse JSON
+app.use(express.json());
+
+// Cookie parser
+// app.use(cookieParser());
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
