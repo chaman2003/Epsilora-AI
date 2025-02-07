@@ -53,6 +53,7 @@ const AIAssist: React.FC = () => {
     correctQuestions?: number[];
   } | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const navigate = useNavigate();
@@ -565,6 +566,50 @@ const AIAssist: React.FC = () => {
     );
   };
 
+  const HistoryModal = () => {
+    if (!showHistoryModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-11/12 max-w-2xl max-h-[80vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Chat History</h2>
+            <button
+              onClick={() => setShowHistoryModal(false)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="space-y-4">
+            {chatHistories.map((chat) => (
+              <div
+                key={chat._id}
+                className="border dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                onClick={() => {
+                  loadChat(chat._id);
+                  setShowHistoryModal(false);
+                }}
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold">{chat.title || 'Untitled Chat'}</h3>
+                  <span className="text-sm text-gray-500">
+                    {new Date(chat.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  {chat.messages.length > 0 
+                    ? `${chat.messages[0].content.slice(0, 100)}...` 
+                    : 'No messages'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -680,6 +725,13 @@ const AIAssist: React.FC = () => {
               </div>
               <div className="flex items-center space-x-4">
                 <button
+                  onClick={() => setShowHistoryModal(true)}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2"
+                >
+                  <History className="w-6 h-6" />
+                  <span>View History</span>
+                </button>
+                <button
                   onClick={() => setIsSidebarOpen(true)}
                   className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2"
                 >
@@ -772,6 +824,7 @@ const AIAssist: React.FC = () => {
           </div>
         </div>
       </div>
+      <HistoryModal />
     </motion.div>
   );
 };
