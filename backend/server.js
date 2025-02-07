@@ -1136,12 +1136,12 @@ app.get('/api/quiz-stats/:courseId', authenticateToken, async (req, res) => {
       });
     }
 
-    // Calculate stats
+    // Calculate stats with forced integer values
     const totalQuizzes = attempts.length;
-    const averageScore = Math.round(attempts.reduce((sum, attempt) => sum + attempt.score, 0) / totalQuizzes);
-    const latestScore = Math.round(attempts[attempts.length - 1].score);
-    const firstScore = attempts[0].score;
-    const improvement = Math.round(((latestScore - firstScore) / firstScore) * 100);
+    const averageScore = Math.floor(attempts.reduce((sum, attempt) => sum + attempt.score, 0) / totalQuizzes);
+    const latestScore = Math.floor(attempts[attempts.length - 1].score);
+    const firstScore = Math.floor(attempts[0].score);
+    const improvement = Math.floor(((latestScore - firstScore) / firstScore) * 100);
 
     res.json({
       totalQuizzes,

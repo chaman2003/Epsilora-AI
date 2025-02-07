@@ -78,11 +78,15 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
   if (!isOpen) return null;
 
   const formatPercentage = (value: number) => {
-    return Math.round(value) + '%';
+    return Math.floor(value) + '%';
   };
 
   const formatImprovement = (value: number) => {
-    return (Math.round(value * 10) / 10).toFixed(1);
+    const improvedValue = Math.floor(value);
+    if (improvedValue > 0) {
+      return `+${improvedValue}%`;
+    }
+    return `${improvedValue}%`;
   };
 
   return (
@@ -181,7 +185,7 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
                       </div>
                       {attempt.improvement > 0 && (
                         <span className="text-green-400 text-sm">
-                          +{formatImprovement(attempt.improvement)}% improvement
+                          {formatImprovement(attempt.improvement)}
                         </span>
                       )}
                     </div>

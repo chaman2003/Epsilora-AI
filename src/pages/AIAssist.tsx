@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '../context/QuizContext';
 import ChatHistorySidebar from '../components/chat/ChatHistory';
+import { format } from 'date-fns';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -534,6 +535,7 @@ Let me know if you have any questions about the quiz or would like to review spe
                     const chatPreview = isQuizReview 
                       ? `📝 Quiz Review #${chatHistories.length - index}`
                       : chat.messages[0]?.content.slice(0, 30) + '...';
+                    const formattedDate = format(new Date(chat.createdAt), 'MMM d, yyyy • HH:mm');
 
                     return (
                       <motion.div
@@ -565,7 +567,7 @@ Let me know if you have any questions about the quiz or would like to review spe
                               {chatPreview}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {format(new Date(chat.createdAt), 'MMM d, yyyy • HH:mm')}
+                              {formattedDate}
                             </p>
                           </div>
                           <button
