@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../config/axios';
 import axios from 'axios';
@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '../context/QuizContext';
+import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
 
 interface Message {
@@ -45,6 +46,8 @@ interface QuizData {
 }
 
 const AIAssist: React.FC = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const { quizData, setQuizData } = useQuiz();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -56,11 +59,10 @@ const AIAssist: React.FC = () => {
     correctQuestions?: number[];
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const isAuthenticated = localStorage.getItem('token') !== null;
 
-  const welcomeMessage: Message = {
-    role: 'assistant',
+  // Define welcome message outside of any effects
+  const welcomeMessage = useMemo(() => ({
+    role: 'assistant' as const,
     content: `# 👋 Welcome to Epsilora AI! ✨
 
 I'm your personal AI assistant, ready to help you learn and grow! 🌱
@@ -72,56 +74,143 @@ Here's what I can do for you:
 * 🎯 Guide you through problem-solving
 
 Feel free to ask me anything - I'm here to support your learning journey! 🚀`
-  };
+  }), []);
 
-  // Check if this is a new session and reset data if needed
+  // Initialize messages on mount only
   useEffect(() => {
-    const lastUserId = localStorage.getItem('lastUserId');
-    const currentToken = localStorage.getItem('token');
-    
-    if (currentToken) {
-      try {
-        const tokenData = JSON.parse(atob(currentToken.split('.')[1]));
-        const currentUserId = tokenData.id;
-        
-        // If this is a different user or new user, reset everything
-        if (lastUserId !== currentUserId) {
-          // Clear all AI assist related data
-          localStorage.removeItem('aiAssistMessages');
-          localStorage.removeItem('quiz_data');
-          localStorage.removeItem('quizData');
-          setMessages([]);
-          setQuizData(null);
-          setCurrentQuizData(null);
-          
-          // Store the new user ID
-          localStorage.setItem('lastUserId', currentUserId);
-        }
-      } catch (error) {
-        console.error('Error processing token:', error);
-      }
-    }
-  }, [setQuizData]);
+    setMessages([welcomeMessage]);
+  }, []);
 
+  // Handle authentication changes
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
-      return;
+      setMessages([welcomeMessage]);
+      setQuizData(null);
     }
-
-    setMessages([welcomeMessage]);
-    setQuizData(null);
   }, [isAuthenticated, navigate, welcomeMessage]);
 
+  // Handle quiz data changes
   useEffect(() => {
-    if (quizData) {
-      const loadQuizSummary = async () => {
-        const summary = await generateQuizSummary(quizData);
-        setMessages([welcomeMessage, { role: 'assistant' as const, content: summary }]);
-      };
-      loadQuizSummary();
-    }
+    if (!quizData) return;
+
+    const generateQuizSummary = (data: QuizData) => {
+      const { courseName, score, totalQuestions, questions } = data;
+      const percentage = (score / totalQuestions) * 100;
+
+      let performanceText = '';
+      if (percentage >= 90) performanceText = '🌟 Excellent performance!';
+      else if (percentage >= 70) performanceText = '👏 Good job!';
+      else if (percentage >= 50) performanceText = '💪 Keep practicing!';
+      else performanceText = '📚 Let\'s work on improving!';
+
+      return `# Quiz Review: ${courseName}
+
+${performanceText}
+
+## 📊 Score Overview
+* 🎯 Score: ${score}/${totalQuestions} (${percentage.toFixed(1)}%)
+
+## 📝 Detailed Question Review
+
+${questions.map((q, index) => `### ${q.isCorrect ? '✅' : '❌'} Question ${index + 1}
+${q.question}
+
+${q.options.map(opt => {
+  const label = opt.label.replace(/[^A-D]/g, '').replace(/.*([A-D]).*/, '$1');
+  const text = opt.text.replace(/^[A-D][.)]?\s*[A-D][.)]?\s*/, '').trim();
+  
+  const isUserAnswer = label === q.userAnswer.replace(/[^A-D]/g, '');
+  const isCorrectAnswer = label === q.correctAnswer.replace(/[^A-D]/g, '');
+  
+  let marker = '';
+  if (isUserAnswer && isCorrectAnswer) marker = '✅';
+  else if (isUserAnswer) marker = '❌';
+  else if (isCorrectAnswer) marker = '✅';
+  
+  return `${text} ${marker}\n`;
+}).join('\n')}
+---`).join('\n\n')}
+
+## 📈 Key Takeaways
+* ${percentage >= 70 ? '🌟' : '💡'} You performed ${percentage >= 70 ? 'well' : 'adequately'} in this quiz
+* ✅ Correctly answered: ${score} questions
+* ${percentage < 100 ? `❌ Areas to review: ${questions.filter(q => !q.isCorrect).length} questions` : '🏆 Perfect score!'}
+
+Would you like me to explain any specific questions in more detail? I'm here to help! 🤓`;
+    };
+
+    const summary = generateQuizSummary(quizData);
+    setMessages([welcomeMessage, { role: 'assistant', content: summary }]);
   }, [quizData, welcomeMessage]);
+
+  // Handle message submission
+  const handleSubmit = async (message: string) => {
+    try {
+      setLoading(true);
+      const userMessage = { role: 'user', content: message };
+      setMessages(prev => [...prev, userMessage]);
+
+      const response = await axios.post('/api/chat', { 
+        message,
+        type: 'general'
+      });
+
+      if (response.data && response.data.message) {
+        const assistantMessage = { role: 'assistant', content: response.data.message };
+        setMessages(prev => [...prev, assistantMessage]);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
+
+    await handleSubmit(input);
+    setInput('');
+  };
+
+  const getExplanation = async (question: any) => {
+    try {
+      const prompt = `Question: ${question.question}
+Options:
+${question.options.map(opt => `${opt.label.replace(/[^A-D]/g, '')}. ${opt.text}`).join('\n')}
+Correct Answer: ${question.correctAnswer.replace(/[^A-D]/g, '')}
+
+Explain in two clear, concise sentences why this answer is correct. Focus on the specific context and concepts involved.`;
+
+      const response = await axios.post('/api/chat', {
+        message: prompt,
+        type: 'quiz_explanation'
+      });
+
+      return response.data.message;
+    } catch (error) {
+      console.error('Error getting explanation:', error);
+      return 'Unable to generate explanation.';
+    }
+  };
+
+  const parseQuizReview = (content: string) => {
+    const scoreMatch = content.match(/🏆 Score: (\d+)\/(\d+)/);
+    const courseMatch = content.match(/📘 Course: (.*?)\n/);
+    const correctQuestions = content.split('\n')
+      .filter(line => line.includes('Question'))
+      .map((line, index) => line.includes('✅') ? index + 1 : 0)
+      .filter(num => num !== 0);
+
+    return {
+      score: scoreMatch ? scoreMatch[0] : undefined,
+      totalQuestions: scoreMatch ? parseInt(scoreMatch[2]) : undefined,
+      courseName: courseMatch ? courseMatch[1] : undefined,
+      correctQuestions
+    };
+  };
 
   useEffect(() => {
     return () => {
@@ -145,129 +234,6 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
       setCurrentQuizData(null);
     }
   }, [messages]);
-
-  const parseQuizReview = (content: string) => {
-    const scoreMatch = content.match(/🏆 Score: (\d+)\/(\d+)/);
-    const courseMatch = content.match(/📘 Course: (.*?)\n/);
-    const correctQuestions = content.split('\n')
-      .filter(line => line.includes('Question'))
-      .map((line, index) => line.includes('✅') ? index + 1 : 0)
-      .filter(num => num !== 0);
-
-    return {
-      score: scoreMatch ? scoreMatch[0] : undefined,
-      totalQuestions: scoreMatch ? parseInt(scoreMatch[2]) : undefined,
-      courseName: courseMatch ? courseMatch[1] : undefined,
-      correctQuestions
-    };
-  };
-
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
-
-    const userMessage = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setLoading(true);
-
-    try {
-      const response = await axios.post('/api/chat/ai', {
-        message: input,
-        courseId: quizData?.courseId,
-        quizScore: quizData?.score,
-        totalQuestions: quizData?.totalQuestions
-      });
-
-      const assistantMessage = { role: 'assistant', content: response.data.message };
-      const updatedMessages = [...messages, userMessage, assistantMessage];
-      setMessages(updatedMessages);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage = {
-        role: 'assistant',
-        content: 'Sorry, there was an error processing your request. Please try again.'
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getExplanation = async (question: any) => {
-    try {
-      const prompt = `Question: ${question.question}
-Options:
-${question.options.map(opt => `${opt.label.replace(/[^A-D]/g, '')}. ${opt.text}`).join('\n')}
-Correct Answer: ${question.correctAnswer.replace(/[^A-D]/g, '')}
-
-Explain in two clear, concise sentences why this answer is correct. Focus on the specific context and concepts involved.`;
-
-      const response = await axios.post('/api/chat/ai', {
-        message: prompt,
-        type: 'quiz_explanation'
-      });
-
-      return response.data.message;
-    } catch (error) {
-      console.error('Error getting explanation:', error);
-      return 'Unable to generate explanation.';
-    }
-  };
-
-  const generateQuizSummary = async (quizData: QuizData) => {
-    const { courseName, score, totalQuestions, questions } = quizData;
-    const percentage = (score / totalQuestions) * 100;
-
-    let performanceText = '';
-    if (percentage >= 90) {
-      performanceText = '🌟 Excellent performance!';
-    } else if (percentage >= 70) {
-      performanceText = '👏 Good job!';
-    } else if (percentage >= 50) {
-      performanceText = '💪 Keep practicing!';
-    } else {
-      performanceText = '📚 Let\'s work on improving!';
-    }
-
-    return `# Quiz Review: ${courseName}
-
-${performanceText}
-
-## 📊 Score Overview
-* 🎯 Score: ${score}/${totalQuestions} (${percentage.toFixed(1)}%)
-
-## 📝 Detailed Question Review
-
-${questions.map((q, index) => `### ${q.isCorrect ? '✅' : '❌'} Question ${index + 1}
-${q.question}
-
-${q.options.map(opt => {
-  const label = opt.label.replace(/[^A-D]/g, '').replace(/.*([A-D]).*/, '$1');
-  const text = opt.text.replace(/^[A-D][.)]?\s*[A-D][.)]?\s*/, '').trim();
-  
-  const isUserAnswer = label === q.userAnswer.replace(/[^A-D]/g, '');
-  const isCorrectAnswer = label === q.correctAnswer.replace(/[^A-D]/g, '');
-  
-  let marker = '';
-  if (isUserAnswer && isCorrectAnswer) {
-    marker = '✅';
-  } else if (isUserAnswer) {
-    marker = '❌';
-  } else if (isCorrectAnswer) {
-    marker = '✅';
-  }
-  
-  return `${label}. ${text} ${marker}\n`;
-}).join('\n')}
----`).join('\n\n')}
-
-## 📈 Key Takeaways
-* ${percentage >= 70 ? '🌟' : '💡'} You performed ${percentage >= 70 ? 'well' : 'adequately'} in this quiz
-* ✅ Correctly answered: ${score} questions
-* ${percentage < 100 ? `❌ Areas to review: ${questions.filter(q => !q.isCorrect).length} questions` : '🏆 Perfect score!'}
-
-Would you like me to explain any specific questions in more detail? I'm here to help! 🤓`;
-  };
 
   const StyledComponents = {
     MainTitle: (text: string) => `# ${text}`,
