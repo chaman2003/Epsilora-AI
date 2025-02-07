@@ -83,10 +83,7 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
 
   const formatImprovement = (value: number) => {
     const improvedValue = Math.floor(value);
-    if (improvedValue > 0) {
-      return `+${improvedValue}%`;
-    }
-    return `${improvedValue}%`;
+    return improvedValue > 0 ? `+${improvedValue}%` : `${improvedValue}%`;
   };
 
   return (
@@ -133,9 +130,7 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-400 text-sm">Average Score</p>
-                    <p className="text-2xl font-bold text-white">
-                      {formatPercentage(stats.averageScore)}
-                    </p>
+                    <p className="text-2xl font-bold text-white">{formatPercentage(stats.averageScore)}</p>
                   </div>
                   <Award className="w-8 h-8 text-yellow-500" />
                 </div>
@@ -145,9 +140,7 @@ const QuizHistoryModal: React.FC<QuizHistoryModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-400 text-sm">Latest Performance</p>
-                    <p className="text-2xl font-bold text-white">
-                      {formatPercentage(stats.latestScore)}
-                    </p>
+                    <p className="text-2xl font-bold text-white">{formatPercentage(stats.latestScore)}</p>
                   </div>
                   <Clock className="w-8 h-8 text-green-500" />
                 </div>
