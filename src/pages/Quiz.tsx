@@ -367,8 +367,8 @@ const Quiz: React.FC = () => {
       
       setQuizStats({
         totalQuizzes: stats.totalQuizzes || 0,
-        averageScore: parseFloat(stats.averageScore) || 0,
-        latestScore: parseFloat(stats.latestScore) || 0
+        averageScore: parseInt(stats.averageScore, 10) || 0,
+        latestScore: parseInt(stats.latestScore, 10) || 0
       });
     } catch (error) {
       console.error('Error fetching quiz statistics:', error);
