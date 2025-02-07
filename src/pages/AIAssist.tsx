@@ -242,7 +242,6 @@ ${questions.map((q, index) => `### ${q.isCorrect ? '✅' : '❌'} Question ${ind
 ${q.question}
 
 ${q.options.map(opt => {
-  // Clean up the option format and remove A., B., etc.
   const label = opt.label.replace(/[^A-D]/g, '').replace(/.*([A-D]).*/, '$1');
   const text = opt.text.replace(/^[A-D][.)]?\s*[A-D][.)]?\s*/, '').trim();
   
@@ -258,9 +257,8 @@ ${q.options.map(opt => {
     marker = '✅';
   }
   
-  return `${text} ${marker}`;
+  return `${text} ${marker}\n`;
 }).join('\n')}
-
 ---`).join('\n\n')}
 
 ## 📈 Key Takeaways
