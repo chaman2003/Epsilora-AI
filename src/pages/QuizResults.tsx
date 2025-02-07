@@ -25,13 +25,14 @@ const QuizResults: React.FC = () => {
   }
 
   const { score, totalQuestions, courseName, difficulty } = quizData;
-  const percentage = (score / totalQuestions) * 100;
+  const percentage = ((score / totalQuestions) * 100).toFixed(1);
 
   const getMessage = () => {
-    if (percentage >= 90) return "Outstanding! You've mastered this topic! 🌟";
-    if (percentage >= 80) return "Excellent work! You have a strong grasp of the material! 💪";
-    if (percentage >= 70) return "Good job! Keep up the great work! 👍";
-    if (percentage >= 60) return "Nice effort! A bit more practice will help you improve! 📚";
+    const percentageNum = parseFloat(percentage);
+    if (percentageNum >= 90) return "Outstanding! You've mastered this topic! 🌟";
+    if (percentageNum >= 80) return "Excellent work! You have a strong grasp of the material! 💪";
+    if (percentageNum >= 70) return "Good job! Keep up the great work! 👍";
+    if (percentageNum >= 60) return "Nice effort! A bit more practice will help you improve! 📚";
     return "Keep learning! Every attempt brings you closer to mastery! 💡";
   };
 
@@ -86,12 +87,12 @@ const QuizResults: React.FC = () => {
                     r="58"
                     cx="64"
                     cy="64"
-                    strokeDasharray={`${percentage * 3.64} 364`}
+                    strokeDasharray={`${parseFloat(percentage) * 3.64} 364`}
                     transform="rotate(-90 64 64)"
                   />
                 </svg>
                 <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-bold">
-                  {Math.round(percentage)}%
+                  {percentage}%
                 </span>
               </div>
             </div>
