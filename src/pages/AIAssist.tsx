@@ -33,26 +33,15 @@ interface QuizData {
 
 const WELCOME_MESSAGE = {
   role: 'assistant' as const,
-  content: `# 👋 Welcome to Your AI Learning Assistant! 
+  content: `# ✨ Hello! I'm Your AI Learning Partner
 
-## ✨ I'm here to help you with:
+### 🎯 What I Can Help You With:
+* 📚 **Course Material** - Explain concepts, review topics
+* 💡 **Learning Support** - Study tips, exam prep
+* 🔄 **Quiz Review** - Analyze mistakes, improve understanding
+* 🎮 **Practice** - Interactive learning exercises
 
-### 📚 Learning Support
-* 🎯 Understanding difficult concepts
-* 📝 Quiz preparation and review
-* 💡 Study techniques and tips
-
-### 🤝 Interactive Help
-* ❓ Ask me any questions
-* 🔍 Get detailed explanations
-* 🎮 Practice problems
-
-### 💪 Personal Growth
-* 📈 Track your progress
-* 🎯 Set learning goals
-* 🌟 Get motivation
-
-**Ready to learn? Ask me anything!** 🚀`
+💪 **Let's make learning fun and effective! Ask me anything.**`
 };
 
 const AIAssist: React.FC = () => {
@@ -70,83 +59,68 @@ const AIAssist: React.FC = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
+  const cleanupChat = () => {
+    setMessages([WELCOME_MESSAGE]);
+    setQuizData(null);
+    setCurrentQuizData(null);
+    localStorage.removeItem('aiAssistMessages');
+    localStorage.removeItem('quizData');
+    localStorage.removeItem('lastUserId');
+  };
+
   useEffect(() => {
     const checkAuthStatus = () => {
       const token = localStorage.getItem('token');
       if (!token) {
-        // Reset everything when logged out
-        setMessages([WELCOME_MESSAGE]);
-        setQuizData(null);
-        setCurrentQuizData(null);
+        cleanupChat();
         navigate('/login');
       }
     };
 
-    // Check initial auth status
     checkAuthStatus();
 
-    // Add event listener for storage changes (logout from another tab)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'token' && !e.newValue) {
-        checkAuthStatus();
+      if (e.key === 'token') {
+        if (!e.newValue) {
+          cleanupChat();
+        } else {
+          setMessages([WELCOME_MESSAGE]);
+        }
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [navigate, setQuizData]);
 
   useEffect(() => {
     if (!isAuthenticated) {
-      setMessages([WELCOME_MESSAGE]);
-      navigate('/login');
+      cleanupChat();
       return;
     }
 
-    // Get last session user ID
-    const lastUserId = localStorage.getItem('lastUserId');
     const token = localStorage.getItem('token');
-    
-    if (token) {
-      try {
-        const tokenData = JSON.parse(atob(token.split('.')[1]));
-        const currentUserId = tokenData.id;
-        
-        // If user changed, reset chat
-        if (lastUserId !== currentUserId) {
-          setMessages([WELCOME_MESSAGE]);
-          localStorage.setItem('lastUserId', currentUserId);
-          return;
-        }
-      } catch (error) {
-        console.error('Error processing token:', error);
+    if (!token) return;
+
+    try {
+      const tokenData = JSON.parse(atob(token.split('.')[1]));
+      const currentUserId = tokenData.id;
+      const lastUserId = localStorage.getItem('lastUserId');
+
+      if (lastUserId !== currentUserId) {
+        cleanupChat();
+        localStorage.setItem('lastUserId', currentUserId);
       }
+
+      if (quizData) {
+        const summary = generateQuizSummary(quizData);
+        setMessages([WELCOME_MESSAGE, { role: 'assistant', content: summary }]);
+      }
+    } catch (error) {
+      console.error('Error processing token:', error);
+      cleanupChat();
     }
-
-    const initializeQuizData = async () => {
-      let quizDataToUse = quizData;
-      const storedQuizData = localStorage.getItem('quizData');
-
-      if (!quizDataToUse && storedQuizData) {
-        try {
-          quizDataToUse = JSON.parse(storedQuizData);
-          setQuizData(quizDataToUse);
-        } catch (error) {
-          console.error('Error parsing quiz data from localStorage:', error);
-        }
-      }
-
-      if (quizDataToUse) {
-        const summary = generateQuizSummary(quizDataToUse);
-        setMessages(prev => [...prev, { role: 'assistant', content: summary }]);
-      }
-    };
-
-    initializeQuizData();
-  }, [isAuthenticated, navigate, quizData, setQuizData]);
+  }, [isAuthenticated, quizData]);
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
