@@ -102,33 +102,34 @@ router.get('/chats/:id', authenticateToken, async (req, res) => {
 // Chat endpoint for AI responses
 router.post('/ai', authenticateToken, async (req, res) => {
   try {
-    const { message, courseId, quizScore, totalQuestions } = req.body;
-    const userId = req.user.id;
-
-    // If this is a quiz review, get the course name
-    let courseName = '';
-    if (courseId) {
-      const course = await Course.findById(courseId);
-      courseName = course ? course.name : 'Unknown Course';
-    }
-
-    // Generate AI response
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
+    const { message, type } = req.body;
+    
+    // Initialize Gemini API
+    const genAI = new GoogleGenerativeAI(process.env.VITE_GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
     let prompt = message;
-    if (quizScore !== undefined && totalQuestions !== undefined) {
-      prompt = `Context: User just completed a quiz in ${courseName} with score ${quizScore}/${totalQuestions}.\n\nUser message: ${message}`;
+    if (type === 'quiz_explanation') {
+      prompt = `You are a helpful AI tutor. Please explain the following quiz question and its correct answer in two clear, concise sentences:\n\n${message}`;
     }
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const aiMessage = response.text();
+    const text = response.text();
 
-    res.json({ message: aiMessage });
+    // Save the chat history
+    const chat = new AIChat({
+      userId: req.user.id,
+      message: prompt,
+      response: text,
+      type: type || 'general'
+    });
+    await chat.save();
+
+    res.json({ message: text });
   } catch (error) {
-    console.error('Error in chat endpoint:', error);
-    res.status(500).json({ error: 'Failed to process chat message' });
+    console.error('Error generating AI response:', error);
+    res.status(500).json({ message: 'Failed to generate AI response' });
   }
 });
 
