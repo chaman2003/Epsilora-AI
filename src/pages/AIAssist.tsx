@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../config/axios';
-import axios from 'axios';
 import { MessageSquare, Send, Bot, User, Sparkles, Loader2, History, Trash2, Plus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
@@ -162,37 +161,6 @@ Feel free to ask me anything - I'm here to support your learning journey! 🚀`
     };
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
-
-    const userMessage = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setLoading(true);
-
-    try {
-      const response = await axios.post('/api/chat/ai', {
-        message: input,
-        courseId: quizData?.courseId,
-        quizScore: quizData?.score,
-        totalQuestions: quizData?.totalQuestions
-      });
-
-      const assistantMessage = { role: 'assistant', content: response.data.message };
-      const updatedMessages = [...messages, userMessage, assistantMessage];
-      setMessages(updatedMessages);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage = {
-        role: 'assistant',
-        content: 'Sorry, there was an error processing your request. Please try again.'
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getExplanation = async (question: any) => {
     try {
       const prompt = `Question: ${question.question}
@@ -202,7 +170,7 @@ Correct Answer: ${question.correctAnswer.replace(/[^A-D]/g, '')}
 
 Explain in two clear, concise sentences why this answer is correct. Focus on the specific context and concepts involved.`;
 
-      const response = await axios.post('/api/chat/ai', {
+      const response = await axiosInstance.post('/api/chat/ai', {
         message: prompt,
         type: 'quiz_explanation'
       });
@@ -211,6 +179,31 @@ Explain in two clear, concise sentences why this answer is correct. Focus on the
     } catch (error) {
       console.error('Error getting explanation:', error);
       return 'Unable to generate explanation.';
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || loading) return;
+
+    const userMessage = { role: 'user' as const, content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const response = await axiosInstance.post('/api/chat/ai', {
+        message: input,
+        type: 'general'
+      });
+
+      const aiMessage = { role: 'assistant' as const, content: response.data.message };
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to get response from AI');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -432,10 +425,7 @@ Would you like me to explain any specific questions in more detail? I'm here to 
 
             {/* Chat Input */}
             <div className="p-6 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                handleSend();
-              }} className="flex items-center space-x-4">
+              <form onSubmit={handleSubmit} className="flex items-center space-x-4">
                 <input
                   type="text"
                   value={input}
