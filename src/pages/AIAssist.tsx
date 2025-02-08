@@ -331,17 +331,17 @@ const AIAssist: React.FC = () => {
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]}
                         components={{
-                          h1: ({children}) => (
+                          h1: ({children}: MarkdownComponents) => (
                             <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-8">
                               {children}
                             </h1>
                           ),
-                          h2: ({children}) => (
+                          h2: ({children}: MarkdownComponents) => (
                             <h2 className="text-2xl font-semibold text-indigo-600 dark:text-indigo-400 mb-6">
                               {children}
                             </h2>
                           ),
-                          h3: ({children}) => (
+                          h3: ({children}: MarkdownComponents) => (
                             <h3 className={`text-xl font-semibold mb-4 ${
                               String(children).includes('Questions to Review')
                                 ? 'text-rose-600 dark:text-rose-400'
@@ -352,12 +352,12 @@ const AIAssist: React.FC = () => {
                               {children}
                             </h3>
                           ),
-                          h4: ({children}) => (
+                          h4: ({children}: MarkdownComponents) => (
                             <h4 className="text-lg font-semibold text-amber-600 dark:text-amber-400 mb-4">
                               {children}
                             </h4>
                           ),
-                          strong: ({children}) => (
+                          strong: ({children}: MarkdownComponents) => (
                             <strong className={`font-semibold ${
                               String(children).includes('Your Answer')
                                 ? 'text-rose-600 dark:text-rose-400'
@@ -368,7 +368,7 @@ const AIAssist: React.FC = () => {
                               {children}
                             </strong>
                           ),
-                          em: ({children}) => (
+                          em: ({children}: MarkdownComponents) => (
                             <em className="text-emerald-600 dark:text-emerald-400 not-italic font-semibold">
                               {children}
                             </em>
@@ -376,22 +376,22 @@ const AIAssist: React.FC = () => {
                           hr: () => (
                             <hr className="my-8 border-gray-200 dark:border-gray-700" />
                           ),
-                          p: ({children}) => (
+                          p: ({children}: MarkdownComponents) => (
                             <p className="text-base leading-relaxed mb-4">
                               {children}
                             </p>
                           ),
-                          ul: ({children}) => (
+                          ul: ({children}: MarkdownComponents) => (
                             <ul className="my-4 space-y-2">
                               {children}
                             </ul>
                           ),
-                          ol: ({children}) => (
+                          ol: ({children}: MarkdownComponents) => (
                             <ol className="my-4 space-y-2">
                               {children}
                             </ol>
                           ),
-                          li: ({children, ordered}) => (
+                          li: ({children, ordered}: MarkdownComponents) => (
                             <li className={`flex items-start space-x-2 ${
                               ordered ? 'text-indigo-600 dark:text-indigo-400' : ''
                             }`}>
@@ -465,5 +465,6 @@ const AIAssist: React.FC = () => {
     </motion.div>
   );
 };
+
 
 export default AIAssist;
