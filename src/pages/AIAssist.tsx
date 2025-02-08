@@ -60,11 +60,14 @@ const AIAssist: React.FC = () => {
   const isAuthenticated = localStorage.getItem('token') !== null;
 
   const cleanupChat = () => {
-    setMessages([WELCOME_MESSAGE]);
-    setQuizData(null);
-    setCurrentQuizData(null);
-    localStorage.removeItem('aiAssistMessages');
-    localStorage.removeItem('quizData');
+    const hasQuizData = localStorage.getItem('quizData');
+    if (!hasQuizData) {
+      setMessages([WELCOME_MESSAGE]);
+      setQuizData(null);
+      setCurrentQuizData(null);
+      localStorage.removeItem('aiAssistMessages');
+    }
+    // Don't remove quizData from localStorage here
     localStorage.removeItem('lastUserId');
   };
 
@@ -95,18 +98,15 @@ const AIAssist: React.FC = () => {
 
   useEffect(() => {
     const clearChatOnReload = () => {
-      setMessages([WELCOME_MESSAGE]);
-      setCurrentQuizData(null);
-      localStorage.removeItem('aiAssistMessages');
-      localStorage.removeItem('quizData');
+      const hasQuizData = localStorage.getItem('quizData');
+      if (!hasQuizData) {
+        // Only clear if there's no quiz data
+        setMessages([WELCOME_MESSAGE]);
+        setCurrentQuizData(null);
+      }
     };
 
-    // Clear on mount (page load/reload)
-    clearChatOnReload();
-
-    // Add beforeunload event listener to clear data
     window.addEventListener('beforeunload', clearChatOnReload);
-
     return () => {
       window.removeEventListener('beforeunload', clearChatOnReload);
     };
@@ -139,6 +139,36 @@ const AIAssist: React.FC = () => {
       cleanupChat();
     }
   }, [isAuthenticated, quizData]);
+
+  // Add effect to handle quiz data transitions
+  useEffect(() => {
+    const handleQuizTransition = () => {
+      const storedQuizData = localStorage.getItem('quizData');
+      
+      if (storedQuizData) {
+        try {
+          const quizData = JSON.parse(storedQuizData);
+          const summary = generateQuizSummary(quizData);
+          // Reset messages but include quiz review
+          setMessages([
+            WELCOME_MESSAGE,
+            { role: 'assistant', content: summary }
+          ]);
+          // Clear the stored quiz data to prevent showing it again on future reloads
+          localStorage.removeItem('quizData');
+        } catch (error) {
+          console.error('Error parsing quiz data:', error);
+          setMessages([WELCOME_MESSAGE]);
+        }
+      } else {
+        // If no quiz data, just show welcome message
+        setMessages([WELCOME_MESSAGE]);
+      }
+    };
+
+    // Call on component mount
+    handleQuizTransition();
+  }, []); // Empty dependency array ensures this only runs once on mount
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -416,7 +446,7 @@ const AIAssist: React.FC = () => {
                   className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl"
                 >
                   {loading ? (
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2"></div>
                       <Loader2 className="w-5 h-5 animate-spin" />
                       <span>Sending...</span>
                     </div>
