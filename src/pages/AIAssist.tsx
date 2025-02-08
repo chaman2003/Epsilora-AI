@@ -94,6 +94,25 @@ const AIAssist: React.FC = () => {
   }, [navigate, setQuizData]);
 
   useEffect(() => {
+    const clearChatOnReload = () => {
+      setMessages([WELCOME_MESSAGE]);
+      setCurrentQuizData(null);
+      localStorage.removeItem('aiAssistMessages');
+      localStorage.removeItem('quizData');
+    };
+
+    // Clear on mount (page load/reload)
+    clearChatOnReload();
+
+    // Add beforeunload event listener to clear data
+    window.addEventListener('beforeunload', clearChatOnReload);
+
+    return () => {
+      window.removeEventListener('beforeunload', clearChatOnReload);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       cleanupChat();
       return;
@@ -112,10 +131,9 @@ const AIAssist: React.FC = () => {
         localStorage.setItem('lastUserId', currentUserId);
       }
 
-      if (quizData) {
-        const summary = generateQuizSummary(quizData);
-        setMessages([WELCOME_MESSAGE, { role: 'assistant', content: summary }]);
-      }
+      // Remove quiz data initialization to prevent it from showing on reload
+      setMessages([WELCOME_MESSAGE]);
+      
     } catch (error) {
       console.error('Error processing token:', error);
       cleanupChat();
