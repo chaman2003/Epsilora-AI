@@ -31,12 +31,9 @@ interface QuizData {
   }[];
 }
 
-const AIAssist: React.FC = () => {
-  const { quizData, setQuizData } = useQuiz();
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([{
-    role: 'assistant',
-    content: `# 👋 Welcome to Your AI Learning Assistant! 
+const WELCOME_MESSAGE = {
+  role: 'assistant' as const,
+  content: `# 👋 Welcome to Your AI Learning Assistant! 
 
 ## ✨ I'm here to help you with:
 
@@ -56,7 +53,12 @@ const AIAssist: React.FC = () => {
 * 🌟 Get motivation
 
 **Ready to learn? Ask me anything!** 🚀`
-  }]);
+};
+
+const AIAssist: React.FC = () => {
+  const { quizData, setQuizData } = useQuiz();
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [loading, setLoading] = useState(false);
   const [currentQuizData, setCurrentQuizData] = useState<{
     score?: string;
@@ -69,9 +71,59 @@ const AIAssist: React.FC = () => {
   const isAuthenticated = localStorage.getItem('token') !== null;
 
   useEffect(() => {
+    const checkAuthStatus = () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        // Reset everything when logged out
+        setMessages([WELCOME_MESSAGE]);
+        setQuizData(null);
+        setCurrentQuizData(null);
+        navigate('/login');
+      }
+    };
+
+    // Check initial auth status
+    checkAuthStatus();
+
+    // Add event listener for storage changes (logout from another tab)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token' && !e.newValue) {
+        checkAuthStatus();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [navigate, setQuizData]);
+
+  useEffect(() => {
     if (!isAuthenticated) {
+      setMessages([WELCOME_MESSAGE]);
       navigate('/login');
       return;
+    }
+
+    // Get last session user ID
+    const lastUserId = localStorage.getItem('lastUserId');
+    const token = localStorage.getItem('token');
+    
+    if (token) {
+      try {
+        const tokenData = JSON.parse(atob(token.split('.')[1]));
+        const currentUserId = tokenData.id;
+        
+        // If user changed, reset chat
+        if (lastUserId !== currentUserId) {
+          setMessages([WELCOME_MESSAGE]);
+          localStorage.setItem('lastUserId', currentUserId);
+          return;
+        }
+      } catch (error) {
+        console.error('Error processing token:', error);
+      }
     }
 
     const initializeQuizData = async () => {
