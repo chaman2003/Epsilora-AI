@@ -17,7 +17,6 @@ interface Message {
 interface ChatHistory {
   _id: string;
   messages: Message[];
-  title: string;
   createdAt: string;
 }
 
@@ -52,84 +51,156 @@ const AIAssist: React.FC = () => {
     courseName?: string;
     correctQuestions?: number[];
   } | null>(null);
-  const [showWelcome, setShowWelcome] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
+  // Check if this is a new session and reset data if needed
   useEffect(() => {
-    loadChatHistories();
-  }, []);
-
-  useEffect(() => {
-    // Show welcome message when there are no messages or when starting a new chat
-    if (messages.length === 0 && showWelcome) {
-      setMessages([{
-        role: 'assistant',
-        content: `
-          <div class="welcome-message">
-            <h2 class="text-2xl font-bold mb-4 text-indigo-600 dark:text-indigo-400">Welcome to Your AI Learning Assistant! 👋</h2>
-            <p class="mb-3">I'm here to help you with:</p>
-            <ul class="space-y-2 mb-4">
-              <li class="flex items-center space-x-2">
-                <span class="text-indigo-500">📚</span>
-                <span>Understanding complex programming concepts</span>
-              </li>
-              <li class="flex items-center space-x-2">
-                <span class="text-indigo-500">🔍</span>
-                <span>Reviewing your quiz answers</span>
-              </li>
-              <li class="flex items-center space-x-2">
-                <span class="text-indigo-500">💡</span>
-                <span>Providing coding examples and explanations</span>
-              </li>
-              <li class="flex items-center space-x-2">
-                <span class="text-indigo-500">🎯</span>
-                <span>Answering your course-related questions</span>
-              </li>
-            </ul>
-            <p class="text-gray-600 dark:text-gray-400">Feel free to ask me anything about your courses or programming concepts!</p>
-          </div>
-        `
-      }]);
+    const lastUserId = localStorage.getItem('lastUserId');
+    const currentToken = localStorage.getItem('token');
+    
+    if (currentToken) {
+      try {
+        const tokenData = JSON.parse(atob(currentToken.split('.')[1]));
+        const currentUserId = tokenData.id;
+        
+        // If this is a different user or new user, reset everything
+        if (lastUserId !== currentUserId) {
+          // Clear all AI assist related data
+          localStorage.removeItem('aiAssistMessages');
+          localStorage.removeItem('quiz_data');
+          localStorage.removeItem('quizData');
+          setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
+          setQuizData(null);
+          setChatHistories([]);
+          setCurrentChatId(null);
+          setCurrentQuizData(null);
+          
+          // Store the new user ID
+          localStorage.setItem('lastUserId', currentUserId);
+        }
+      } catch (error) {
+        console.error('Error processing token:', error);
+      }
     }
-  }, [messages, showWelcome]);
+  }, [setQuizData]);
 
-  const handleNewChat = () => {
-    setMessages([]);
-    setCurrentChatId(null);
-    setShowWelcome(true);
-    setIsSidebarOpen(false);
-  };
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
 
-  const loadChat = async (chatId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
+    loadChatHistories();
+
+    const initializeQuizData = async () => {
+      let quizDataToUse = quizData;
+      const storedQuizData = localStorage.getItem('quizData');
+
+      if (!quizDataToUse && storedQuizData) {
+        try {
+          quizDataToUse = JSON.parse(storedQuizData);
+          console.log('Retrieved quiz data from localStorage:', quizDataToUse);
+          setQuizData(quizDataToUse);
+        } catch (error) {
+          console.error('Error parsing quiz data from localStorage:', error);
+        }
+      }
+
+      if (!quizDataToUse) {
+        console.warn('No quiz data available, proceeding without quiz data.');
+        // Allow access to AI Assist even without quiz data
+        setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
         return;
       }
 
-      // Find chat from local state
-      const chat = chatHistories.find(ch => ch._id === chatId);
-      if (chat) {
-        setShowWelcome(false); // Hide welcome message when loading a chat
-        // Remove duplicate messages and format responses
-        const uniqueMessages = removeDuplicateMessages(chat.messages);
-        const formattedMessages = uniqueMessages.map(msg => ({
-          ...msg,
-          content: msg.role === 'assistant' ? formatAIResponse(msg.content) : msg.content
-        }));
-        setMessages(formattedMessages);
-        setCurrentChatId(chatId);
+      console.log('Using quiz data:', quizDataToUse);
+      const summary = generateQuizSummary(quizDataToUse);
+
+      const storedMessages = localStorage.getItem('aiAssistMessages');
+      if (storedMessages) {
+        try {
+          const parsedMessages = JSON.parse(storedMessages);
+          setMessages(parsedMessages);
+        } catch (error) {
+          console.error('Error parsing stored messages:', error);
+          setMessages([{ role: 'assistant', content: summary }]);
+        }
       } else {
-        toast.error('Chat not found');
+        setMessages([{ role: 'assistant', content: summary }]);
+
+        createNewChat([{ role: 'assistant', content: summary }]);
       }
-    } catch (error) {
-      console.error('Error loading chat:', error);
-      toast.error('Failed to load chat');
+    };
+
+    initializeQuizData();
+  }, [isAuthenticated, navigate, quizData, setQuizData]);
+
+  useEffect(() => {
+    if (quizData && !currentChatId) {
+      // Find existing quiz review chat
+      const existingQuizChat = chatHistories.find(chat => 
+        chat.messages.some(msg => msg.content.includes('Quiz Review'))
+      );
+
+      if (existingQuizChat) {
+        // Use existing chat
+        setCurrentChatId(existingQuizChat._id);
+        setMessages(existingQuizChat.messages);
+      }
+
+      const summary = generateQuizSummary(quizData);
+      const quizMessage = { role: 'assistant' as const, content: summary };
+      
+      if (existingQuizChat) {
+        // Append to existing chat
+        const updatedMessages = [...messages, quizMessage];
+        setMessages(updatedMessages);
+        saveMessagesToChat(existingQuizChat._id, updatedMessages);
+      } else {
+        // Create new chat
+        createNewChat([quizMessage]);
+      }
     }
+  }, [quizData]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('aiAssistMessages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      localStorage.removeItem('aiAssistMessages');
+    };
+  }, []);
+
+  useEffect(() => {
+    // Update quiz data whenever messages change
+    const quizMessage = messages.find(msg => msg.content.includes('Quiz Review'));
+    if (quizMessage) {
+      setCurrentQuizData(parseQuizReview(quizMessage.content));
+    } else {
+      setCurrentQuizData(null);
+    }
+  }, [messages]);
+
+  const parseQuizReview = (content: string) => {
+    const scoreMatch = content.match(/🏆 Score: (\d+)\/(\d+)/);
+    const courseMatch = content.match(/📘 Course: (.*?)\n/);
+    const correctQuestions = content.split('\n')
+      .filter(line => line.includes('Question'))
+      .map((line, index) => line.includes('✅') ? index + 1 : 0)
+      .filter(num => num !== 0);
+
+    return {
+      score: scoreMatch ? scoreMatch[0] : undefined,
+      totalQuestions: scoreMatch ? parseInt(scoreMatch[2]) : undefined,
+      courseName: courseMatch ? courseMatch[1] : undefined,
+      correctQuestions
+    };
   };
 
   const loadChatHistories = async () => {
@@ -146,7 +217,7 @@ const AIAssist: React.FC = () => {
       
       // For new users, ensure we start with a clean slate
       if (response.data.length === 0) {
-        setMessages([]);
+        setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
         setCurrentChatId(null);
       }
       
@@ -161,7 +232,7 @@ const AIAssist: React.FC = () => {
     }
   };
 
-  const createNewChat = async (initialMessages: Message[] = [], title: string = 'New Chat') => {
+  const createNewChat = async (initialMessages: Message[] = []) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -169,14 +240,9 @@ const AIAssist: React.FC = () => {
         return null;
       }
 
-      // Don't create chat for empty messages
-      if (initialMessages.length === 0) {
-        return null;
-      }
-
+      // Create new chat for all quiz reviews
       const response = await axiosInstance.post('/api/chat-history', {
-        messages: initialMessages,
-        title: title
+        messages: initialMessages
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -192,44 +258,49 @@ const AIAssist: React.FC = () => {
     }
   };
 
-  const generateQuizSummary = (quizData: QuizData) => {
-    // Only generate quiz review if we have valid quiz data
-    if (!quizData || !quizData.courseName || quizData.totalQuestions === 0) {
-      return null;
+  const loadChat = async (chatId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      // Find chat from local state instead of making API call
+      const chat = chatHistories.find(ch => ch._id === chatId);
+      if (chat) {
+        setMessages(chat.messages);
+        setCurrentChatId(chatId);
+      } else {
+        toast.error('Chat not found');
+      }
+    } catch (error) {
+      console.error('Error loading chat:', error);
+      toast.error('Failed to load chat');
     }
-
-    let summary = `# 🎓 Quiz Review\n\n`;
-    summary += `## 📘 Course: ${quizData.courseName}\n`;
-    summary += `**🧠 Difficulty:** ${quizData.difficulty || 'Standard'}\n`;
-    summary += `**🏆 Score:** ${quizData.score}/${quizData.totalQuestions}\n\n`;
-
-    if (quizData.questions && quizData.questions.length > 0) {
-      summary += `### Question Review\n\n`;
-      quizData.questions.forEach((q, index) => {
-        summary += `#### Question ${index + 1}\n`;
-        summary += `${q.question}\n\n`;
-        summary += `Your Answer: ${q.userAnswer}\n`;
-        summary += `${q.isCorrect ? '✅ Correct!' : `❌ Incorrect. Correct answer: ${q.correctAnswer}`}\n\n`;
-      });
-    }
-
-    return summary;
   };
 
-  const parseQuizReview = (content: string) => {
-    const scoreMatch = content.match(/🏆 Score: (\d+)\/(\d+)/);
-    const courseMatch = content.match(/📘 Course: (.*?)\n/);
-    const correctQuestions = content.split('\n')
-      .filter(line => line.includes('Question'))
-      .map((line, index) => line.includes('✅') ? index + 1 : 0)
-      .filter(num => num !== 0);
+  const deleteChat = async (chatId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
 
-    return {
-      score: scoreMatch ? scoreMatch[0] : undefined,
-      totalQuestions: scoreMatch ? parseInt(scoreMatch[2]) : undefined,
-      courseName: courseMatch ? courseMatch[1] : undefined,
-      correctQuestions
-    };
+      await axiosInstance.delete(`/api/chat-history/${chatId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (currentChatId === chatId) {
+        setMessages([]);
+        setCurrentChatId(null);
+      }
+      await loadChatHistories();
+      toast.success('Chat deleted successfully');
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+      toast.error('Failed to delete chat');
+    }
   };
 
   const saveMessagesToChat = async (chatId: string, messages: Message[]) => {
@@ -281,23 +352,6 @@ const AIAssist: React.FC = () => {
     }
   };
 
-  const generateChatTitle = (messages: Message[]) => {
-    if (!messages.length) return 'New Chat';
-    
-    const firstUserMessage = messages.find(m => m.role === 'user');
-    if (!firstUserMessage) return 'New Chat';
-
-    // If it's a quiz review
-    if (messages[0].content.includes('Quiz Review')) {
-      const courseMatch = messages[0].content.match(/Course: (.*?)\n/);
-      return courseMatch ? `Quiz Review - ${courseMatch[1]}` : 'Quiz Review';
-    }
-
-    // For regular chats, use the first user message
-    const title = firstUserMessage.content.slice(0, 30);
-    return title.length < firstUserMessage.content.length ? `${title}...` : title;
-  };
-
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
@@ -307,70 +361,141 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    const userMessage = { role: 'user' as const, content: input.trim() };
+    const userMessage = { role: 'user' as const, content: input };
     setInput('');
-    
-    // Deduplicate messages by checking the last message
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.content === userMessage.content) {
-      toast.error('Please avoid sending duplicate messages');
-      return;
-    }
-    
-    // Filter out welcome message when creating new chat
-    const chatMessages = messages.filter(m => !m.content.includes('Welcome to Your AI Learning Assistant'));
-    const newMessages = [...chatMessages, userMessage];
-    setMessages([...messages, userMessage]); // Keep welcome message in UI
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setLoading(true);
 
     try {
       let chatId = currentChatId;
+      let saveAttempts = 0;
+      const maxAttempts = 3;
 
-      // Create new chat if needed
+      // Create or get chat ID
       if (!chatId) {
-        const chatTitle = generateChatTitle(newMessages);
-        const newChatId = await createNewChat(newMessages, chatTitle);
-        if (!newChatId) {
-          throw new Error('Failed to create new chat');
+        try {
+          const response = await axiosInstance.post('/api/chat-history', {
+            messages: newMessages,
+            message: userMessage
+          }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          chatId = response.data._id;
+          setCurrentChatId(chatId);
+        } catch (e) {
+          console.error('Failed to create chat:', e);
+          // Fallback: try creating with just the message
+          const response = await axiosInstance.post('/api/chat-history', {
+            message: userMessage
+          }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          chatId = response.data._id;
+          setCurrentChatId(chatId);
         }
-        chatId = newChatId;
       }
 
-      // Save messages to chat
-      const saved = await saveMessagesToChat(chatId, newMessages);
-      if (!saved) {
-        throw new Error('Failed to save messages');
+      // Save user message
+      while (saveAttempts < maxAttempts && chatId) {
+        const saved = await saveMessagesToChat(chatId, newMessages);
+        if (saved) break;
+        saveAttempts++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // Get AI response
+      // Get current chat context
+      const currentChat = chatHistories.find(ch => ch._id === chatId);
+      const contextMessage = currentChat?.messages[0]?.content || '';
+      const isQuizReview = contextMessage.includes('Quiz Review');
+
+      // Get AI response with context
       const response = await axiosInstance.post('/api/ai-assist', {
         messages: newMessages,
-        isQuizReview: messages.some(msg => msg.content.includes('Quiz Review'))
+        quizContext: null,
+        chatContext: {
+          isQuizReview,
+          chatId,
+          firstMessage: contextMessage,
+          quizData: currentQuizData
+        }
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
-      const aiMessage = { 
-        role: 'assistant' as const, 
-        content: formatAIResponse(response.data.message)
+      const assistantMessage = {
+        role: 'assistant' as const,
+        content: response.data.message
       };
+
+      const finalMessages = [...newMessages, assistantMessage];
+      setMessages(finalMessages);
       
-      const updatedMessages = [...newMessages, aiMessage];
-      
-      // Save AI response
-      await saveMessagesToChat(chatId, updatedMessages);
-      setMessages([...messages.filter(m => m.content.includes('Welcome')), ...updatedMessages]); // Keep welcome message
-      
-      // Update chat title
-      const title = generateChatTitle(updatedMessages);
-      await updateChatTitle(chatId, title);
-      
-      // Refresh chat histories
+      // Save final messages with AI response
+      saveAttempts = 0;
+      while (saveAttempts < maxAttempts && chatId) {
+        const saved = await saveMessagesToChat(chatId, finalMessages);
+        if (saved) break;
+        saveAttempts++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
       await loadChatHistories();
+      const savedChat = chatHistories.find(ch => ch._id === chatId);
+      if (!savedChat || savedChat.messages.length !== finalMessages.length) {
+        await saveMessagesToChat(chatId!, finalMessages);
+        await loadChatHistories();
+      }
+
     } catch (error) {
-      console.error('Error in chat interaction:', error);
-      toast.error('Failed to get AI response. Please try again.');
+      console.error('Error sending message:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          navigate('/login');
+        } else {
+          const errorMessage = error.response?.data?.message || 'Failed to send message';
+          toast.error(errorMessage);
+        }
+      } else {
+        toast.error('An unexpected error occurred');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const generateQuizSummary = (data: QuizData) => {
+    console.log('Generating summary for quiz data:', data);
+    
+    let summary = `# 🎓 Quiz Review\n\n`;
+    summary += `## 📘 Course: ${data.courseName} \n`;
+    summary += `**🧠 Difficulty:** ${data.difficulty} \n`;
+    summary += `**🏆 Score:** ${data.score}/${data.totalQuestions} \n\n`;
+
+    summary += `## 🔍 Questions \n\n`;
+    data.questions.forEach((q, index) => {
+      summary += `### 📝 Question ${index + 1} ${q.isCorrect ? '✅' : '❌'} \n\n`;
+      summary += `**${q.question}** \n\n`;
+      
+      summary += `**Options:** \n\n`;
+      if (Array.isArray(q.options)) {
+        q.options.forEach(opt => {
+          const isUserAnswer = opt.label === q.userAnswer;
+          const isCorrectAnswer = opt.label === q.correctAnswer;
+          summary += `${isUserAnswer ? '👉 ' : ''}${opt.text} ${isCorrectAnswer ? '✅' : ''}\n\n`;
+        });
+      }
+      
+      summary += `\n**Your Answer:** ${q.userAnswer} `;
+      if (q.isCorrect) {
+        summary += `✅ Correct!\n\n`;
+      } else {
+        summary += `❌ Wrong\n\n`;
+        summary += `\n**_Correct answer was ${q.correctAnswer}_**\n\n`;
+      }
+    });
+
+    return summary;
   };
 
   const StyledComponents = {
@@ -386,15 +511,7 @@ const AIAssist: React.FC = () => {
   };
 
   const scrollToBottom = () => {
-    if (autoScroll && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
-  };
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const element = e.currentTarget;
-    const isAtBottom = Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 50;
-    setAutoScroll(isAtBottom);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -403,337 +520,302 @@ const AIAssist: React.FC = () => {
     }
   }, [messages]);
 
-  const updateChatTitle = async (chatId: string, title: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      await axiosInstance.put(`/api/chat-history/${chatId}/title`, {
-        title
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } catch (error) {
-      console.error('Error updating chat title:', error);
-    }
-  };
-
-  const [fontSize, setFontSize] = useState(16);
-
-  const renderMessage = (message: Message) => {
-    if (message.role === 'assistant') {
-      if (message.content.includes('Welcome to Your AI Learning Assistant')) {
-        return (
-          <div 
-            className="markdown-content"
-            dangerouslySetInnerHTML={{ __html: message.content }}
-          />
-        );
-      }
-
-      return (
-        <div className="prose dark:prose-invert max-w-none">
-          <ReactMarkdown 
-            remarkPlugins={[remarkGfm]}
-            components={{
-              p: ({node, ...props}) => (
-                <p className="my-4 leading-7" {...props} />
-              ),
-              strong: ({node, ...props}) => (
-                <strong className="font-semibold text-indigo-600 dark:text-indigo-400" {...props} />
-              ),
-              code: ({node, inline, ...props}) => (
-                inline ? 
-                  <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono" {...props} /> :
-                  <code className="block p-4 my-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm font-mono overflow-x-auto" {...props} />
-              ),
-              ul: ({node, ...props}) => (
-                <ul className="space-y-4 my-4" {...props} />
-              ),
-              li: ({node, ...props}) => (
-                <li className="flex items-start space-x-3 leading-7 mb-4">
-                  <span className="text-indigo-500 mt-1.5 flex-shrink-0">•</span>
-                  <span className="flex-1" {...props} />
-                </li>
-              ),
-              blockquote: ({node, ...props}) => (
-                <blockquote className="border-l-4 border-indigo-500 pl-4 my-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-r-lg" {...props} />
-              )
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
-        </div>
-      );
-    }
-
-    return (
-      <div className="text-gray-800 dark:text-gray-200 leading-7">
-        {message.content}
-      </div>
-    );
-  };
-
-  const deleteChat = async (chatId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      // First update the local state to make the UI feel more responsive
-      setChatHistories(prev => prev.filter(ch => ch._id !== chatId));
-      if (currentChatId === chatId) {
-        setMessages([]);
-        setCurrentChatId(null);
-        setShowWelcome(true);
-      }
-
-      const response = await axiosInstance.delete(`/api/chat-history/${chatId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (response.status === 200) {
-        toast.success('Chat deleted successfully');
-      } else {
-        // If the delete request fails, revert the local state changes
-        loadChatHistories();
-        toast.error('Failed to delete chat');
-      }
-    } catch (error) {
-      console.error('Error deleting chat:', error);
-      // Revert local state changes on error
-      loadChatHistories();
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/login');
-        } else if (error.response?.status === 404) {
-          // If the chat doesn't exist on the server, keep it deleted locally
-          toast.success('Chat deleted successfully');
-        } else {
-          toast.error(error.response?.data?.message || 'Failed to delete chat');
-        }
-      } else {
-        toast.error('Failed to delete chat');
-      }
-    }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 pt-2"
+      className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-12"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Chat History Sidebar */}
-        <AnimatePresence>
-          {isSidebarOpen && (
-            <motion.div
-              initial={{ x: -320, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -320, opacity: 0 }}
-              transition={{ type: "spring", damping: 20 }}
-              className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50"
-            >
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Chat History</h2>
-                <button
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                </button>
-              </div>
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={handleNewChat}
-                  className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>New Chat</span>
-                </button>
-              </div>
-              <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
-                {chatHistories.map((chat, index) => {
-                  const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
-                  const firstUserMessage = chat.messages.find(msg => msg.role === 'user');
-                  
-                  // Generate chat title
-                  let chatTitle = chat.title;
-                  if (!chatTitle || chatTitle === 'New Chat') {
-                    if (isQuizReview) {
-                      const courseName = chat.messages[0]?.content.match(/Course: ([^\n]+)/)?.[1] || '';
-                      chatTitle = `Quiz Review - ${courseName}`;
-                    } else if (firstUserMessage) {
-                      // Take first 30 characters of user's first message
-                      chatTitle = firstUserMessage.content.slice(0, 30) + (firstUserMessage.content.length > 30 ? '...' : '');
-                    } else {
-                      chatTitle = `Chat ${chatHistories.length - index}`;
-                    }
-                  }
+        <div className="flex gap-6 relative">
+          {/* Chat History Sidebar */}
+          <AnimatePresence>
+            {isSidebarOpen && (
+              <motion.div
+                initial={{ x: -320, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -320, opacity: 0 }}
+                transition={{ type: "spring", damping: 20 }}
+                className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50"
+              >
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  </button>
+                </div>
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => {
+                      setMessages([]);
+                      setCurrentChatId(null);
+                      setIsSidebarOpen(false);
+                    }}
+                    className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>New Chat</span>
+                  </button>
+                </div>
+                <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
+                  {chatHistories.map((chat, index) => {
+                    const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
+                    const chatPreview = isQuizReview 
+                      ? `Quiz Review #${chatHistories.length - index}`
+                      : chat.messages[0]?.content.slice(0, 30) + '...';
 
-                  return (
-                    <motion.div
-                      key={chat._id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-                        currentChatId === chat._id
-                          ? 'bg-indigo-50 dark:bg-indigo-900/20'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      }`}
-                      onClick={() => {
-                        loadChat(chat._id);
-                        setIsSidebarOpen(false);
-                      }}
-                    >
-                      <div className="flex items-center space-x-3">
-                        {isQuizReview ? (
-                          <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        ) : (
-                          <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        )}
-                        <div className="flex-1 truncate">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {chatTitle}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {new Date(chat.createdAt).toLocaleDateString()} • {chat.messages.length} messages
-                          </p>
+                    return (
+                      <div
+                        key={chat._id}
+                        className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 ${
+                          currentChatId === chat._id
+                            ? 'bg-indigo-50 dark:bg-indigo-900/20'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
+                        onClick={() => {
+                          loadChat(chat._id);
+                          setIsSidebarOpen(false);
+                        }}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                          <div className="flex-1 truncate">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {chatPreview}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {new Date(chat.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteChat(chat._id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                          </button>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteChat(chat._id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-                        </button>
                       </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {/* Backdrop */}
-        <AnimatePresence>
-          {isSidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsSidebarOpen(false)}
-              className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40"
-            />
-          )}
-        </AnimatePresence>
+          {/* Backdrop */}
+          <AnimatePresence>
+            {isSidebarOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSidebarOpen(false)}
+                className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40"
+              />
+            )}
+          </AnimatePresence>
 
-        {/* Main Chat Area */}
-        <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-          {/* Chat Header */}
-          <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <h1 className="text-xl font-semibold">AI Learning Assistant</h1>
-              </div>
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={handleNewChat}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2"
-                >
-                  <Plus className="w-6 h-6" />
-                  <span>New Chat</span>
-                </button>
-                <button
-                  onClick={() => setIsSidebarOpen(true)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2"
-                >
-                  <History className="w-6 h-6" />
-                  <span>Chat History</span>
-                </button>
+          {/* Main Chat Area */}
+          <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+            {/* Chat Header */}
+            <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
+                    <Bot className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight">AI Learning Assistant</h2>
+                    <p className="text-indigo-100 text-sm mt-1">Powered by advanced AI to help you learn</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      setMessages([]);
+                      setCurrentChatId(null);
+                    }}
+                    className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
+                  >
+                    <Plus className="w-6 h-6" />
+                    <span className="text-sm font-medium">New Chat</span>
+                  </button>
+                  <button
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
+                  >
+                    <History className="w-6 h-6" />
+                    <span className="text-sm font-medium">History</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Messages */}
-          <div 
-            className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
-            onScroll={handleScroll}
-          >
-            <AnimatePresence>
-              {messages.map((message, index) => (
+            {/* Chat Messages */}
+            <div className="h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50">
+              <AnimatePresence>
+                {messages.map((message, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} px-4`}
+                  >
+                    <div className={`flex-shrink-0 p-2.5 rounded-xl ${
+                      message.role === 'user' 
+                        ? 'bg-indigo-100 dark:bg-indigo-900/50' 
+                        : 'bg-purple-100 dark:bg-purple-900/50'
+                    }`}>
+                      {message.role === 'user' ? (
+                        <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      ) : (
+                        <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      )}
+                    </div>
+                    <div
+                      className={`rounded-2xl p-6 shadow-md ${
+                        message.role === 'user'
+                          ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'
+                          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                      }`}
+                    >
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          h1: ({children}) => (
+                            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-8">
+                              {children}
+                            </h1>
+                          ),
+                          h2: ({children}) => (
+                            <h2 className="text-2xl font-semibold text-indigo-600 dark:text-indigo-400 mb-6">
+                              {children}
+                            </h2>
+                          ),
+                          h3: ({children}) => (
+                            <h3 className={`text-xl font-semibold mb-4 ${
+                              String(children).includes('Questions to Review')
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : String(children).includes('Excellent')
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-indigo-600 dark:text-indigo-400'
+                            }`}>
+                              {children}
+                            </h3>
+                          ),
+                          h4: ({children}) => (
+                            <h4 className="text-lg font-semibold text-amber-600 dark:text-amber-400 mb-4">
+                              {children}
+                            </h4>
+                          ),
+                          strong: ({children}) => (
+                            <strong className={`font-semibold ${
+                              String(children).includes('Your Answer')
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : String(children).includes('Correct answer')
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : ''
+                            }`}>
+                              {children}
+                            </strong>
+                          ),
+                          em: ({children}) => (
+                            <em className="text-emerald-600 dark:text-emerald-400 not-italic font-semibold">
+                              {children}
+                            </em>
+                          ),
+                          hr: () => (
+                            <hr className="my-8 border-gray-200 dark:border-gray-700" />
+                          ),
+                          p: ({children}) => (
+                            <p className="text-base leading-relaxed mb-4">
+                              {children}
+                            </p>
+                          ),
+                          ul: ({children}) => (
+                            <ul className="my-4 space-y-2">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({children}) => (
+                            <ol className="my-4 space-y-2">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({children, ordered}) => (
+                            <li className={`flex items-start space-x-2 ${
+                              ordered ? 'text-indigo-600 dark:text-indigo-400' : ''
+                            }`}>
+                              {children}
+                            </li>
+                          ),
+                        }}
+                        className="max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {loading && (
                 <motion.div
-                  key={index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className={`flex items-start space-x-4 ${
-                    message.role === 'assistant' ? 'bg-white dark:bg-gray-800' : ''
-                  } rounded-lg p-4`}
+                  className="flex justify-start px-4"
                 >
-                  <div className={`flex-shrink-0 p-2.5 rounded-xl ${
-                    message.role === 'assistant' 
-                      ? 'bg-purple-100 dark:bg-purple-900/50' 
-                      : 'bg-indigo-100 dark:bg-indigo-900/50'
-                  }`}>
-                    {message.role === 'assistant' ? (
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
                       <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    ) : (
-                      <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                    )}
-                  </div>
-                  <div
-                    className={`prose prose-sm max-w-none ${
-                      message.role === 'assistant'
-                        ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                        : 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'
-                    }`}
-                  >
-                    {renderMessage(message)}
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md">
+                      <div className="flex items-center space-x-3">
+                        <Loader2 className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-400" />
+                        <span className="text-sm text-gray-600 dark:text-gray-300">Thinking...</span>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
-              ))}
-            </AnimatePresence>
-            <div ref={messagesEndRef} />
-          </div>
+              )}
+              <div ref={messagesEndRef} className="h-4" />
+            </div>
 
-          {/* Input Area */}
-          <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="flex items-center space-x-4">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="Ask about your quiz or any courses related topics..."
-                className="flex-1 p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-              />
-              <button
-                onClick={handleSend}
-                disabled={loading || !input.trim()}
-                className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl"
-              >
-                {loading ? (
-                  <div className="flex items-center space-x-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Sending...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <Send className="w-5 h-5" />
-                    <span>Send</span>
-                  </div>
-                )}
-              </button>
+            {/* Input Area */}
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <div className="flex items-center space-x-4">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                  placeholder="Ask about your quiz or any courses related topics..."
+                  className="flex-1 p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={loading || !input.trim()}
+                  className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl"
+                >
+                  {loading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Sending...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <Send className="w-5 h-5" />
+                      <span>Send</span>
+                    </div>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
