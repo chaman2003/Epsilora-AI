@@ -47,19 +47,46 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configure CORS
+// CORS Configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://epsilora.vercel.app',
+  'https://epsilora-git-main-chaman-ss-projects.vercel.app',
+  'https://epsilora-chaman-ss-projects.vercel.app',
+  'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app'
+];
+
+// Debug middleware to log CORS details
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://epsilora.vercel.app');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  console.log('Incoming request from origin:', req.headers.origin);
   next();
 });
+
+app.use(cors({
+  origin: function (origin, callback) {
+    console.log('Checking origin:', origin);
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      console.log('No origin, allowing request');
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      console.log('Origin allowed:', origin);
+      return callback(null, true);
+    }
+    console.log('Origin not allowed:', origin);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 600 // Increase preflight cache to 10 minutes
+}));
+
+// Enable preflight for all routes
+app.options('*', cors());
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
@@ -236,19 +263,6 @@ app.post('/api/auth/login', async (req, res, next) => {
         email: user.email
       }
     });
-  } catch (error) {
-    next(error);
-  }
-});
-
-
-app.get('/api/auth/me', authenticateToken, async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json(user);
   } catch (error) {
     next(error);
   }
@@ -532,6 +546,10 @@ app.delete('/api/chat/:id', authenticateToken, async (req, res) => {
 
 // Quiz Generation Route
 app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
+  // Add response headers explicitly for this route
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   try {
     const { courseId, numberOfQuestions, difficulty, timePerQuestion } = req.body;
 
