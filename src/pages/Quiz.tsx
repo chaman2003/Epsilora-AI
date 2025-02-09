@@ -1626,6 +1626,4 @@ const calculateStats = (history: any[]) => {
     };
 };
 
-
-
 export default Quiz;
