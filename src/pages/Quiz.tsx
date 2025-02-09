@@ -401,13 +401,13 @@ useEffect(() => {
       toast.error('Please select a course first');
       return;
     }
-
+  
     if (!isAuthenticated) {
       toast.error('Please log in to generate a quiz');
       navigate('/login', { state: { from: '/quiz' } });
       return;
     }
-
+  
     setLoading(true);
     try {
       // Get auth token
@@ -415,18 +415,19 @@ useEffect(() => {
       if (!token) {
         throw new Error('No authentication token found');
       }
-
-      // Create custom axios instance with extended timeout and auth header
+  
+      // Create custom axios instance with auth header and timeout
       const customAxios = axiosInstance.create({
-        timeout: 45000, // 45 seconds timeout
+        timeout: 30000,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-
+  
+      // Add loading toast
       const loadingToast = toast.loading('Generating quiz questions...');
-
+  
       try {
         const response = await customAxios.post('/api/generate-quiz', {
           courseId: selectedCourse,
@@ -434,40 +435,52 @@ useEffect(() => {
           difficulty: quizDetails.difficulty,
           timePerQuestion: quizDetails.timePerQuestion
         });
-
-        // Comprehensive response parsing
-        const rawData = response.data;
-        
-        if (!rawData) {
-          throw new Error('Empty response received from server');
+  
+        // Handle both string and parsed JSON responses
+        const rawData = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+        // Clean the JSON string
+        const cleanedData = rawData.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+        const quizData = JSON.parse(cleanedData);
+  
+        // Validate quiz data
+        if (!Array.isArray(quizData)) {
+          throw new Error('Invalid quiz format: expected an array of questions');
         }
-
-        // Attempt to parse and validate quiz data
-        const quizData = Array.isArray(rawData) 
-          ? rawData 
-          : typeof rawData === 'string' 
-            ? JSON.parse(rawData.replace(/\n/g, '\\n').replace(/\r/g, '\\r'))
-            : [rawData];
-
-        if (!Array.isArray(quizData) || quizData.length === 0) {
-          throw new Error('Invalid quiz format: No questions generated');
+        if (quizData.length === 0) {
+          throw new Error('No questions were generated. Please try again.');
         }
-
-        // Validate each question
-        const validatedQuestions = quizData.map((q, index) => {
+  
+        // Clean and validate each question
+        const cleanedQuestions = quizData.map((q, index) => {
           if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
             throw new Error(`Invalid question format at index ${index}`);
           }
           return {
             id: q.id || index + 1,
-            question: q.question.trim(),
-            options: q.options.map((opt: string) => opt.trim()),
+            question: q.question.trim().replace(/\\n/g, '\n').replace(/\\/g, ''),
+            options: q.options.map((opt: string) => 
+              opt.trim().replace(/\\n/g, '\n').replace(/\\/g, '')
+            ),
             correctAnswer: q.correctAnswer.trim().toUpperCase()
           };
         });
-
-        // Update state and initialize quiz
-        setQuestions(validatedQuestions);
+  
+        // Validate cleaned questions
+        const validQuestions = cleanedQuestions.every(q => 
+          q.id && 
+          q.question && 
+          Array.isArray(q.options) && 
+          q.options.length === 4 &&
+          q.correctAnswer && 
+          ['A', 'B', 'C', 'D'].includes(q.correctAnswer)
+        );
+  
+        if (!validQuestions) {
+          throw new Error('Invalid question format in response');
+        }
+  
+        // Update state with validated questions
+        setQuestions(cleanedQuestions);
         setQuizStarted(true);
         setCurrentQuestion(0);
         setScore(0);
@@ -476,53 +489,69 @@ useEffect(() => {
         setTimeLeft(quizDetails.timePerQuestion);
         setTimerActive(true);
         setStartTime(new Date());
-
-        // Dismiss loading toast
+  
+        // Dismiss loading toast and show success
         toast.dismiss(loadingToast);
         toast.success('Quiz generated successfully!');
-
+  
       } catch (parseError) {
         console.error('Error parsing quiz data:', parseError);
+        console.error('Raw quiz data:', response.data);
         toast.dismiss(loadingToast);
-        throw parseError;
+        throw new Error('Failed to parse quiz data. Please try again.');
       }
-
+  
     } catch (error: any) {
       console.error('Error generating quiz:', error);
-      
       let errorMessage = 'Failed to generate quiz. Please try again.';
       
-      if (error.response) {
-        // Server responded with an error
-        errorMessage = error.response.data.message || 'Server error occurred';
-        console.error('Server error details:', error.response.data);
-      } else if (error.request) {
-        // Request made but no response received
-        errorMessage = 'No response from server. Please check your internet connection.';
+      // Handle specific error cases
+      if (error.response?.status === 401) {
+        errorMessage = 'Your session has expired. Please log in again.';
+        // Clear invalid token
+        localStorage.removeItem('token');
+        // Redirect to login
+        navigate('/login', { state: { from: '/quiz' } });
       } else if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Request timed out. The server is taking too long to respond.';
+        errorMessage = 'Request timed out. The server is taking too long to respond. Please try again.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+        console.error('Server error details:', error.response.data);
+      } else if (error.message) {
+        errorMessage = error.message;
       }
-
+  
       toast.error(errorMessage);
-      
-      // Optional retry mechanism
       toast((t) => (
         <div>
           <p>{errorMessage}</p>
-          <button
-            onClick={() => {
-              toast.dismiss(t.id);
-              generateQuiz();
-            }}
-            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Retry
-          </button>
+          {error.response?.status !== 401 && (
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                generateQuiz();
+              }}
+              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Retry
+            </button>
+          )}
         </div>
       ), {
         duration: 5000,
       });
-
+  
+      // If it's an auth error, trigger auth refresh
+      if (error.response?.status === 401) {
+        // You might want to implement a refresh token mechanism here
+        try {
+          await user?.refreshToken();
+          // Retry the quiz generation after token refresh
+          generateQuiz();
+        } catch (refreshError) {
+          console.error('Failed to refresh authentication:', refreshError);
+        }
+      }
     } finally {
       setLoading(false);
     }

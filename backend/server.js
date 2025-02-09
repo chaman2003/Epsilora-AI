@@ -11,11 +11,8 @@ import User from './models/User.js';
 import Course from './models/Course.js';
 import Quiz from './models/Quiz.js'; // Import Quiz model
 import QuizAttempt from './models/QuizAttempt.js';
-import Chat from './models/Chat.js';
-import AIChat from './models/AIChat.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import progressRoutes from './routes/progress.js';
-import chatRoutes from './routes/chat.js';
 import { MongoClient } from 'mongodb';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -44,62 +41,13 @@ try {
 const app = express();
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Configure CORS with comprehensive origin handling
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'https://epsilora.vercel.app',
-      'https://epsilora-git-main-chaman-ss-projects.vercel.app',
-      'https://epsilora-chaman-ss-projects.vercel.app',
-      'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ];
-
-    // Check if origin matches allowed list or is a Vercel preview deployment
-    if (!origin || 
-        allowedOrigins.includes(origin) || 
-        /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
-
-// Apply CORS middleware with comprehensive configuration
-app.use(cors(corsOptions));
-
-// Additional headers middleware for extra CORS support
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
-  next();
-});
-
-// Increase timeout for long-running operations
-app.use((req, res, next) => {
-  req.setTimeout(60000); // 60 seconds
-  res.setTimeout(60000); // 60 seconds
-  next();
-});
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json());
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
@@ -429,146 +377,6 @@ app.delete('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
   }
 });
 
-// Chat endpoint
-app.post('/api/chat', authenticateToken, async (req, res) => {
-  try {
-    const { message, courseId, quizScore, totalQuestions } = req.body;
-    const userId = req.user.id;
-
-    // If this is a quiz review, get the course name
-    let courseName = '';
-    if (courseId) {
-      const course = await Course.findById(courseId);
-      courseName = course ? course.name : 'Unknown Course';
-    }
-
-    // Generate AI response
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-    let prompt = message;
-    if (quizScore !== undefined && totalQuestions !== undefined) {
-      prompt = `Context: User just completed a quiz in ${courseName} with score ${quizScore}/${totalQuestions}.\n\nUser message: ${message}`;
-    }
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const aiMessage = response.text();
-
-    res.json({ message: aiMessage });
-  } catch (error) {
-    console.error('Error in chat endpoint:', error);
-    res.status(500).json({ error: 'Failed to process chat message' });
-  }
-});
-
-// Save chat
-app.post('/api/chat/save', authenticateToken, async (req, res) => {
-  try {
-    const { messages, type = 'general', metadata = {} } = req.body;
-    const userId = req.user.id;
-
-    // Get chat title based on type and content
-    let title = '';
-    if (type === 'quiz_review' && metadata.courseName) {
-      title = `Quiz Review: ${metadata.courseName}`;
-    } else {
-      // Use the first user message as title
-      const firstUserMessage = messages.find(m => m.role === 'user');
-      title = firstUserMessage ? firstUserMessage.content.slice(0, 50) : 'New Chat';
-    }
-
-    const chat = new AIChat({
-      userId,
-      title,
-      messages,
-      type,
-      metadata
-    });
-
-    await chat.save();
-    res.json({ success: true, chatId: chat._id });
-  } catch (error) {
-    console.error('Error saving chat:', error);
-    res.status(500).json({ error: 'Failed to save chat' });
-  }
-});
-
-// Update chat
-app.put('/api/chat/:id', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { messages } = req.body;
-    
-    // Find the existing chat
-    const chat = await AIChat.findOne({ _id: req.params.id, userId });
-    if (!chat) {
-      return res.status(404).json({ error: 'Chat not found' });
-    }
-
-    // Update messages and title
-    chat.messages = messages;
-    if (chat.type === 'general') {
-      // Update title for general chats based on first user message
-      const firstUserMessage = messages.find(m => m.role === 'user');
-      if (firstUserMessage) {
-        chat.title = firstUserMessage.content.slice(0, 50);
-      }
-    }
-    chat.lastUpdated = new Date();
-
-    await chat.save();
-    res.json(chat);
-  } catch (error) {
-    console.error('Error updating chat:', error);
-    res.status(500).json({ error: 'Failed to update chat' });
-  }
-});
-
-// Get chat history
-app.get('/api/chat/history', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const chats = await AIChat.find({ userId })
-      .sort({ lastUpdated: -1 })
-      .limit(50);
-    res.json(chats);
-  } catch (error) {
-    console.error('Error fetching chat history:', error);
-    res.status(500).json({ error: 'Failed to fetch chat history' });
-  }
-});
-
-// Get single chat
-app.get('/api/chat/:id', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const chat = await AIChat.findOne({ _id: req.params.id, userId });
-    if (!chat) {
-      return res.status(404).json({ error: 'Chat not found' });
-    }
-    res.json(chat);
-  } catch (error) {
-    console.error('Error fetching chat:', error);
-    res.status(500).json({ error: 'Failed to fetch chat' });
-  }
-});
-
-// Delete chat
-app.delete('/api/chat/:id', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const chat = await AIChat.findOneAndDelete({ _id: req.params.id, userId });
-    if (!chat) {
-      return res.status(404).json({ error: 'Chat not found' });
-    }
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting chat:', error);
-    res.status(500).json({ error: 'Failed to delete chat' });
-  }
-});
-
 // Quiz Generation Route
 app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
   try {
@@ -588,24 +396,24 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    // Batch generation strategy
-    const BATCH_SIZE = 5;  // Generate in batches of 5
-    const totalQuestions = numberOfQuestions;
-    let generatedQuestions = [];
-
-    for (let batch = 0; batch < Math.ceil(totalQuestions / BATCH_SIZE); batch++) {
-      const remainingQuestions = totalQuestions - generatedQuestions.length;
-      const currentBatchSize = Math.min(BATCH_SIZE, remainingQuestions);
-
-      const prompt = `You are a quiz generator for the course "${course.name}". Generate ${currentBatchSize} multiple choice questions.
+    // Create prompt for Gemini
+    const prompt = `You are a quiz generator for the course "${course.name}". Generate ${numberOfQuestions} multiple choice questions.
 
 Instructions:
-1. Create exactly ${currentBatchSize} unique questions
+1. Create exactly ${numberOfQuestions} unique questions
 2. Difficulty level: ${difficulty}
 3. Each question must have exactly 4 options labeled A through D
 4. Return ONLY a valid JSON array with no additional text or formatting
 5. Do not use escaped characters or special formatting in questions/options
-6. Ensure no overlap with previously generated questions
+6. Keep questions and answers clear and concise
+
+Special Requirements for Names and Places:
+- If the course title contains a person's name, include questions about both:
+  * The person's name and their significance
+  * The place(s) associated with that person (city, village, country)
+- If the course title contains a place name, include questions about both:
+  * The place name and its significance
+  * Any notable people associated with that place
 
 Format each question object like this:
 {
@@ -620,61 +428,111 @@ Format each question object like this:
   "correctAnswer": "A" or "B" or "C" or "D"
 }
 
-Previously Generated Questions (Avoid Duplicates):
-${generatedQuestions.map(q => q.question).join('\n')}`;
+Question Guidelines:
+- Ensure balanced coverage of both names and places when applicable
+- Include contextual questions about historical or cultural significance
+- Make connections between people and their associated locations
+- Keep questions factual and historically accurate
 
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-pro",
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 4096,
-          topP: 0.8,
-          topK: 40
-        }
-      });
+Remember:
+- Return ONLY the JSON array of questions
+- No markdown, no code blocks, no explanations
+- Questions must be directly related to ${course.name}
+- Keep formatting simple - avoid special characters`;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      let text = response.text();
+    // Generate quiz using Gemini
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-pro",
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+        topP: 0.8,
+        topK: 40
+      }
+    });
 
-      // Clean and parse response
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text();
+
+    try {
+      // Clean the response text
       text = text.replace(/```json\n?/g, '')
                  .replace(/```\n?/g, '')
-                 .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-                 .replace(/^[\s\n]*\[/, '[')
-                 .replace(/\][\s\n]*$/, ']')
+                 .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+                 .replace(/^[\s\n]*\[/, '[')  // Clean start
+                 .replace(/\][\s\n]*$/, ']')  // Clean end
                  .trim();
 
-      const batchQuestions = JSON.parse(text);
+      // Validate JSON structure
+      if (!text.startsWith('[') || !text.endsWith(']')) {
+        throw new Error('Response is not a valid JSON array');
+      }
 
-      // Validate and clean batch questions
-      const formattedBatchQuestions = batchQuestions.map((q, index) => ({
-        id: generatedQuestions.length + index + 1,
-        question: q.question.trim(),
-        options: q.options.map(opt => opt.trim()),
-        correctAnswer: q.correctAnswer.trim().toUpperCase(),
-        timePerQuestion
-      }));
+      // Parse and validate the questions
+      const questions = JSON.parse(text);
 
-      // Add to total questions, avoiding duplicates
-      generatedQuestions = [
-        ...generatedQuestions,
-        ...formattedBatchQuestions.filter(
-          newQ => !generatedQuestions.some(
-            existQ => existQ.question === newQ.question
-          )
-        )
-      ];
+      if (!Array.isArray(questions)) {
+        throw new Error('Response is not an array');
+      }
 
-      // Break if we have enough questions
-      if (generatedQuestions.length >= totalQuestions) break;
+      if (questions.length !== numberOfQuestions) {
+        throw new Error(`Expected ${numberOfQuestions} questions but got ${questions.length}`);
+      }
+
+      // Clean and validate each question
+      const formattedQuestions = questions.map((q, index) => {
+        // Basic validation
+        if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
+          throw new Error(`Invalid question format at index ${index}`);
+        }
+
+        // Clean question text
+        const cleanQuestion = q.question.trim();
+        
+        // Clean options
+        const cleanOptions = q.options.map(opt => 
+          opt.trim()
+             .replace(/\\n/g, ' ')
+             .replace(/\s+/g, ' ')
+        );
+
+        if (cleanOptions.length !== 4) {
+          throw new Error(`Question ${index + 1} must have exactly 4 options`);
+        }
+
+        // Validate correct answer
+        const validAnswer = q.correctAnswer.trim().toUpperCase();
+        if (!['A', 'B', 'C', 'D'].includes(validAnswer)) {
+          throw new Error(`Invalid correct answer "${validAnswer}" for question ${index + 1}`);
+        }
+
+        return {
+          id: index + 1,
+          question: cleanQuestion,
+          options: cleanOptions,
+          correctAnswer: validAnswer,
+          timePerQuestion
+        };
+      });
+
+      // Verify uniqueness
+      const uniqueQuestions = new Set(formattedQuestions.map(q => q.question));
+      if (uniqueQuestions.size !== formattedQuestions.length) {
+        throw new Error('Duplicate questions detected');
+      }
+
+      res.json(formattedQuestions);
+
+    } catch (parseError) {
+      console.error('Parse error:', parseError);
+      console.error('Raw text:', text);
+      res.status(500).json({
+        message: 'Failed to parse quiz data',
+        error: parseError.message,
+        rawText: text
+      });
     }
-
-    // Trim to exact number of questions needed
-    generatedQuestions = generatedQuestions.slice(0, totalQuestions);
-
-    res.json(generatedQuestions);
-
   } catch (error) {
     console.error('Quiz generation error:', error);
     res.status(500).json({
@@ -1062,8 +920,8 @@ app.get('/api/quiz/stats', async (req, res) => {
 
     const result = {
       totalQuizzes: stats[0].totalQuizzes[0]?.count || 0,
-      averageScore: Math.round(parseFloat(stats[0].averageScore[0]?.averageScore || 0) * 10) / 10,
-      latestScore: Math.round(parseFloat(stats[0].latestQuiz[0]?.latestScore || 0) * 10) / 10
+      averageScore: Math.round(stats[0].averageScore[0]?.averageScore || 0),
+      latestScore: Math.round(stats[0].latestQuiz[0]?.latestScore || 0)
     };
 
     console.log('Final calculated stats:', result);
@@ -1079,44 +937,6 @@ app.get('/api/quiz/stats', async (req, res) => {
     if (client) {
       await client.close();
     }
-  }
-});
-
-// Quiz stats endpoint
-app.get('/api/quiz/stats/:userId', authenticateToken, async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    // Verify that the requesting user is accessing their own stats
-    if (userId !== req.user.id) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    // Get all quiz attempts for the user
-    const quizAttempts = await QuizAttempt.find({ userId })
-      .sort({ createdAt: -1 });
-
-    // Calculate stats
-    const stats = {
-      totalQuizzes: quizAttempts.length,
-      averageScore: 0,
-      latestScore: 0
-    };
-
-    if (quizAttempts.length > 0) {
-      // Calculate average score
-      const totalScore = quizAttempts.reduce((sum, quiz) => 
-        sum + (quiz.score || 0), 0);
-      stats.averageScore = Math.round(totalScore / quizAttempts.length);
-
-      // Get latest score
-      stats.latestScore = Math.round(quizAttempts[0].score || 0);
-    }
-
-    res.json(stats);
-  } catch (error) {
-    console.error('Error fetching quiz stats:', error);
-    res.status(500).json({ message: 'Error fetching quiz statistics' });
   }
 });
 
@@ -1144,48 +964,9 @@ const errorHandler = (err, req, res, next) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// Routes
 app.use('/api/progress', progressRoutes);
-app.use('/api/chat', chatRoutes);
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-});
-
-app.get('/api/quiz-stats/:courseId', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const courseId = req.params.courseId;
-
-    // Get all quiz attempts for this user and course
-    const attempts = await QuizAttempt.find({ userId, courseId })
-      .sort({ createdAt: 1 });
-
-    if (!attempts.length) {
-      return res.json({
-        totalQuizzes: 0,
-        averageScore: 0,
-        latestScore: 0,
-        improvement: 0
-      });
-    }
-
-    // Calculate stats with forced integer values
-    const totalQuizzes = attempts.length;
-    const averageScore = Math.floor(attempts.reduce((sum, attempt) => sum + attempt.score, 0) / totalQuizzes);
-    const latestScore = Math.floor(attempts[attempts.length - 1].score);
-    const firstScore = Math.floor(attempts[0].score);
-    const improvement = Math.floor(((latestScore - firstScore) / firstScore) * 100);
-
-    res.json({
-      totalQuizzes,
-      averageScore,
-      latestScore,
-      improvement: isNaN(improvement) ? 0 : improvement
-    });
-  } catch (error) {
-    console.error('Error fetching quiz stats:', error);
-    res.status(500).json({ error: 'Failed to fetch quiz statistics' });
-  }
 });
