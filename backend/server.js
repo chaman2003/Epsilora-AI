@@ -47,13 +47,27 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configure CORS
+// Configure CORS with environment-aware origin handling
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    callback(null, true); // Allow all origins
+    // List of allowed origins
+    const allowedOrigins = [
+      'https://epsilora.vercel.app',
+      'https://epsilora-git-main-chaman-ss-projects.vercel.app',
+      'https://epsilora-chaman-ss-projects.vercel.app',
+      'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ];
+
+    // Check if the origin is in the allowed list or if it's a Vercel preview deployment
+    if (!origin || 
+        allowedOrigins.includes(origin) || 
+        /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -61,18 +75,25 @@ const corsOptions = {
   exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
 
+// Apply CORS middleware
 app.use(cors(corsOptions));
 
 // Enable pre-flight requests for all routes
 app.options('*', cors(corsOptions));
 
-// Add headers middleware for additional CORS support
+// Fallback CORS headers middleware
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  res.header('Access-Control-Allow-Origin', origin);
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Dynamic origin handling
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
   next();
 });
 
