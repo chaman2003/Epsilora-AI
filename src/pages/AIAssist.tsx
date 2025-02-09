@@ -55,6 +55,11 @@ const AIAssist: React.FC = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
+  const welcomeMessage = { 
+    role: 'assistant' as const, 
+    content: 'Welcome to AI Assist! Feel free to ask any questions.' 
+  };
+
   // Add new state for showing scroll button
   const [showScrollButton, setShowScrollButton] = useState(false);
 
@@ -114,7 +119,7 @@ const AIAssist: React.FC = () => {
     loadChatHistories();
 
     const initializeQuizData = async () => {
-      setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
+      setMessagesWithWelcome([]); // This ensures welcome message is always there
       let quizDataToUse = quizData;
       const storedQuizData = localStorage.getItem('quizData');
 
@@ -289,7 +294,8 @@ const AIAssist: React.FC = () => {
       // Find chat from local state instead of making API call
       const chat = chatHistories.find(ch => ch._id === chatId);
       if (chat) {
-        setMessages(chat.messages);
+        const messages = chat.messages.filter(msg => msg.content !== welcomeMessage.content);
+        setMessagesWithWelcome(messages);
         setCurrentChatId(chatId);
       } else {
         toast.error('Chat not found');
@@ -312,7 +318,7 @@ const AIAssist: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (currentChatId === chatId) {
-        setMessages([]);
+        setMessagesWithWelcome([]); // This will keep welcome message
         setCurrentChatId(null);
       }
       await loadChatHistories();
@@ -384,8 +390,8 @@ const AIAssist: React.FC = () => {
     const userMessage = { role: 'user' as const, content: input };
     setInput('');
     const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setLoading(true);
+    setMessages(newMessages); // Set messages first
+    setLoading(true); // Set loading after messages
 
     try {
       let chatId = currentChatId;
@@ -443,6 +449,8 @@ const AIAssist: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      setLoading(false); // Clear loading before setting new messages
+      
       const assistantMessage = {
         role: 'assistant' as const,
         content: response.data.message
@@ -468,6 +476,7 @@ const AIAssist: React.FC = () => {
       }
 
     } catch (error) {
+      setLoading(false); // Clear loading on error
       console.error('Error sending message:', error);
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
@@ -548,6 +557,19 @@ const AIAssist: React.FC = () => {
     }
   }, [messages]);
 
+  const setMessagesWithWelcome = (newMessages: Message[]) => {
+    if (newMessages.length === 0 || newMessages[0].content !== welcomeMessage.content) {
+      setMessages([welcomeMessage, ...newMessages]);
+    } else {
+      setMessages(newMessages);
+    }
+  };
+
+  const handleNewChat = () => {
+    setMessagesWithWelcome([]);
+    setCurrentChatId(null);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -576,11 +598,7 @@ const AIAssist: React.FC = () => {
                 </div>
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={() => {
-                      setMessages([]);
-                      setCurrentChatId(null);
-                      setIsSidebarOpen(false);
-                    }}
+                    onClick={handleNewChat}
                     className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
                   >
                     <Plus className="w-5 h-5" />
@@ -781,25 +799,29 @@ const AIAssist: React.FC = () => {
                   </motion.div>
                 ))}
               </AnimatePresence>
-              {loading && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-start px-4"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
-                      <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md">
-                      <div className="flex items-center space-x-3">
-                        <Loader2 className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-400" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">Thinking...</span>
+              <AnimatePresence>
+                {loading && (
+                  <motion.div
+                    key="loading"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="flex justify-start px-4"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
+                        <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md">
+                        <div className="flex items-center space-x-3">
+                          <Loader2 className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-400" />
+                          <span className="text-sm text-gray-600 dark:text-gray-300">Thinking...</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <div ref={messagesEndRef} className="h-4" />
             </div>
 
@@ -854,5 +876,6 @@ const AIAssist: React.FC = () => {
     </motion.div>
   );
 };
+
 
 export default AIAssist;
