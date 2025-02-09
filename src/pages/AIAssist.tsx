@@ -266,20 +266,11 @@ const AIAssist: React.FC = () => {
         return;
       }
 
+      // Find chat from local state instead of making API call
       const chat = chatHistories.find(ch => ch._id === chatId);
       if (chat) {
-        // Make sure we have the full conversation loaded
-        const response = await axiosInstance.get(`/api/chat-history/${chatId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        if (response.data && response.data.messages) {
-          setMessages(response.data.messages);
-          setCurrentChatId(chatId);
-        } else {
-          setMessages(chat.messages);
-          setCurrentChatId(chatId);
-        }
+        setMessages(chat.messages);
+        setCurrentChatId(chatId);
       } else {
         toast.error('Chat not found');
       }
@@ -571,23 +562,10 @@ const AIAssist: React.FC = () => {
                 <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
                   {chatHistories.map((chat, index) => {
                     const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
-                    let chatPreview;
-                    
-                    if (isQuizReview) {
-                      // Extract course name from the quiz review message
-                      const courseMatch = chat.messages[0]?.content.match(/Course: (.*?)\n/);
-                      const courseName = courseMatch ? courseMatch[1].trim() : 'Unknown Course';
-                      chatPreview = `Quiz Review - ${courseName}`;
-                    } else {
-                      // For regular chats, show the first user message or AI response
-                      const firstUserMessage = chat.messages.find(m => m.role === 'user');
-                      const firstAIMessage = chat.messages.find(m => m.role === 'assistant');
-                      const messageToShow = firstUserMessage || firstAIMessage;
-                      chatPreview = messageToShow 
-                        ? messageToShow.content.slice(0, 30) + (messageToShow.content.length > 30 ? '...' : '')
-                        : 'New Conversation';
-                    }
-              
+                    const chatPreview = isQuizReview 
+                      ? `Quiz Review #${chatHistories.length - index}`
+                      : chat.messages[0]?.content.slice(0, 30) + '...';
+
                     return (
                       <div
                         key={chat._id}
@@ -603,15 +581,12 @@ const AIAssist: React.FC = () => {
                       >
                         <div className="flex items-center space-x-3">
                           <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          <div className="flex-1 truncate">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                               {chatPreview}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                               {new Date(chat.createdAt).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                              {chat.messages.length} messages
                             </p>
                           </div>
                           <button
@@ -848,6 +823,5 @@ const AIAssist: React.FC = () => {
     </motion.div>
   );
 };
-
 
 export default AIAssist;
