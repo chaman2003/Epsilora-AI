@@ -446,7 +446,7 @@ const AIAssist: React.FC = () => {
                   className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl"
                 >
                   {loading ? (
-                    <div className="flex items-center space-x-2"></div>
+                    <div className="flex items-center space-x-2">
                       <Loader2 className="w-5 h-5 animate-spin" />
                       <span>Sending...</span>
                     </div>
