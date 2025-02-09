@@ -588,24 +588,24 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    // Create prompt for Gemini
-    const prompt = `You are a quiz generator for the course "${course.name}". Generate ${numberOfQuestions} multiple choice questions.
+    // Batch generation strategy
+    const BATCH_SIZE = 5;  // Generate in batches of 5
+    const totalQuestions = numberOfQuestions;
+    let generatedQuestions = [];
+
+    for (let batch = 0; batch < Math.ceil(totalQuestions / BATCH_SIZE); batch++) {
+      const remainingQuestions = totalQuestions - generatedQuestions.length;
+      const currentBatchSize = Math.min(BATCH_SIZE, remainingQuestions);
+
+      const prompt = `You are a quiz generator for the course "${course.name}". Generate ${currentBatchSize} multiple choice questions.
 
 Instructions:
-1. Create exactly ${numberOfQuestions} unique questions
+1. Create exactly ${currentBatchSize} unique questions
 2. Difficulty level: ${difficulty}
 3. Each question must have exactly 4 options labeled A through D
 4. Return ONLY a valid JSON array with no additional text or formatting
 5. Do not use escaped characters or special formatting in questions/options
-6. Keep questions and answers clear and concise
-
-Special Requirements for Names and Places:
-- If the course title contains a person's name, include questions about both:
-  * The person's name and their significance
-  * The place(s) associated with that person (city, village, country)
-- If the course title contains a place name, include questions about both:
-  * The place name and its significance
-  * Any notable people associated with that place
+6. Ensure no overlap with previously generated questions
 
 Format each question object like this:
 {
@@ -620,111 +620,61 @@ Format each question object like this:
   "correctAnswer": "A" or "B" or "C" or "D"
 }
 
-Question Guidelines:
-- Ensure balanced coverage of both names and places when applicable
-- Include contextual questions about historical or cultural significance
-- Make connections between people and their associated locations
-- Keep questions factual and historically accurate
+Previously Generated Questions (Avoid Duplicates):
+${generatedQuestions.map(q => q.question).join('\n')}`;
 
-Remember:
-- Return ONLY the JSON array of questions
-- No markdown, no code blocks, no explanations
-- Questions must be directly related to ${course.name}
-- Keep formatting simple - avoid special characters`;
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-pro",
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 4096,
+          topP: 0.8,
+          topK: 40
+        }
+      });
 
-    // Generate quiz using Gemini
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-pro",
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 8192,
-        topP: 0.8,
-        topK: 40
-      }
-    });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text();
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text();
-
-    try {
-      // Clean the response text
+      // Clean and parse response
       text = text.replace(/```json\n?/g, '')
                  .replace(/```\n?/g, '')
-                 .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-                 .replace(/^[\s\n]*\[/, '[')  // Clean start
-                 .replace(/\][\s\n]*$/, ']')  // Clean end
+                 .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+                 .replace(/^[\s\n]*\[/, '[')
+                 .replace(/\][\s\n]*$/, ']')
                  .trim();
 
-      // Validate JSON structure
-      if (!text.startsWith('[') || !text.endsWith(']')) {
-        throw new Error('Response is not a valid JSON array');
-      }
+      const batchQuestions = JSON.parse(text);
 
-      // Parse and validate the questions
-      const questions = JSON.parse(text);
+      // Validate and clean batch questions
+      const formattedBatchQuestions = batchQuestions.map((q, index) => ({
+        id: generatedQuestions.length + index + 1,
+        question: q.question.trim(),
+        options: q.options.map(opt => opt.trim()),
+        correctAnswer: q.correctAnswer.trim().toUpperCase(),
+        timePerQuestion
+      }));
 
-      if (!Array.isArray(questions)) {
-        throw new Error('Response is not an array');
-      }
+      // Add to total questions, avoiding duplicates
+      generatedQuestions = [
+        ...generatedQuestions,
+        ...formattedBatchQuestions.filter(
+          newQ => !generatedQuestions.some(
+            existQ => existQ.question === newQ.question
+          )
+        )
+      ];
 
-      if (questions.length !== numberOfQuestions) {
-        throw new Error(`Expected ${numberOfQuestions} questions but got ${questions.length}`);
-      }
-
-      // Clean and validate each question
-      const formattedQuestions = questions.map((q, index) => {
-        // Basic validation
-        if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
-          throw new Error(`Invalid question format at index ${index}`);
-        }
-
-        // Clean question text
-        const cleanQuestion = q.question.trim();
-        
-        // Clean options
-        const cleanOptions = q.options.map(opt => 
-          opt.trim()
-             .replace(/\\n/g, ' ')
-             .replace(/\s+/g, ' ')
-        );
-
-        if (cleanOptions.length !== 4) {
-          throw new Error(`Question ${index + 1} must have exactly 4 options`);
-        }
-
-        // Validate correct answer
-        const validAnswer = q.correctAnswer.trim().toUpperCase();
-        if (!['A', 'B', 'C', 'D'].includes(validAnswer)) {
-          throw new Error(`Invalid correct answer "${validAnswer}" for question ${index + 1}`);
-        }
-
-        return {
-          id: index + 1,
-          question: cleanQuestion,
-          options: cleanOptions,
-          correctAnswer: validAnswer,
-          timePerQuestion
-        };
-      });
-
-      // Verify uniqueness
-      const uniqueQuestions = new Set(formattedQuestions.map(q => q.question));
-      if (uniqueQuestions.size !== formattedQuestions.length) {
-        throw new Error('Duplicate questions detected');
-      }
-
-      res.json(formattedQuestions);
-
-    } catch (parseError) {
-      console.error('Parse error:', parseError);
-      console.error('Raw text:', text);
-      res.status(500).json({
-        message: 'Failed to parse quiz data',
-        error: parseError.message,
-        rawText: text
-      });
+      // Break if we have enough questions
+      if (generatedQuestions.length >= totalQuestions) break;
     }
+
+    // Trim to exact number of questions needed
+    generatedQuestions = generatedQuestions.slice(0, totalQuestions);
+
+    res.json(generatedQuestions);
+
   } catch (error) {
     console.error('Quiz generation error:', error);
     res.status(500).json({
