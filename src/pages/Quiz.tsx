@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bar, Pie } from 'react-chartjs-2';
 import {
@@ -98,7 +98,14 @@ const Quiz: React.FC = () => {
     latestScore: 0
   });
   // Chart data preparation
-  const [correctVsWrongData, setCorrectVsWrongData] = useState({
+  const [correctVsWrongData, setCorrectVsWrongData] = useState<{
+    labels: string[];
+    datasets: {
+      label: string;
+      data: number[];
+      backgroundColor: string;
+    }[];
+  }>({
     labels: [],
     datasets: []
   });
@@ -390,10 +397,11 @@ const Quiz: React.FC = () => {
     }
   }, [quizHistory]);
   const generateQuiz = async () => {
-    if (!selectedCourse) {
+    if (!selectedCourse || loading) {
       toast.error('Please select a course first');
       return;
     }
+
     setLoading(true);
     try {
       const response = await axiosInstance.post('/api/generate-quiz', {
@@ -402,71 +410,61 @@ const Quiz: React.FC = () => {
         difficulty: quizDetails.difficulty,
         timePerQuestion: quizDetails.timePerQuestion
       });
+
       let quizData;
       try {
         const rawData = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-        const cleanedData = rawData.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-        quizData = JSON.parse(cleanedData);
-      } catch (parseError) {
-        console.error('Error parsing quiz data:', parseError);
-        console.error('Raw quiz data:', response.data);
-        throw new Error('Failed to parse quiz data. Please try again.');
+        quizData = JSON.parse(rawData.replace(/\n/g, '\\n').replace(/\r/g, '\\r'));
+      } catch (error) {
+        throw new Error('Failed to parse quiz data');
       }
-      if (!Array.isArray(quizData)) {
-        throw new Error('Invalid quiz format: expected an array of questions');
+
+      if (!Array.isArray(quizData) || quizData.length === 0) {
+        throw new Error('Invalid quiz format or no questions available');
       }
-      if (quizData.length === 0) {
-        throw new Error('No questions were generated. Please try again.');
-      }
-      const cleanedQuestions = quizData.map((q, index) => {
-        if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
-          throw new Error(`Invalid question format at index ${index}`);
-        }
-        return {
-          id: q.id || index + 1,
-          question: q.question.trim().replace(/\\n/g, '\n').replace(/\\/g, ''),
-          options: q.options.map((opt: string) => 
-            opt.trim().replace(/\\n/g, '\n').replace(/\\/g, '')
-          ),
-          correctAnswer: q.correctAnswer.trim().toUpperCase()
-        };
-      });
-      const validQuestions = cleanedQuestions.every(q => 
-        q.id && 
-        q.question && 
-        Array.isArray(q.options) && 
-        q.options.length === 4 &&
-        q.correctAnswer && 
-        ['A', 'B', 'C', 'D'].includes(q.correctAnswer)
-      );
-      if (!validQuestions) {
-        throw new Error('Invalid question format in response');
-      }
-      setQuestions(cleanedQuestions);
-      setQuizStarted(true);
-      setCurrentQuestion(0);
-      setScore(0);
-      setShowResult(false);
-      setSelectedAnswer(null);
-      setTimeLeft(quizDetails.timePerQuestion);
-      setTimerActive(true);
-      setStartTime(new Date());
-      toast.success('Quiz generated successfully!', { duration: 3000 });
-    } catch (error: any) {
-      console.error('Error generating quiz:', error);
-      let errorMessage = 'Failed to generate quiz. Please try again.';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-        console.error('Server error details:', error.response.data);
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      toast.error(errorMessage);
+
+      setQuestions(validateAndCleanQuestions(quizData));
+      initializeQuiz();
+    } catch (error) {
+      handleQuizError(error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Add validation helpers
+  const validateAndCleanQuestions = (quizData: any[]) => {
+    return quizData.map((q, index) => {
+      if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
+        throw new Error(`Invalid question format at index ${index}`);
+      }
+      return {
+        id: q.id || index + 1,
+        question: q.question.trim(),
+        options: q.options.map((opt: string) => opt.trim()),
+        correctAnswer: q.correctAnswer.trim().toUpperCase()
+      };
+    });
+  };
+
+  const initializeQuiz = () => {
+    setQuizStarted(true);
+    setCurrentQuestion(0);
+    setScore(0);
+    setShowResult(false);
+    setSelectedAnswer(null);
+    setTimeLeft(quizDetails.timePerQuestion);
+    setTimerActive(true);
+    setStartTime(new Date());
+  };
+
+  const handleQuizError = (error: any) => {
+    console.error('Error in quiz:', error);
+    const message = error.response?.data?.message || error.message || 'Failed to generate quiz';
+    toast.error(message);
+    setQuizStarted(false);
+  };
+
   useEffect(() => {
     if (questions.length > 0) {
       const initialStates = questions.map(() => ({
@@ -497,39 +495,42 @@ const Quiz: React.FC = () => {
       timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1 && !isTransitioning.current) {
-            isTransitioning.current = true;
-           
-            // Time's up - show correct answer and prevent further selection
-            setShowResult(true);
-            setTimerActive(false);
-            updateQuestionState(currentQuestion, { timeExpired: true, viewed: true });
-            
-            // Auto-proceed to next question after delay, but only if not the last question
-            if (currentQuestion < questions.length - 1) {
-              setTimeout(() => {
-                setCurrentQuestion(currentQuestion + 1);
-                setSelectedAnswer(null);
-                setShowResult(false);
-                setTimeLeft(quizDetails.timePerQuestion);
-                setTimerActive(true);
-                isTransitioning.current = false;
-              }, 2000);
-            } else {
-              // If it's the last question, just show the final result
-              setTimeout(() => {
-                setShowResult(true);
-                setTimerActive(false);
-                isTransitioning.current = false;
-              }, 2000);
-            }
+            clearInterval(timer);
+            handleTimeUp();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
     }
-    return () => clearInterval(timer);
-  }, [timerActive, timeLeft, currentQuestion, questions.length, quizDetails.timePerQuestion, updateQuestionState]);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [timerActive, timeLeft]);
+
+  // Add handler for timer expiration
+  const handleTimeUp = useCallback(() => {
+    isTransitioning.current = true;
+    setShowResult(true);
+    setTimerActive(false);
+    updateQuestionState(currentQuestion, { timeExpired: true, viewed: true });
+    
+    if (currentQuestion < questions.length - 1) {
+      setTimeout(() => {
+        setCurrentQuestion(prev => prev + 1);
+        setSelectedAnswer(null);
+        setShowResult(false);
+        setTimeLeft(quizDetails.timePerQuestion);
+        setTimerActive(true);
+        isTransitioning.current = false;
+      }, 2000);
+    } else {
+      setTimeout(() => {
+        handleQuizComplete();
+        isTransitioning.current = false;
+      }, 2000);
+    }
+  }, [currentQuestion, questions.length, quizDetails.timePerQuestion]);
 
   const calculateFinalScore = React.useCallback(() => {
     let totalCorrect = 0;
@@ -598,66 +599,58 @@ const Quiz: React.FC = () => {
     }
   }, [selectedCourse, courses, questions, questionStates, quizDetails, startTime, user?._id, fetchQuizHistoryCallback]);
 
-  const handleQuizComplete = React.useCallback(async () => {
+  const handleQuizComplete = useCallback(async () => {
+    if (loading) return;
+    setLoading(true);
     setTimerActive(false);
-    const finalScore = calculateFinalScore();
-    setScore(finalScore);
-    setShowResult(true);
-    
-    // Prepare quiz data with complete question details
-    const quizData = {
-      questions: questions.map((q, index) => ({
-        question: q.question,
-        options: q.options.map((opt, optIndex) => ({
-          text: opt,
-          label: String.fromCharCode(65 + optIndex)
-        })),
-        correctAnswer: q.correctAnswer,
-        userAnswer: questionStates[index]?.userAnswer || null,
-        isCorrect: questionStates[index]?.userAnswer === q.correctAnswer
-      })),
-      score: finalScore,
-      totalQuestions: questions.length,
-      courseName: courses.find(course => course._id === selectedCourse)?.name || '',
-      difficulty: quizDetails.difficulty,
-      timestamp: new Date().toISOString()
-    };
-    // Save quiz data for AI Assistant with proper format
-    const aiAssistData = {
-      questions: quizData.questions.map(q => ({
-        ...q,
-        options: q.options.map(opt => ({
-          text: opt.text,
-          label: opt.label
-        }))
-      })),
-      score: finalScore,
-      totalQuestions: questions.length,
-      courseName: quizData.courseName,
-      difficulty: quizDetails.difficulty,
-      timestamp: new Date().toISOString()
-    };
-    // Save both formats
-    localStorage.setItem('quizData', JSON.stringify(aiAssistData));
-    localStorage.setItem('lastQuizData', JSON.stringify(aiAssistData));
 
-    // Save quiz result and navigate
-    saveQuizResult(finalScore).then(() => {
+    try {
+      const finalScore = calculateFinalScore();
+      setScore(finalScore);
+      setShowResult(true);
+
+      const quizData = {
+        questions: questions.map((q, index) => ({
+          question: q.question,
+          options: q.options.map((opt, optIndex) => ({
+            text: opt,
+            label: String.fromCharCode(65 + optIndex)
+          })),
+          correctAnswer: q.correctAnswer,
+          userAnswer: questionStates[index]?.userAnswer || null,
+          isCorrect: questionStates[index]?.userAnswer === q.correctAnswer
+        })),
+        score: finalScore,
+        totalQuestions: questions.length,
+        courseName: courses.find(course => course._id === selectedCourse)?.name || '',
+        difficulty: quizDetails.difficulty,
+        timestamp: new Date().toISOString()
+      };
+
+      // Save results before navigation
+      await saveQuizResult(finalScore);
+
+      // Update localStorage
+      localStorage.setItem('quizData', JSON.stringify(quizData));
+      localStorage.setItem('lastQuizData', JSON.stringify(quizData));
+
       // Reset quiz state
       setQuizStarted(false);
       setQuestions([]);
       setCurrentQuestion(0);
       setSelectedAnswer(null);
 
-      // Navigate to results page
+      // Navigate to results
       navigate('/quiz-results', { 
         state: quizData,
         replace: true 
       });
-    }).catch(error => {
-      console.error('Error saving quiz result:', error);
-      toast.error('Failed to save quiz result. Please try again.');
-    });
+    } catch (error) {
+      console.error('Error completing quiz:', error);
+      toast.error('Failed to save quiz results. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }, [questions, questionStates, courses, selectedCourse, quizDetails.difficulty, calculateFinalScore, saveQuizResult, navigate]);
 
   const handleGetAIHelp = React.useCallback(() => {
@@ -1022,6 +1015,23 @@ const Quiz: React.FC = () => {
     // Update chart data
     updateChartData(history);
   };
+
+  const renderCharts = useCallback(() => {
+    try {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+          {/* ...existing chart components... */}
+        </div>
+      );
+    } catch (error) {
+      console.error('Error rendering charts:', error);
+      return (
+        <div className="text-center py-4 text-red-500">
+          Failed to load charts. Please refresh the page.
+        </div>
+      );
+    }
+  }, [correctVsWrongData, quizzesPerCourseData, successRateData]);
 
   if (!quizStarted && !loading) {
     return (
