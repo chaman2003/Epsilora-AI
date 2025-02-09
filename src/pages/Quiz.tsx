@@ -523,12 +523,12 @@ const Quiz: React.FC = () => {
         setTimeLeft(quizDetails.timePerQuestion);
         setTimerActive(true);
         isTransitioning.current = false;
-      }, 2000);
+      }, 30000);
     } else {
       setTimeout(() => {
         handleQuizComplete();
         isTransitioning.current = false;
-      }, 2000);
+      }, 30000);
     }
   }, [currentQuestion, questions.length, quizDetails.timePerQuestion]);
 
@@ -1625,5 +1625,4 @@ const calculateStats = (history: any[]) => {
         latestScore
     };
 };
-
 export default Quiz;
