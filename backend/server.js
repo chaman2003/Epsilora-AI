@@ -66,7 +66,6 @@ const corsOptions = {
 app.use(cors({ origin: '*' }));
 
 // Enable pre-flight requests for all routes
-app.options('*', cors(corsOptions));
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
