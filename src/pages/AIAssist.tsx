@@ -55,29 +55,6 @@ const AIAssist: React.FC = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
-  const welcomeMessage = { 
-    role: 'assistant' as const, 
-    content: 'Welcome to AI Assist! Feel free to ask any questions.' 
-  };
-
-  // Add new state for showing scroll button
-  const [showScrollButton, setShowScrollButton] = useState(false);
-
-  // Add scroll handler to show/hide scroll button
-  useEffect(() => {
-    const handleScroll = (e: Event) => {
-      const target = e.target as HTMLDivElement;
-      const isNearBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 300;
-      setShowScrollButton(!isNearBottom);
-    };
-
-    const messagesContainer = document.querySelector('.messages-container');
-    if (messagesContainer) {
-      messagesContainer.addEventListener('scroll', handleScroll);
-      return () => messagesContainer.removeEventListener('scroll', handleScroll);
-    }
-  }, []);
-
   // Check if this is a new session and reset data if needed
   useEffect(() => {
     const lastUserId = localStorage.getItem('lastUserId');
@@ -115,11 +92,9 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    window.scrollTo(0, 0);
     loadChatHistories();
 
     const initializeQuizData = async () => {
-      setMessagesWithWelcome([]); // This ensures welcome message is always there
       let quizDataToUse = quizData;
       const storedQuizData = localStorage.getItem('quizData');
 
@@ -294,8 +269,7 @@ const AIAssist: React.FC = () => {
       // Find chat from local state instead of making API call
       const chat = chatHistories.find(ch => ch._id === chatId);
       if (chat) {
-        const messages = chat.messages.filter(msg => msg.content !== welcomeMessage.content);
-        setMessagesWithWelcome(messages);
+        setMessages(chat.messages);
         setCurrentChatId(chatId);
       } else {
         toast.error('Chat not found');
@@ -318,7 +292,7 @@ const AIAssist: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (currentChatId === chatId) {
-        setMessagesWithWelcome([]); // This will keep welcome message
+        setMessages([]);
         setCurrentChatId(null);
       }
       await loadChatHistories();
@@ -390,8 +364,8 @@ const AIAssist: React.FC = () => {
     const userMessage = { role: 'user' as const, content: input };
     setInput('');
     const newMessages = [...messages, userMessage];
-    setMessages(newMessages); // Set messages first
-    setLoading(true); // Set loading after messages
+    setMessages(newMessages);
+    setLoading(true);
 
     try {
       let chatId = currentChatId;
@@ -449,8 +423,6 @@ const AIAssist: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setLoading(false); // Clear loading before setting new messages
-      
       const assistantMessage = {
         role: 'assistant' as const,
         content: response.data.message
@@ -476,7 +448,6 @@ const AIAssist: React.FC = () => {
       }
 
     } catch (error) {
-      setLoading(false); // Clear loading on error
       console.error('Error sending message:', error);
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
@@ -543,32 +514,11 @@ const AIAssist: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Add smooth scroll function
-  const scrollToBottomSmooth = () => {
-    messagesEndRef.current?.scrollIntoView({ 
-      behavior: 'smooth',
-      block: 'end'
-    });
-  };
-
   useEffect(() => {
     if (messages.length > 0) {
       scrollToBottom();
     }
   }, [messages]);
-
-  const setMessagesWithWelcome = (newMessages: Message[]) => {
-    if (newMessages.length === 0 || newMessages[0].content !== welcomeMessage.content) {
-      setMessages([welcomeMessage, ...newMessages]);
-    } else {
-      setMessages(newMessages);
-    }
-  };
-
-  const handleNewChat = () => {
-    setMessagesWithWelcome([]);
-    setCurrentChatId(null);
-  };
 
   return (
     <motion.div
@@ -598,7 +548,11 @@ const AIAssist: React.FC = () => {
                 </div>
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={handleNewChat}
+                    onClick={() => {
+                      setMessages([]);
+                      setCurrentChatId(null);
+                      setIsSidebarOpen(false);
+                    }}
                     className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
                   >
                     <Plus className="w-5 h-5" />
@@ -680,20 +634,30 @@ const AIAssist: React.FC = () => {
                     <p className="text-indigo-100 text-sm mt-1">Powered by advanced AI to help you learn</p>
                   </div>
                 </div>
-                {currentChatId && (
+                <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => currentChatId && deleteChat(currentChatId)}
+                    onClick={() => {
+                      setMessages([]);
+                      setCurrentChatId(null);
+                    }}
                     className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
                   >
-                    <Trash2 className="w-6 h-6" />
-                    <span className="text-sm font-medium">Delete Chat</span>
+                    <Plus className="w-6 h-6" />
+                    <span className="text-sm font-medium">New Chat</span>
                   </button>
-                )}
+                  <button
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
+                  >
+                    <History className="w-6 h-6" />
+                    <span className="text-sm font-medium">History</span>
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Chat Messages */}
-            <div className="h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50 messages-container">
+            <div className="h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50">
               <AnimatePresence>
                 {messages.map((message, index) => (
                   <motion.div
@@ -785,8 +749,10 @@ const AIAssist: React.FC = () => {
                               {children}
                             </ol>
                           ),
-                          li: ({children}) => (
-                            <li className="flex items-start space-x-2">
+                          li: ({children, ordered}) => (
+                            <li className={`flex items-start space-x-2 ${
+                              ordered ? 'text-indigo-600 dark:text-indigo-400' : ''
+                            }`}>
                               {children}
                             </li>
                           ),
@@ -799,46 +765,27 @@ const AIAssist: React.FC = () => {
                   </motion.div>
                 ))}
               </AnimatePresence>
-              <AnimatePresence>
-                {loading && (
-                  <motion.div
-                    key="loading"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="flex justify-start px-4"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
-                        <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md">
-                        <div className="flex items-center space-x-3">
-                          <Loader2 className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-400" />
-                          <span className="text-sm text-gray-600 dark:text-gray-300">Thinking...</span>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <div ref={messagesEndRef} className="h-4" />
-            </div>
-
-            {/* Scroll Down Button */}
-            <AnimatePresence>
-              {showScrollButton && (
-                <motion.button
+              {loading && (
+                <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  onClick={scrollToBottomSmooth}
-                  className="fixed bottom-24 right-8 p-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-all duration-200"
+                  className="flex justify-start px-4"
                 >
-                  <MessageSquare className="w-6 h-6" />
-                </motion.button>
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
+                      <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md">
+                      <div className="flex items-center space-x-3">
+                        <Loader2 className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-400" />
+                        <span className="text-sm text-gray-600 dark:text-gray-300">Thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
               )}
-            </AnimatePresence>
+              <div ref={messagesEndRef} className="h-4" />
+            </div>
 
             {/* Input Area */}
             <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
@@ -876,6 +823,7 @@ const AIAssist: React.FC = () => {
     </motion.div>
   );
 };
+
 
 
 export default AIAssist;
