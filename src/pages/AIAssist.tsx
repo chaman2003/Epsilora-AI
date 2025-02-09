@@ -55,6 +55,24 @@ const AIAssist: React.FC = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
 
+  // Add new state for showing scroll button
+  const [showScrollButton, setShowScrollButton] = useState(false);
+
+  // Add scroll handler to show/hide scroll button
+  useEffect(() => {
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLDivElement;
+      const isNearBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 300;
+      setShowScrollButton(!isNearBottom);
+    };
+
+    const messagesContainer = document.querySelector('.messages-container');
+    if (messagesContainer) {
+      messagesContainer.addEventListener('scroll', handleScroll);
+      return () => messagesContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
+
   // Check if this is a new session and reset data if needed
   useEffect(() => {
     const lastUserId = localStorage.getItem('lastUserId');
@@ -92,9 +110,11 @@ const AIAssist: React.FC = () => {
       return;
     }
 
+    window.scrollTo(0, 0);
     loadChatHistories();
 
     const initializeQuizData = async () => {
+      setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
       let quizDataToUse = quizData;
       const storedQuizData = localStorage.getItem('quizData');
 
@@ -514,6 +534,14 @@ const AIAssist: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Add smooth scroll function
+  const scrollToBottomSmooth = () => {
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'end'
+    });
+  };
+
   useEffect(() => {
     if (messages.length > 0) {
       scrollToBottom();
@@ -634,30 +662,20 @@ const AIAssist: React.FC = () => {
                     <p className="text-indigo-100 text-sm mt-1">Powered by advanced AI to help you learn</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                {currentChatId && (
                   <button
-                    onClick={() => {
-                      setMessages([]);
-                      setCurrentChatId(null);
-                    }}
+                    onClick={() => currentChatId && deleteChat(currentChatId)}
                     className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
                   >
-                    <Plus className="w-6 h-6" />
-                    <span className="text-sm font-medium">New Chat</span>
+                    <Trash2 className="w-6 h-6" />
+                    <span className="text-sm font-medium">Delete Chat</span>
                   </button>
-                  <button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
-                  >
-                    <History className="w-6 h-6" />
-                    <span className="text-sm font-medium">History</span>
-                  </button>
-                </div>
+                )}
               </div>
             </div>
 
             {/* Chat Messages */}
-            <div className="h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50">
+            <div className="h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50 messages-container">
               <AnimatePresence>
                 {messages.map((message, index) => (
                   <motion.div
@@ -749,10 +767,8 @@ const AIAssist: React.FC = () => {
                               {children}
                             </ol>
                           ),
-                          li: ({children, ordered}) => (
-                            <li className={`flex items-start space-x-2 ${
-                              ordered ? 'text-indigo-600 dark:text-indigo-400' : ''
-                            }`}>
+                          li: ({children}) => (
+                            <li className="flex items-start space-x-2">
                               {children}
                             </li>
                           ),
@@ -786,6 +802,21 @@ const AIAssist: React.FC = () => {
               )}
               <div ref={messagesEndRef} className="h-4" />
             </div>
+
+            {/* Scroll Down Button */}
+            <AnimatePresence>
+              {showScrollButton && (
+                <motion.button
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  onClick={scrollToBottomSmooth}
+                  className="fixed bottom-24 right-8 p-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-all duration-200"
+                >
+                  <MessageSquare className="w-6 h-6" />
+                </motion.button>
+              )}
+            </AnimatePresence>
 
             {/* Input Area */}
             <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
