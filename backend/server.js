@@ -49,14 +49,22 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configure CORS
 const corsOptions = {
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://epsilora.vercel.app',
-    'https://epsilora-git-main-chaman-ss-projects.vercel.app',
-    'https://epsilora-chaman-ss-projects.vercel.app',
-    'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app'
-  ],
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://epsilora.vercel.app',
+      'https://epsilora-git-main-chaman-ss-projects.vercel.app',
+      'https://epsilora-chaman-ss-projects.vercel.app',
+      'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app'
+    ];
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
@@ -599,18 +607,27 @@ Remember:
 - Questions must be directly related to ${course.name}
 - Keep formatting simple - avoid special characters`;
 
-    // Generate quiz using Gemini
+    // Generate quiz using Gemini with timeout
     const model = genAI.getGenerativeModel({ 
       model: "gemini-pro",
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 4096, // Reduced from 8192 to improve performance
         topP: 0.8,
         topK: 40
       }
     });
 
-    const result = await model.generateContent(prompt);
+    // Add timeout promise
+    const timeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Quiz generation timed out')), 240000); // 4 minute timeout
+    });
+
+    // Race between quiz generation and timeout
+    const result = await Promise.race([
+      model.generateContent(prompt),
+      timeout
+    ]);
     const response = await result.response;
     let text = response.text();
 
