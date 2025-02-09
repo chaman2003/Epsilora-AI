@@ -45,6 +45,8 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'https://epsilora.vercel.app',
+      'https://epsilora-git-main-chaman-ss-projects.vercel.app',
+      'https://epsilora-chaman-ss-projects.vercel.app',
       'http://localhost:3000',
       'http://localhost:5173'
     ];
@@ -71,6 +73,26 @@ app.use(cors(corsOptions));
 
 // Middleware
 app.use(express.json());
+
+// Global timeout and error handling middleware
+app.use((req, res, next) => {
+  // Set global timeouts
+  req.setTimeout(180000); // 3 minutes
+  res.setTimeout(180000); // 3 minutes
+
+  // Enhanced error handling
+  res.handleError = function(error, statusCode = 500) {
+    console.error(`Error in ${req.method} ${req.path}:`, error);
+    this.status(statusCode).json({
+      message: error.message || 'Unexpected server error',
+      path: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  next();
+});
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
@@ -400,70 +422,55 @@ app.delete('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
   }
 });
 
-// Quiz Generation Route
+// Quiz Generation Route with Enhanced Error Handling
 app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
+  // Set a longer timeout for this specific route
+  req.setTimeout(180000); // 3 minutes
+  res.setTimeout(180000);  // 3 minutes
+
   try {
     const { courseId, numberOfQuestions, difficulty, timePerQuestion } = req.body;
 
-    // Validate required fields
-    if (!courseId || !numberOfQuestions || !difficulty || !timePerQuestion) {
+    // Validate input parameters
+    if (!courseId || !numberOfQuestions || !difficulty) {
       return res.status(400).json({ 
-        message: 'Missing required fields',
-        error: 'Please provide courseId, numberOfQuestions, difficulty, and timePerQuestion'
+        message: 'Missing required parameters',
+        details: {
+          courseId: !!courseId,
+          numberOfQuestions: !!numberOfQuestions,
+          difficulty: !!difficulty
+        }
       });
     }
 
-    // Find the course
     const course = await Course.findById(courseId);
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    // Create prompt for Gemini
-    const prompt = `You are a quiz generator for the course "${course.name}". Generate ${numberOfQuestions} multiple choice questions.
+    // Create prompt for Gemini with more robust error handling
+    const prompt = `You are a precise quiz generator for the course "${course.name}". 
+Generate ${numberOfQuestions} unique multiple choice questions.
 
-Instructions:
-1. Create exactly ${numberOfQuestions} unique questions
-2. Difficulty level: ${difficulty}
-3. Each question must have exactly 4 options labeled A through D
-4. Return ONLY a valid JSON array with no additional text or formatting
-5. Do not use escaped characters or special formatting in questions/options
-6. Keep questions and answers clear and concise
+Strict Requirements:
+1. Create exactly ${numberOfQuestions} questions
+2. Difficulty: ${difficulty}
+3. Each question MUST have:
+   - Exactly 4 options (A, B, C, D)
+   - One correct answer
+   - Clear, concise wording
+4. Ensure NO duplicate questions
+5. Questions must be directly related to ${course.name}
 
-Special Requirements for Names and Places:
-- If the course title contains a person's name, include questions about both:
-  * The person's name and their significance
-  * The place(s) associated with that person (city, village, country)
-- If the course title contains a place name, include questions about both:
-  * The place name and its significance
-  * Any notable people associated with that place
-
-Format each question object like this:
-{
-  "id": (number),
-  "question": "Clear question text without special characters",
-  "options": [
-    "A) First option",
-    "B) Second option", 
-    "C) Third option",
-    "D) Fourth option"
-  ],
+Output Format (STRICT JSON ONLY):
+[{
+  "question": "Question text here",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
   "correctAnswer": "A" or "B" or "C" or "D"
-}
+}]
 
-Question Guidelines:
-- Ensure balanced coverage of both names and places when applicable
-- Include contextual questions about historical or cultural significance
-- Make connections between people and their associated locations
-- Keep questions factual and historically accurate
+CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
 
-Remember:
-- Return ONLY the JSON array of questions
-- No markdown, no code blocks, no explanations
-- Questions must be directly related to ${course.name}
-- Keep formatting simple - avoid special characters`;
-
-    // Generate quiz using Gemini
     const model = genAI.getGenerativeModel({ 
       model: "gemini-pro",
       generationConfig: {
@@ -474,92 +481,74 @@ Remember:
       }
     });
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text();
-
     try {
-      // Clean the response text
-      text = text.replace(/```json\n?/g, '')
-                 .replace(/```\n?/g, '')
-                 .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-                 .replace(/^[\s\n]*\[/, '[')  // Clean start
-                 .replace(/\][\s\n]*$/, ']')  // Clean end
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text();
+
+      // Aggressive text cleaning
+      text = text.replace(/```(json)?/g, '')
+                 .replace(/[\n\r\t]/g, '')
                  .trim();
 
       // Validate JSON structure
-      if (!text.startsWith('[') || !text.endsWith(']')) {
-        throw new Error('Response is not a valid JSON array');
+      let questions;
+      try {
+        questions = JSON.parse(text);
+      } catch (parseError) {
+        console.error('JSON Parsing Error:', parseError);
+        console.error('Raw text:', text);
+        return res.status(500).json({
+          message: 'Failed to parse quiz data',
+          rawText: text.slice(0, 500), // Limit raw text for safety
+          error: parseError.message
+        });
       }
 
-      // Parse and validate the questions
-      const questions = JSON.parse(text);
-
+      // Validate questions
       if (!Array.isArray(questions)) {
-        throw new Error('Response is not an array');
+        return res.status(500).json({ 
+          message: 'Invalid quiz format',
+          details: 'Expected an array of questions'
+        });
       }
 
       if (questions.length !== numberOfQuestions) {
-        throw new Error(`Expected ${numberOfQuestions} questions but got ${questions.length}`);
+        return res.status(500).json({
+          message: 'Incorrect number of questions generated',
+          expected: numberOfQuestions,
+          actual: questions.length
+        });
       }
 
       // Clean and validate each question
-      const formattedQuestions = questions.map((q, index) => {
-        // Basic validation
-        if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
+      const validatedQuestions = questions.map((q, index) => {
+        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || !q.correctAnswer) {
           throw new Error(`Invalid question format at index ${index}`);
-        }
-
-        // Clean question text
-        const cleanQuestion = q.question.trim();
-        
-        // Clean options
-        const cleanOptions = q.options.map(opt => 
-          opt.trim()
-             .replace(/\\n/g, ' ')
-             .replace(/\s+/g, ' ')
-        );
-
-        if (cleanOptions.length !== 4) {
-          throw new Error(`Question ${index + 1} must have exactly 4 options`);
-        }
-
-        // Validate correct answer
-        const validAnswer = q.correctAnswer.trim().toUpperCase();
-        if (!['A', 'B', 'C', 'D'].includes(validAnswer)) {
-          throw new Error(`Invalid correct answer "${validAnswer}" for question ${index + 1}`);
         }
 
         return {
           id: index + 1,
-          question: cleanQuestion,
-          options: cleanOptions,
-          correctAnswer: validAnswer,
+          question: q.question.trim(),
+          options: q.options.map(opt => opt.trim()),
+          correctAnswer: q.correctAnswer.trim().toUpperCase(),
           timePerQuestion
         };
       });
 
-      // Verify uniqueness
-      const uniqueQuestions = new Set(formattedQuestions.map(q => q.question));
-      if (uniqueQuestions.size !== formattedQuestions.length) {
-        throw new Error('Duplicate questions detected');
-      }
+      res.json(validatedQuestions);
 
-      res.json(formattedQuestions);
-
-    } catch (parseError) {
-      console.error('Parse error:', parseError);
-      console.error('Raw text:', text);
+    } catch (aiError) {
+      console.error('AI Generation Error:', aiError);
       res.status(500).json({
-        message: 'Failed to parse quiz data',
-        error: parseError.message,
-        rawText: text
+        message: 'Failed to generate quiz questions',
+        error: aiError.message
       });
     }
   } catch (error) {
-    console.error('Quiz generation error:', error);
+    console.error('Quiz Generation Error:', error);
     res.status(500).json({
-      message: 'Error generating quiz',
+      message: 'Unexpected error in quiz generation',
       error: error.message
     });
   }
