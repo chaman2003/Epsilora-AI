@@ -11,7 +11,7 @@ import {
   Legend,
   ArcElement,
 } from 'chart.js';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Target, 
   History, 
@@ -26,9 +26,7 @@ import {
   Book,
   ClipboardList,
   TrendingUp,
-  Activity,
-  Sparkles,
-  Loader2
+  Activity
 } from 'lucide-react';
 import { format } from 'date-fns';
 import axiosInstance from '../utils/axios';
@@ -66,47 +64,6 @@ interface QuizQuestion {
   options: string[];
   correctAnswer: string;
 }
-interface LoadingScreenProps {
-  message: string;
-}
-const LoadingScreen: React.FC<LoadingScreenProps> = ({ message }) => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-  >
-    <motion.div
-      initial={{ scale: 0.8 }}
-      animate={{ scale: 1 }}
-      className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl max-w-md w-full mx-4"
-    >
-      <div className="flex flex-col items-center space-y-4">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-        >
-          <Loader2 className="w-12 h-12 text-indigo-600" />
-        </motion.div>
-        <motion.div
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="text-xl font-semibold text-gray-900 dark:text-white"
-        >
-          {message}
-        </motion.div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
-          <motion.div
-            initial={{ x: "-100%" }}
-            animate={{ x: "100%" }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-            className="h-full bg-indigo-600 w-1/2"
-          />
-        </div>
-      </div>
-    </motion.div>
-  </motion.div>
-);
 const Quiz: React.FC = () => {
   const { isAuthenticated, user, isLoading } = useAuth();
   const { setQuizData } = useQuiz();
@@ -391,27 +348,54 @@ const Quiz: React.FC = () => {
     }
   }, [showHistory, isAuthenticated, fetchQuizHistory, historyFetched]);
 
-  const fetchQuizStatistics = async () => {
-    try {
-      // Use axiosInstance instead of direct axios call
-      const response = await axiosInstance.get('/api/quiz/stats');
-      console.log('Quiz stats response:', response.data);
-      if (response.data) {
-        setQuizStats({
-          totalQuizzes: response.data.totalQuizzes || 0,
-          averageScore: response.data.averageScore || 0,
-          latestScore: response.data.latestScore || 0
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching quiz statistics:', error);
+const calculateAverageScore = (history: any[]) => {
+  if (history.length === 0) return 0;
+  
+  const scores = history.map(quiz => 
+    (quiz.score / quiz.totalQuestions) * 100
+  );
+  const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  return Math.round(average);
+};
+
+const fetchQuizStatistics = async () => {
+  try {
+    if (formattedQuizHistory.length === 0) {
+      setQuizStats({
+        totalQuizzes: 0,
+        averageScore: 0,
+        latestScore: 0
+      });
+      return;
     }
-  };
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchQuizStatistics();
-    }
-  }, [isAuthenticated]);
+
+    // Sort by date to get the latest quiz
+    const sortedHistory = [...formattedQuizHistory].sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    
+    const latestQuiz = sortedHistory[0];
+    const latestScore = latestQuiz ? Math.round((latestQuiz.score / latestQuiz.totalQuestions) * 100) : 0;
+    const averageScore = calculateAverageScore(formattedQuizHistory);
+
+    setQuizStats({
+      totalQuizzes: formattedQuizHistory.length,
+      averageScore: averageScore,
+      latestScore: latestScore
+    });
+
+  } catch (error) {
+    console.error('Error calculating quiz statistics:', error);
+  }
+};
+
+// Update the useEffect to watch for formattedQuizHistory changes
+useEffect(() => {
+  if (isAuthenticated && formattedQuizHistory.length > 0) {
+    fetchQuizStatistics();
+  }
+}, [isAuthenticated, formattedQuizHistory]);
+
   const generateQuiz = async () => {
     if (!selectedCourse) {
       toast.error('Please select a course first');
@@ -425,16 +409,6 @@ const Quiz: React.FC = () => {
     }
   
     setLoading(true);
-    
-    // Show loading screen
-    return (
-      <AnimatePresence>
-        {loading && (
-          <LoadingScreen message="Generating your personalized quiz questions..." />
-        )}
-      </AnimatePresence>
-    );
-  
     try {
       // Get auth token
       const token = localStorage.getItem('token');
@@ -1095,105 +1069,43 @@ const Quiz: React.FC = () => {
       });
   }, [formattedQuizHistory, filterDifficulty, filterCourse, sortBy]);
 
-  const getLatestPerformance = () => {
-    if (formattedQuizHistory.length === 0) return null;
-    
-    const latestQuiz = formattedQuizHistory.sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    )[0];
+  // Update getLatestPerformance to a regular function since we need it to run on every render
+const getLatestPerformance = () => {
+  if (formattedQuizHistory.length === 0) return null;
+  
+  // Sort by date and get the most recent quiz
+  const latestQuiz = [...formattedQuizHistory].sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  )[0];
 
-    return {
-      ...latestQuiz,
-      performanceLevel: latestQuiz.successRate >= 80 ? 'Excellent' 
-        : latestQuiz.successRate >= 60 ? 'Good'
-        : latestQuiz.successRate >= 40 ? 'Fair'
-        : 'Needs Improvement',
-      performanceColor: latestQuiz.successRate >= 80 ? 'text-green-500 dark:text-green-400' 
-        : latestQuiz.successRate >= 60 ? 'text-blue-500 dark:text-blue-400'
-        : latestQuiz.successRate >= 40 ? 'text-yellow-500 dark:text-yellow-400'
-        : 'text-red-500 dark:text-red-400',
-      timeTaken: latestQuiz.timeSpent ? `${Math.floor(latestQuiz.timeSpent / 60)}m ${latestQuiz.timeSpent % 60}s` : 'N/A'
-    };
+  // Calculate success rate
+  const successRate = latestQuiz.totalQuestions > 0 
+    ? Math.round((latestQuiz.score / latestQuiz.totalQuestions) * 100) 
+    : 0;
+
+  return {
+    courseName: latestQuiz.courseName,
+    score: latestQuiz.score,
+    totalQuestions: latestQuiz.totalQuestions,
+    successRate,
+    performanceLevel: successRate >= 80 ? 'Excellent' 
+      : successRate >= 60 ? 'Good'
+      : successRate >= 40 ? 'Fair'
+      : 'Needs Improvement',
+    performanceColor: successRate >= 80 ? 'text-green-500 dark:text-green-400' 
+      : successRate >= 60 ? 'text-blue-500 dark:text-blue-400'
+      : successRate >= 40 ? 'text-yellow-500 dark:text-yellow-400'
+      : 'text-red-500 dark:text-red-400',
+    timeTaken: latestQuiz.timeSpent 
+      ? `${Math.floor(latestQuiz.timeSpent / 60000)}m ${Math.floor((latestQuiz.timeSpent % 60000) / 1000)}s` 
+      : 'N/A'
   };
+};
 
   const [theme, setTheme] = useState('light');
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
   };
-  const updateQuizStats = React.useCallback((filteredHistory) => {
-    const stats = {
-      totalQuizzes: filteredHistory.length,
-      averageScore: 0,
-      latestScore: 0
-    };
-  
-    if (filteredHistory.length > 0) {
-      const totalScores = filteredHistory.reduce((sum, quiz) => 
-        sum + (quiz.score / quiz.totalQuestions) * 100, 0);
-      stats.averageScore = Math.round(totalScores / filteredHistory.length);
-      
-      // Get the most recent quiz based on date
-      const mostRecent = filteredHistory.reduce((latest, current) => 
-        new Date(current.date) > new Date(latest.date) ? current : latest
-      );
-      stats.latestScore = Math.round((mostRecent.score / mostRecent.totalQuestions) * 100);
-    }
-  
-    setQuizStats(stats);
-  }, []);
-  useEffect(() => {
-    if (filteredAndSortedHistory.length > 0) {
-      updateQuizStats(filteredAndSortedHistory);
-    }
-  }, [filteredAndSortedHistory, updateQuizStats]);
-  const renderCourseSelection = () => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative"
-    >
-      <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 opacity-20 blur-xl rounded-lg" />
-      <div className="relative bg-white dark:bg-gray-800 rounded-lg p-6 shadow-xl border border-gray-200 dark:border-gray-700">
-        <div className="absolute top-0 right-0 -mt-2 -mr-2">
-          <motion.div
-            animate={{ rotate: 360, scale: [1, 1.2, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <Sparkles className="w-8 h-8 text-yellow-500" />
-          </motion.div>
-        </div>
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-          Select Your Course
-        </h3>
-        <div className="relative">
-          <select
-            value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
-            className="w-full p-3 rounded-lg border-2 border-indigo-500 bg-transparent text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-600 transition-all duration-200 appearance-none hover:border-indigo-600"
-          >
-            <option value="" disabled>Choose a course to begin</option>
-            {courses.map((course) => (
-              <motion.option
-                key={course._id}
-                value={course._id}
-                whileHover={{ scale: 1.02 }}
-              >
-                {course.name}
-              </motion.option>
-            ))}
-          </select>
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-            <motion.div
-              animate={{ y: [0, 3, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            >
-              <ChevronDown className="w-5 h-5 text-indigo-600" />
-            </motion.div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
   if (!quizStarted && !loading) {
     return (
       <motion.div
@@ -1710,55 +1622,55 @@ const Quiz: React.FC = () => {
           <Bar data={quizzesPerCourseData} options={barOptions} />
         </div>
       </div>
-      {getLatestPerformance() && (
-        <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} shadow-md rounded-lg p-4`}>
-          <h1 className="text-2xl font-bold mb-4">Latest Performance</h1>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Course</h3>
-              <p className="mt-1 text-lg font-semibold">{getLatestPerformance()?.courseName}</p>
-            </div>
-            
-            <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Score</h3>
-              <p className="mt-1 text-lg font-semibold">
-                {getLatestPerformance()?.score} / {getLatestPerformance()?.totalQuestions}
-                <span className="text-sm ml-2">({getLatestPerformance()?.successRate}%)</span>
-              </p>
-            </div>
+      {formattedQuizHistory.length > 0 && getLatestPerformance() && (
+  <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} shadow-md rounded-lg p-4`}>
+    <h1 className="text-2xl font-bold mb-4">Latest Performance</h1>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Course</h3>
+        <p className="mt-1 text-lg font-semibold">{getLatestPerformance()?.courseName}</p>
+      </div>
+      
+      <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Score</h3>
+        <p className="mt-1 text-lg font-semibold">
+          {getLatestPerformance()?.score} / {getLatestPerformance()?.totalQuestions}
+          <span className="text-sm ml-2">({getLatestPerformance()?.successRate}%)</span>
+        </p>
+      </div>
 
-            <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Performance Level</h3>
-              <p className={`mt-1 text-lg font-semibold ${getLatestPerformance()?.performanceColor}`}>
-                {getLatestPerformance()?.performanceLevel}
-              </p>
-            </div>
+      <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Performance Level</h3>
+        <p className={`mt-1 text-lg font-semibold ${getLatestPerformance()?.performanceColor}`}>
+          {getLatestPerformance()?.performanceLevel}
+        </p>
+      </div>
 
-            <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Time Taken</h3>
-              <p className="mt-1 text-lg font-semibold">{getLatestPerformance()?.timeTaken}</p>
-            </div>
-          </div>
+      <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Time Taken</h3>
+        <p className="mt-1 text-lg font-semibold">{getLatestPerformance()?.timeTaken}</p>
+      </div>
+    </div>
 
-          <div className="mt-4 p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Progress</h3>
-              <span className="text-sm font-medium">{getLatestPerformance()?.successRate}%</span>
-            </div>
-            <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full ${
-                  getLatestPerformance()?.successRate >= 80 ? 'bg-green-500' 
-                  : getLatestPerformance()?.successRate >= 60 ? 'bg-blue-500'
-                  : getLatestPerformance()?.successRate >= 40 ? 'bg-yellow-500'
-                  : 'bg-red-500'
-                }`}
-                style={{ width: `${getLatestPerformance()?.successRate}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="mt-4 p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Progress</h3>
+        <span className="text-sm font-medium">{getLatestPerformance()?.successRate}%</span>
+      </div>
+      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+        <div
+          className={`h-2 rounded-full ${
+            getLatestPerformance()?.successRate >= 80 ? 'bg-green-500' 
+            : getLatestPerformance()?.successRate >= 60 ? 'bg-blue-500'
+            : getLatestPerformance()?.successRate >= 40 ? 'bg-yellow-500'
+            : 'bg-red-500'
+          }`}
+          style={{ width: `${getLatestPerformance()?.successRate}%` }}
+        />
+      </div>
+    </div>
+  </div>
+)}
     </motion.div>
   );
 };
