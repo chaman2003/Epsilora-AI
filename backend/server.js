@@ -63,7 +63,22 @@ const corsOptions = {
   exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
 
-app.use(cors(corsOptions));
+app.use(cors({ origin: '*' }));
+
+axios.post('https://epsilora-backend.vercel.app/api/generate-quiz', data, {
+  timeout: 20000 // Increase to 20 seconds
+});
+
+
+export default function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Allow all origins (for testing)
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  // Your API logic here
+}
 
 // Enable pre-flight requests for all routes
 app.options('*', cors(corsOptions));
