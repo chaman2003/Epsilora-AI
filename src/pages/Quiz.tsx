@@ -1625,4 +1625,5 @@ const calculateStats = (history: any[]) => {
         latestScore
     };
 };
+
 export default Quiz;
