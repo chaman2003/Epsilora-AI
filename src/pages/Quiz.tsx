@@ -348,19 +348,8 @@ const Quiz: React.FC = () => {
     }
   }, [showHistory, isAuthenticated, fetchQuizHistory, historyFetched]);
 
-const calculateAverageScore = (history: any[]) => {
-  if (history.length === 0) return 0;
-  
-  const scores = history.map(quiz => 
-    (quiz.score / quiz.totalQuestions) * 100
-  );
-  const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-  return Math.round(average);
-};
-
-const fetchQuizStatistics = async () => {
-  try {
-    if (formattedQuizHistory.length === 0) {
+  const fetchQuizStatistics = async () => {
+    if (!user?._id) {
       setQuizStats({
         totalQuizzes: 0,
         averageScore: 0,
@@ -369,194 +358,115 @@ const fetchQuizStatistics = async () => {
       return;
     }
 
-    // Sort by date to get the latest quiz
-    const sortedHistory = [...formattedQuizHistory].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    
-    const latestQuiz = sortedHistory[0];
-    const latestScore = latestQuiz ? Math.round((latestQuiz.score / latestQuiz.totalQuestions) * 100) : 0;
-    const averageScore = calculateAverageScore(formattedQuizHistory);
-
-    setQuizStats({
-      totalQuizzes: formattedQuizHistory.length,
-      averageScore: averageScore,
-      latestScore: latestScore
-    });
-
-  } catch (error) {
-    console.error('Error calculating quiz statistics:', error);
-  }
-};
-
-// Update the useEffect to watch for formattedQuizHistory changes
-useEffect(() => {
-  if (isAuthenticated && formattedQuizHistory.length > 0) {
-    fetchQuizStatistics();
-  }
-}, [isAuthenticated, formattedQuizHistory]);
-
+    try {
+      const response = await axiosInstance.get(`/api/quiz/stats/${user._id}`);
+      console.log('Quiz stats response:', response.data);
+      
+      // Calculate stats from the quiz history
+      const stats = calculateStats(quizHistory);
+      
+      setQuizStats({
+        totalQuizzes: stats.totalQuizzes || 0,
+        averageScore: parseInt(stats.averageScore, 10) || 0,
+        latestScore: parseInt(stats.latestScore, 10) || 0
+      });
+    } catch (error) {
+      console.error('Error fetching quiz statistics:', error);
+      setQuizStats({
+        totalQuizzes: 0,
+        averageScore: 0,
+        latestScore: 0
+      });
+    }
+  };
+  useEffect(() => {
+    if (quizHistory.length > 0) {
+      const stats = calculateStats(quizHistory);
+      setQuizStats({
+        totalQuizzes: stats.totalQuizzes || 0,
+        averageScore: parseFloat(stats.averageScore) || 0,
+        latestScore: parseFloat(stats.latestScore) || 0
+      });
+    }
+  }, [quizHistory]);
   const generateQuiz = async () => {
     if (!selectedCourse) {
       toast.error('Please select a course first');
       return;
     }
-  
-    if (!isAuthenticated) {
-      toast.error('Please log in to generate a quiz');
-      navigate('/login', { state: { from: '/quiz' } });
-      return;
-    }
-  
     setLoading(true);
     try {
-      // Get auth token
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-  
-      // Create custom axios instance with auth header and timeout
-      const customAxios = axiosInstance.create({
-        timeout: 30000,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await axiosInstance.post('/api/generate-quiz', {
+        courseId: selectedCourse,
+        numberOfQuestions: quizDetails.numberOfQuestions,
+        difficulty: quizDetails.difficulty,
+        timePerQuestion: quizDetails.timePerQuestion
       });
-  
-      // Add loading toast
-      const loadingToast = toast.loading('Generating quiz questions...');
-  
+      let quizData;
       try {
-        const response = await customAxios.post('/api/generate-quiz', {
-          courseId: selectedCourse,
-          numberOfQuestions: quizDetails.numberOfQuestions,
-          difficulty: quizDetails.difficulty,
-          timePerQuestion: quizDetails.timePerQuestion
-        });
-  
-        // Handle both string and parsed JSON responses
         const rawData = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-        // Clean the JSON string
         const cleanedData = rawData.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-        const quizData = JSON.parse(cleanedData);
-  
-        // Validate quiz data
-        if (!Array.isArray(quizData)) {
-          throw new Error('Invalid quiz format: expected an array of questions');
-        }
-        if (quizData.length === 0) {
-          throw new Error('No questions were generated. Please try again.');
-        }
-  
-        // Clean and validate each question
-        const cleanedQuestions = quizData.map((q, index) => {
-          if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
-            throw new Error(`Invalid question format at index ${index}`);
-          }
-          return {
-            id: q.id || index + 1,
-            question: q.question.trim().replace(/\\n/g, '\n').replace(/\\/g, ''),
-            options: q.options.map((opt: string) => 
-              opt.trim().replace(/\\n/g, '\n').replace(/\\/g, '')
-            ),
-            correctAnswer: q.correctAnswer.trim().toUpperCase()
-          };
-        });
-  
-        // Validate cleaned questions
-        const validQuestions = cleanedQuestions.every(q => 
-          q.id && 
-          q.question && 
-          Array.isArray(q.options) && 
-          q.options.length === 4 &&
-          q.correctAnswer && 
-          ['A', 'B', 'C', 'D'].includes(q.correctAnswer)
-        );
-  
-        if (!validQuestions) {
-          throw new Error('Invalid question format in response');
-        }
-  
-        // Update state with validated questions
-        setQuestions(cleanedQuestions);
-        setQuizStarted(true);
-        setCurrentQuestion(0);
-        setScore(0);
-        setShowResult(false);
-        setSelectedAnswer(null);
-        setTimeLeft(quizDetails.timePerQuestion);
-        setTimerActive(true);
-        setStartTime(new Date());
-  
-        // Dismiss loading toast and show success
-        toast.dismiss(loadingToast);
-        toast.success('Quiz generated successfully!');
-  
+        quizData = JSON.parse(cleanedData);
       } catch (parseError) {
         console.error('Error parsing quiz data:', parseError);
         console.error('Raw quiz data:', response.data);
-        toast.dismiss(loadingToast);
         throw new Error('Failed to parse quiz data. Please try again.');
       }
-  
+      if (!Array.isArray(quizData)) {
+        throw new Error('Invalid quiz format: expected an array of questions');
+      }
+      if (quizData.length === 0) {
+        throw new Error('No questions were generated. Please try again.');
+      }
+      const cleanedQuestions = quizData.map((q, index) => {
+        if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
+          throw new Error(`Invalid question format at index ${index}`);
+        }
+        return {
+          id: q.id || index + 1,
+          question: q.question.trim().replace(/\\n/g, '\n').replace(/\\/g, ''),
+          options: q.options.map((opt: string) => 
+            opt.trim().replace(/\\n/g, '\n').replace(/\\/g, '')
+          ),
+          correctAnswer: q.correctAnswer.trim().toUpperCase()
+        };
+      });
+      const validQuestions = cleanedQuestions.every(q => 
+        q.id && 
+        q.question && 
+        Array.isArray(q.options) && 
+        q.options.length === 4 &&
+        q.correctAnswer && 
+        ['A', 'B', 'C', 'D'].includes(q.correctAnswer)
+      );
+      if (!validQuestions) {
+        throw new Error('Invalid question format in response');
+      }
+      setQuestions(cleanedQuestions);
+      setQuizStarted(true);
+      setCurrentQuestion(0);
+      setScore(0);
+      setShowResult(false);
+      setSelectedAnswer(null);
+      setTimeLeft(quizDetails.timePerQuestion);
+      setTimerActive(true);
+      setStartTime(new Date());
+      toast.success('Quiz generated successfully!', { duration: 3000 });
     } catch (error: any) {
       console.error('Error generating quiz:', error);
       let errorMessage = 'Failed to generate quiz. Please try again.';
       
-      // Handle specific error cases
-      if (error.response?.status === 401) {
-        errorMessage = 'Your session has expired. Please log in again.';
-        // Clear invalid token
-        localStorage.removeItem('token');
-        // Redirect to login
-        navigate('/login', { state: { from: '/quiz' } });
-      } else if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Request timed out. The server is taking too long to respond. Please try again.';
-      } else if (error.response?.data?.message) {
+      if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
         console.error('Server error details:', error.response.data);
       } else if (error.message) {
         errorMessage = error.message;
       }
-  
       toast.error(errorMessage);
-      toast((t) => (
-        <div>
-          <p>{errorMessage}</p>
-          {error.response?.status !== 401 && (
-            <button
-              onClick={() => {
-                toast.dismiss(t.id);
-                generateQuiz();
-              }}
-              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Retry
-            </button>
-          )}
-        </div>
-      ), {
-        duration: 5000,
-      });
-  
-      // If it's an auth error, trigger auth refresh
-      if (error.response?.status === 401) {
-        // You might want to implement a refresh token mechanism here
-        try {
-          await user?.refreshToken();
-          // Retry the quiz generation after token refresh
-          generateQuiz();
-        } catch (refreshError) {
-          console.error('Failed to refresh authentication:', refreshError);
-        }
-      }
     } finally {
       setLoading(false);
     }
   };
-  
   useEffect(() => {
     if (questions.length > 0) {
       const initialStates = questions.map(() => ({
@@ -1069,43 +979,50 @@ useEffect(() => {
       });
   }, [formattedQuizHistory, filterDifficulty, filterCourse, sortBy]);
 
-  // Update getLatestPerformance to a regular function since we need it to run on every render
-const getLatestPerformance = () => {
-  if (formattedQuizHistory.length === 0) return null;
-  
-  // Sort by date and get the most recent quiz
-  const latestQuiz = [...formattedQuizHistory].sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  )[0];
+  const getLatestPerformance = () => {
+    if (formattedQuizHistory.length === 0) return null;
+    
+    const latestQuiz = formattedQuizHistory.sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    )[0];
 
-  // Calculate success rate
-  const successRate = latestQuiz.totalQuestions > 0 
-    ? Math.round((latestQuiz.score / latestQuiz.totalQuestions) * 100) 
-    : 0;
-
-  return {
-    courseName: latestQuiz.courseName,
-    score: latestQuiz.score,
-    totalQuestions: latestQuiz.totalQuestions,
-    successRate,
-    performanceLevel: successRate >= 80 ? 'Excellent' 
-      : successRate >= 60 ? 'Good'
-      : successRate >= 40 ? 'Fair'
-      : 'Needs Improvement',
-    performanceColor: successRate >= 80 ? 'text-green-500 dark:text-green-400' 
-      : successRate >= 60 ? 'text-blue-500 dark:text-blue-400'
-      : successRate >= 40 ? 'text-yellow-500 dark:text-yellow-400'
-      : 'text-red-500 dark:text-red-400',
-    timeTaken: latestQuiz.timeSpent 
-      ? `${Math.floor(latestQuiz.timeSpent / 60000)}m ${Math.floor((latestQuiz.timeSpent % 60000) / 1000)}s` 
-      : 'N/A'
+    return {
+      ...latestQuiz,
+      performanceLevel: latestQuiz.successRate >= 80 ? 'Excellent' 
+        : latestQuiz.successRate >= 60 ? 'Good'
+        : latestQuiz.successRate >= 40 ? 'Fair'
+        : 'Needs Improvement',
+      performanceColor: latestQuiz.successRate >= 80 ? 'text-green-500 dark:text-green-400' 
+        : latestQuiz.successRate >= 60 ? 'text-blue-500 dark:text-blue-400'
+        : latestQuiz.successRate >= 40 ? 'text-yellow-500 dark:text-yellow-400'
+        : 'text-red-500 dark:text-red-400',
+      timeTaken: latestQuiz.timeSpent ? `${Math.floor(latestQuiz.timeSpent / 60)}m ${latestQuiz.timeSpent % 60}s` : 'N/A'
+    };
   };
-};
 
   const [theme, setTheme] = useState('light');
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
   };
+
+  const updateQuizStats = (history: QuizAttempt[]) => {
+    if (history.length === 0) return;
+
+    const totalQuizzes = history.length;
+    const totalScore = history.reduce((sum, quiz) => sum + quiz.score, 0);
+    const averageScore = Math.round((totalScore / totalQuizzes) * 10) / 10; // Round to 1 decimal place
+    const latestScore = Math.round(history[0].score); // Round to whole number
+
+    setQuizStats({
+      totalQuizzes,
+      averageScore,
+      latestScore
+    });
+
+    // Update chart data
+    updateChartData(history);
+  };
+
   if (!quizStarted && !loading) {
     return (
       <motion.div
@@ -1305,7 +1222,7 @@ const getLatestPerformance = () => {
                   </div>
 
                   {/* Quick Stats */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
@@ -1485,7 +1402,7 @@ const getLatestPerformance = () => {
         className={`container mx-auto px-4 py-8`}
       >
         <div className={`max-w-2xl mx-auto bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-xl shadow-lg p-8`}>
-          <h2 className="text-3xl font-bold text-center mb-6 text-gray-900 dark:text-white">
+          <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6 text-center">
             Multiple Choice Questions
           </h2>
           {renderQuestion()}
@@ -1504,7 +1421,7 @@ const getLatestPerformance = () => {
         className={`container mx-auto px-4 py-8`}
       >
         <div className={`max-w-2xl mx-auto bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-xl shadow-lg p-8`}>
-          <h2 className="text-3xl font-bold text-center mb-6 text-gray-900 dark:text-white">
+          <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6 text-center">
             Quiz Completed!
           </h2>
 
@@ -1622,73 +1539,80 @@ const getLatestPerformance = () => {
           <Bar data={quizzesPerCourseData} options={barOptions} />
         </div>
       </div>
-      {formattedQuizHistory.length > 0 && getLatestPerformance() && (
-  <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} shadow-md rounded-lg p-4`}>
-    <h1 className="text-2xl font-bold mb-4">Latest Performance</h1>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Course</h3>
-        <p className="mt-1 text-lg font-semibold">{getLatestPerformance()?.courseName}</p>
-      </div>
-      
-      <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Score</h3>
-        <p className="mt-1 text-lg font-semibold">
-          {getLatestPerformance()?.score} / {getLatestPerformance()?.totalQuestions}
-          <span className="text-sm ml-2">({getLatestPerformance()?.successRate}%)</span>
-        </p>
-      </div>
+      {getLatestPerformance() && (
+        <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} shadow-md rounded-lg p-4`}>
+          <h1 className="text-2xl font-bold mb-4">Latest Performance</h1>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Course</h3>
+              <p className="mt-1 text-lg font-semibold">{getLatestPerformance()?.courseName}</p>
+            </div>
+            
+            <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Score</h3>
+              <p className="mt-1 text-lg font-semibold">
+                {getLatestPerformance()?.score} / {getLatestPerformance()?.totalQuestions}
+                <span className="text-sm ml-2">({getLatestPerformance()?.successRate}%)</span>
+              </p>
+            </div>
 
-      <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Performance Level</h3>
-        <p className={`mt-1 text-lg font-semibold ${getLatestPerformance()?.performanceColor}`}>
-          {getLatestPerformance()?.performanceLevel}
-        </p>
-      </div>
+            <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Performance Level</h3>
+              <p className={`mt-1 text-lg font-semibold ${getLatestPerformance()?.performanceColor}`}>
+                {getLatestPerformance()?.performanceLevel}
+              </p>
+            </div>
 
-      <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Time Taken</h3>
-        <p className="mt-1 text-lg font-semibold">{getLatestPerformance()?.timeTaken}</p>
-      </div>
-    </div>
+            <div className="p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Time Taken</h3>
+              <p className="mt-1 text-lg font-semibold">{getLatestPerformance()?.timeTaken}</p>
+            </div>
+          </div>
 
-    <div className="mt-4 p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Progress</h3>
-        <span className="text-sm font-medium">{getLatestPerformance()?.successRate}%</span>
-      </div>
-      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-        <div
-          className={`h-2 rounded-full ${
-            getLatestPerformance()?.successRate >= 80 ? 'bg-green-500' 
-            : getLatestPerformance()?.successRate >= 60 ? 'bg-blue-500'
-            : getLatestPerformance()?.successRate >= 40 ? 'bg-yellow-500'
-            : 'bg-red-500'
-          }`}
-          style={{ width: `${getLatestPerformance()?.successRate}%` }}
-        />
-      </div>
-    </div>
-  </div>
-)}
+          <div className="mt-4 p-4 rounded-lg bg-white/5 dark:bg-gray-800/5 backdrop-blur-lg">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Progress</h3>
+              <span className="text-sm font-medium">{getLatestPerformance()?.successRate}%</span>
+            </div>
+            <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full ${
+                  getLatestPerformance()?.successRate >= 80 ? 'bg-green-500' 
+                  : getLatestPerformance()?.successRate >= 60 ? 'bg-blue-500'
+                  : getLatestPerformance()?.successRate >= 40 ? 'bg-yellow-500'
+                  : 'bg-red-500'
+                }`}
+                style={{ width: `${getLatestPerformance()?.successRate}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };
 
 const calculateStats = (history: any[]) => {
     const totalQuizzes = history.length;
-    const totalQuestions = history.reduce((sum, quiz) => 
-        sum + (quiz.questions?.length || 0), 0);
-    const totalCorrect = history.reduce((sum, quiz) => 
-        sum + (quiz.correctAnswers || 0), 0);
+    let totalScore = 0;
+    let totalQuestions = 0;
     
+    history.forEach(quiz => {
+        if (quiz.score !== undefined && quiz.totalQuestions) {
+            totalScore += quiz.score;
+            totalQuestions += quiz.totalQuestions;
+        }
+    });
+
+    const averageScore = totalQuestions > 0 ? (totalScore / totalQuestions) * 100 : 0;
+    const latestScore = history.length > 0 && history[0].score !== undefined && history[0].totalQuestions 
+        ? (history[0].score / history[0].totalQuestions) * 100 
+        : 0;
+
     return {
         totalQuizzes,
-        questionsAnswered: totalQuestions,
-        averageScore: totalQuestions > 0 ? 
-            ((totalCorrect / totalQuestions) * 100).toFixed(1) : '0',
-        latestScore: history.length > 0 ? 
-            ((history[0].correctAnswers / history[0].questions.length) * 100).toFixed(1) : '0'
+        averageScore,
+        latestScore
     };
 };
 export default Quiz;
