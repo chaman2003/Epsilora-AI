@@ -241,6 +241,7 @@ app.post('/api/auth/login', async (req, res, next) => {
   }
 });
 
+
 app.get('/api/auth/me', authenticateToken, async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -532,58 +533,135 @@ app.delete('/api/chat/:id', authenticateToken, async (req, res) => {
 // Quiz Generation Route
 app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
   try {
-    const { courseId, numberOfQuestions = 10 } = req.body;
-    
-    // Set a timeout for the entire request
-    const TIMEOUT = 240000; // 4 minutes
+    const { courseId, numberOfQuestions, difficulty, timePerQuestion } = req.body;
+
+    // Set a longer timeout for larger number of questions
+    const TIMEOUT = numberOfQuestions <= 5 ? 240000 : 480000; // 4 mins for ≤5 questions, 8 mins for >5
     let timeoutId = setTimeout(() => {
-      res.status(504).json({ error: 'Request timed out. Please try with fewer questions.' });
+      res.status(504).json({ 
+        error: 'Request timed out. Please try with fewer questions or try again.',
+        details: `Timeout after ${TIMEOUT/1000} seconds`
+      });
     }, TIMEOUT);
 
-    // Get course details
+    // Validate required fields
+    if (!courseId || !numberOfQuestions || !difficulty || !timePerQuestion) {
+      clearTimeout(timeoutId);
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: 'Please provide courseId, numberOfQuestions, difficulty, and timePerQuestion'
+      });
+    }
+
     const course = await Course.findById(courseId);
     if (!course) {
       clearTimeout(timeoutId);
       return res.status(404).json({ error: 'Course not found' });
     }
 
-    // Generate quiz with reduced complexity
+    // Create prompt for Gemini
+    const prompt = `You are a quiz generator for the course "${course.name}". Generate ${numberOfQuestions} multiple choice questions.
+
+Instructions:
+1. Create exactly ${numberOfQuestions} unique questions
+2. Difficulty level: ${difficulty}
+3. Each question must have exactly 4 options labeled A through D
+4. Return ONLY a valid JSON array with no additional text or formatting
+5. Do not use escaped characters or special formatting in questions/options
+6. Keep questions and answers clear and concise
+
+Format each question object like this:
+{
+  "id": (number),
+  "question": "Clear question text without special characters",
+  "options": [
+    "A) First option",
+    "B) Second option", 
+    "C) Third option",
+    "D) Fourth option"
+  ],
+  "correctAnswer": "A" or "B" or "C" or "D"
+}`;
+
     const model = genAI.getGenerativeModel({ 
       model: "gemini-pro",
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 2048, // Further reduced for faster response
+        maxOutputTokens: numberOfQuestions <= 5 ? 4096 : 8192, // Adjust tokens based on question count
         topP: 0.8,
         topK: 40
       }
     });
 
-    const prompt = `Generate ${numberOfQuestions} multiple choice questions about ${course.name}. Format as JSON array.
-Each question should have:
-{
-  "question": "question text",
-  "options": ["option1", "option2", "option3", "option4"],
-  "correctAnswer": "correct option text"
-}`;
-
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let text = response.text();
 
-    // Clean and parse the response
-    text = text.replace(/```json\n?/g, '')
-               .replace(/```\n?/g, '')
-               .trim();
+    try {
+      // Clean the response text
+      text = text.replace(/```json\n?/g, '')
+                 .replace(/```\n?/g, '')
+                 .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+                 .replace(/^[\s\n]*\[/, '[')  // Clean start
+                 .replace(/\][\s\n]*$/, ']')  // Clean end
+                 .trim();
 
-    const questions = JSON.parse(text);
-    
-    // Clear the timeout since we got a response
-    clearTimeout(timeoutId);
-    
-    res.json(questions);
+      // Parse and validate the questions
+      const questions = JSON.parse(text);
+
+      if (!Array.isArray(questions)) {
+        throw new Error('Response is not an array');
+      }
+
+      if (questions.length !== numberOfQuestions) {
+        throw new Error(`Expected ${numberOfQuestions} questions but got ${questions.length}`);
+      }
+
+      // Clean and validate each question
+      const formattedQuestions = questions.map((q, index) => {
+        if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
+          throw new Error(`Invalid question format at index ${index}`);
+        }
+
+        const cleanOptions = q.options.map(opt => 
+          opt.trim()
+             .replace(/\\n/g, ' ')
+             .replace(/\s+/g, ' ')
+        );
+
+        if (cleanOptions.length !== 4) {
+          throw new Error(`Question ${index + 1} must have exactly 4 options`);
+        }
+
+        const validAnswer = q.correctAnswer.trim().toUpperCase();
+        if (!['A', 'B', 'C', 'D'].includes(validAnswer)) {
+          throw new Error(`Invalid correct answer "${validAnswer}" for question ${index + 1}`);
+        }
+
+        return {
+          id: index + 1,
+          question: q.question.trim(),
+          options: cleanOptions,
+          correctAnswer: validAnswer,
+          timePerQuestion
+        };
+      });
+
+      // Clear timeout since we succeeded
+      clearTimeout(timeoutId);
+      res.json(formattedQuestions);
+
+    } catch (parseError) {
+      clearTimeout(timeoutId);
+      console.error('Parse error:', parseError);
+      res.status(500).json({
+        error: 'Failed to parse quiz data',
+        details: parseError.message
+      });
+    }
   } catch (error) {
     console.error('Quiz generation error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to generate quiz',
       details: error.message
     });
