@@ -47,10 +47,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configure CORS with environment-aware origin handling
+// Configure CORS with comprehensive origin handling
 const corsOptions = {
   origin: function (origin, callback) {
-    // List of allowed origins
     const allowedOrigins = [
       'https://epsilora.vercel.app',
       'https://epsilora-git-main-chaman-ss-projects.vercel.app',
@@ -60,7 +59,7 @@ const corsOptions = {
       'http://localhost:5173'
     ];
 
-    // Check if the origin is in the allowed list or if it's a Vercel preview deployment
+    // Check if origin matches allowed list or is a Vercel preview deployment
     if (!origin || 
         allowedOrigins.includes(origin) || 
         /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin)) {
@@ -71,21 +70,19 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
-// Apply CORS middleware
+// Apply CORS middleware with comprehensive configuration
 app.use(cors(corsOptions));
 
-// Enable pre-flight requests for all routes
-app.options('*', cors(corsOptions));
-
-// Fallback CORS headers middleware
+// Additional headers middleware for extra CORS support
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Dynamic origin handling
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
@@ -94,6 +91,13 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   
+  next();
+});
+
+// Increase timeout for long-running operations
+app.use((req, res, next) => {
+  req.setTimeout(60000); // 60 seconds
+  res.setTimeout(60000); // 60 seconds
   next();
 });
 
