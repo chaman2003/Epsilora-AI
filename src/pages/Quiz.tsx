@@ -1447,11 +1447,11 @@ useEffect(() => {
                                     </div>
                                     <div className="flex items-center">
                                       <span className={`text-sm ${
-                                        attempt.percentageScore >= 70 ? 'text-green-500' : 
-                                        attempt.percentageScore >= 50 ? 'text-yellow-500' : 
+                                        attempt.successRate >= 70 ? 'text-green-500' : 
+                                        attempt.successRate >= 50 ? 'text-yellow-500' : 
                                         'text-red-500'
                                       }`}>
-                                        {attempt.percentageScore}% Success Rate
+                                        {attempt.successRate}% Success Rate
                                       </span>
                                     </div>
                                   </div>
