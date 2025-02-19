@@ -64,6 +64,12 @@ interface QuizQuestion {
   options: string[];
   correctAnswer: string;
 }
+interface CourseStats {
+  correct: number;
+  wrong: number;
+  name: string;
+}
+
 const Quiz: React.FC = () => {
   const { isAuthenticated, user, isLoading } = useAuth();
   const { setQuizData } = useQuiz();
@@ -86,7 +92,7 @@ const Quiz: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(30);
   const [timerActive, setTimerActive] = useState<boolean>(false);
   const [quizHistory, setQuizHistory] = useState<QuizAttempt[]>([]);
-  const [formattedQuizHistory, setFormattedQuizHistory] = useState([]);
+  const [formattedQuizHistory, setFormattedQuizHistory] = useState<QuizAttempt[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [totalTimeSpent, setTotalTimeSpent] = useState(0);
@@ -98,15 +104,25 @@ const Quiz: React.FC = () => {
     latestScore: 0
   });
   // Chart data preparation
-  const [correctVsWrongData, setCorrectVsWrongData] = useState({
+  const [correctVsWrongData, setCorrectVsWrongData] = useState<{
+    labels: string[];
+    datasets: {
+      label: string;
+      data: number[];
+      backgroundColor: string;
+    }[];
+  }>({
     labels: [],
     datasets: []
   });
-  const [quizzesPerCourseData, setQuizzesPerCourseData] = useState({
-    labels: [],
-    datasets: []
-  });
-  const [successRateData, setSuccessRateData] = useState({
+  const [successRateData, setSuccessRateData] = useState<{
+    labels: string[];
+    datasets: {
+      label: string;
+      data: number[];
+      backgroundColor: string[];
+    }[]
+  }>({
     labels: [],
     datasets: []
   });
@@ -223,7 +239,7 @@ const Quiz: React.FC = () => {
     if (quizHistory && courses && courses.length > 0) {
       try {
         // Prepare data for Correct vs Wrong Answers chart
-        const courseStats = courses.reduce((acc: any, course) => {
+        const courseStats: { [key: string]: CourseStats } = courses.reduce((acc, course) => {
           const courseQuizzes = quizHistory.filter(q => q.courseId === course._id) || [];
           const correct = courseQuizzes.reduce((sum, q) => sum + (q.score || 0), 0);
           const total = courseQuizzes.reduce((sum, q) => sum + (q.totalQuestions || 0), 0);
@@ -235,38 +251,19 @@ const Quiz: React.FC = () => {
           return acc;
         }, {});
         setCorrectVsWrongData({
-          labels: Object.values(courseStats).map((s: any) => s.name),
+          labels: Object.values(courseStats).map((s: CourseStats) => s.name),
           datasets: [
             {
               label: 'Correct Answers',
-              data: Object.values(courseStats).map((s: any) => s.correct),
+              data: Object.values(courseStats).map((s: CourseStats) => s.correct),
               backgroundColor: 'rgba(75, 192, 192, 0.5)',
             },
             {
               label: 'Wrong Answers',
-              data: Object.values(courseStats).map((s: any) => s.wrong),
+              data: Object.values(courseStats).map((s: CourseStats) => s.wrong),
               backgroundColor: 'rgba(255, 99, 132, 0.5)',
             }
           ]
-        });
-        // Prepare data for Quizzes per Course chart
-        const quizzesPerCourse = courses.map(course => ({
-          name: course.name.split(' ').slice(0, 3).join(' '),
-          count: (quizHistory.filter(q => q.courseId === course._id) || []).length
-        }));
-        setQuizzesPerCourseData({
-          labels: quizzesPerCourse.map(q => q.name),
-          datasets: [{
-            label: 'Number of Quizzes',
-            data: quizzesPerCourse.map(q => q.count),
-            backgroundColor: [
-              'rgba(54, 162, 235, 0.5)',
-              'rgba(255, 206, 86, 0.5)',
-              'rgba(75, 192, 192, 0.5)',
-              'rgba(153, 102, 255, 0.5)',
-              'rgba(255, 159, 64, 0.5)',
-            ],
-          }]
         });
         // Prepare data for Success Rate chart
         const successRates = courses.map(course => {
@@ -1070,9 +1067,17 @@ useEffect(() => {
   }, [formattedQuizHistory, filterDifficulty, filterCourse, sortBy]);
 
   // Update getLatestPerformance to a regular function since we need it to run on every render
-const getLatestPerformance = () => {
-  if (formattedQuizHistory.length === 0) return null;
-  
+  const getLatestPerformance = () => {
+    if (formattedQuizHistory.length === 0) return {
+      courseName: 'N/A',
+      score: 0,
+      totalQuestions: 0,
+      successRate: 0,
+      performanceLevel: 'No Data',
+      performanceColor: 'text-gray-500',
+      timeTaken: 'N/A'
+    };
+    
   // Sort by date and get the most recent quiz
   const latestQuiz = [...formattedQuizHistory].sort((a, b) => 
     new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -1122,7 +1127,7 @@ const getLatestPerformance = () => {
               <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2`}>
                 <h2 className="text-lg font-semibold mb-1 text-center">Quizzes per Course</h2>
                 <div className="h-[350px]">
-                  <Pie data={quizzesPerCourseData} options={pieOptions} />
+                  <Pie data={successRateData} options={pieOptions} />
                 </div>
               </div>
               
@@ -1442,11 +1447,11 @@ const getLatestPerformance = () => {
                                     </div>
                                     <div className="flex items-center">
                                       <span className={`text-sm ${
-                                        attempt.successRate >= 70 ? 'text-green-500' : 
-                                        attempt.successRate >= 50 ? 'text-yellow-500' : 
+                                        attempt.percentageScore >= 70 ? 'text-green-500' : 
+                                        attempt.percentageScore >= 50 ? 'text-yellow-500' : 
                                         'text-red-500'
                                       }`}>
-                                        {attempt.successRate}% Success Rate
+                                        {attempt.percentageScore}% Success Rate
                                       </span>
                                     </div>
                                   </div>
@@ -1610,16 +1615,16 @@ const getLatestPerformance = () => {
         <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} shadow-md rounded-lg p-4`}>
           <h1 className="text-2xl font-bold mb-4">Number of Quizzes Taken</h1>
           <div className="h-[350px]" style={{ transform: 'translateX(100px)' }}>
-            <Pie data={quizzesPerCourseData} options={pieOptions} />
+            <Pie data={successRateData} options={pieOptions} />
           </div>
         </div>
         <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} shadow-md rounded-lg p-4`}>
           <h1 className="text-2xl font-bold mb-4">Difficulty Levels</h1>
-          <Bar data={quizzesPerCourseData} options={barOptions} />
+          <Bar data={correctVsWrongData} options={barOptions} />
         </div>
         <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} shadow-md rounded-lg p-4`}>
           <h1 className="text-2xl font-bold mb-4">Time-Based Performance</h1>
-          <Bar data={quizzesPerCourseData} options={barOptions} />
+          <Bar data={correctVsWrongData} options={barOptions} />
         </div>
       </div>
       {formattedQuizHistory.length > 0 && getLatestPerformance() && (
@@ -1659,11 +1664,11 @@ const getLatestPerformance = () => {
       </div>
       <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
         <div
-          className={`h-2 rounded-full ${
-            getLatestPerformance()?.successRate >= 80 ? 'bg-green-500' 
-            : getLatestPerformance()?.successRate >= 60 ? 'bg-blue-500'
-            : getLatestPerformance()?.successRate >= 40 ? 'bg-yellow-500'
-            : 'bg-red-500'
+    className={`h-2 rounded-full ${
+      getLatestPerformance()!.successRate >= 80 ? 'bg-green-500' 
+      : getLatestPerformance()!.successRate >= 60 ? 'bg-blue-500'
+      : getLatestPerformance()!.successRate >= 40 ? 'bg-yellow-500'
+      : 'bg-red-500'
           }`}
           style={{ width: `${getLatestPerformance()?.successRate}%` }}
         />
