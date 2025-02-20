@@ -46,6 +46,7 @@ const corsOptions = {
     const allowedOrigins = [
       'https://epsilora.vercel.app',
       'https://epsilora-git-main-chaman-ss-projects.vercel.app',
+      'https://epsilora-backend.vercel.app',
       'https://epsilora-chaman-ss-projects.vercel.app',
       'http://localhost:3000',
       'http://localhost:5173'
