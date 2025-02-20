@@ -40,36 +40,18 @@ try {
 
 const app = express();
 
-// Configure CORS with comprehensive origin handling
+// Configure CORS to allow all origins
 const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'https://epsilora.vercel.app',                 // Your front-end origin
-      'https://epsilora-git-main-chaman-ss-projects.vercel.app',
-      'https://epsilora-chaman-ss-projects.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ];
-
-    // Check if origin matches allowed list or is a Vercel preview/production deployment
-    // This regex matches all possible Vercel deployments
-    if (!origin || 
-        allowedOrigins.includes(origin) || 
-        /^https:\/\/epsilora(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(origin)) {
-      callback(null, true);  // Allow the origin
-    } else {
-      callback(new Error('Not allowed by CORS'));  // Block the origin
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  origin: true,  // This will allow all origins
+  credentials: true,  // Allow credentials such as cookies or authorization headers
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],  // Allowed HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],  // Allowed headers
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],  // Exposed headers for the response
+  preflightContinue: false,  // Continue with the request if the preflight request is successful
+  optionsSuccessStatus: 204,  // Status code for successful OPTIONS requests
 };
 
-// Apply CORS middleware with comprehensive configuration
+// Apply CORS middleware with open configuration
 app.use(cors(corsOptions));
 
 // Middleware to handle requests and responses
@@ -94,6 +76,7 @@ app.use((req, res, next) => {
 
   next();
 });
+
 
 // MongoDB connection with retry logic
 const connectDB = async (retries = 5) => {
