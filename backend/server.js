@@ -44,21 +44,21 @@ const app = express();
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
-      'https://epsilora.vercel.app',
+      'https://epsilora.vercel.app',                 // Your front-end origin
       'https://epsilora-git-main-chaman-ss-projects.vercel.app',
-      'https://epsilora-backend.vercel.app',
       'https://epsilora-chaman-ss-projects.vercel.app',
       'http://localhost:3000',
       'http://localhost:5173'
     ];
 
     // Check if origin matches allowed list or is a Vercel preview/production deployment
+    // This regex matches all possible Vercel deployments
     if (!origin || 
         allowedOrigins.includes(origin) || 
         /^https:\/\/epsilora(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(origin)) {
-      callback(null, true);
+      callback(null, true);  // Allow the origin
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error('Not allowed by CORS'));  // Block the origin
     }
   },
   credentials: true,
@@ -72,7 +72,7 @@ const corsOptions = {
 // Apply CORS middleware with comprehensive configuration
 app.use(cors(corsOptions));
 
-// Middleware
+// Middleware to handle requests and responses
 app.use(express.json());
 
 // Global timeout and error handling middleware
