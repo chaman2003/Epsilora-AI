@@ -277,17 +277,17 @@ const Courses: React.FC = () => {
   const [showEditCourseModal, setShowEditCourseModal] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
 
+  const [milestoneProgress, setMilestoneProgress] = useState<Array<{ courseId: string; milestoneIndex: number; completed: boolean }>>([]);
+
   const navigate = useNavigate();
 
   // Calculate progress based on completed milestones
   const calculateProgress = (course: any) => {
     if (!course.milestones || course.milestones.length === 0) return 0;
     
-    const today = new Date();
-    const completedMilestones = course.milestones.filter((milestone: any) => {
-      const milestoneDate = new Date(milestone.deadline);
-      return milestoneDate <= today;
-    });
+    const completedMilestones = milestoneProgress.filter(
+      progress => progress.courseId === course._id && progress.completed
+    );
 
     return Math.round((completedMilestones.length / course.milestones.length) * 100);
   };
@@ -296,6 +296,7 @@ const Courses: React.FC = () => {
     console.log('Courses component mounted, auth status:', isAuthenticated);
     if (isAuthenticated) {
       fetchSavedCourses();
+      fetchMilestoneProgress();
     }
   }, [isAuthenticated]);
 
@@ -331,6 +332,22 @@ const Courses: React.FC = () => {
       console.error('Error fetching courses:', error);
       toast.error('Failed to fetch saved courses');
       setSavedCourses([]);
+    }
+  };
+
+  const fetchMilestoneProgress = async () => {
+    try {
+      const response = await axiosInstance.get('/api/progress/milestones', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (Array.isArray(response.data)) {
+        setMilestoneProgress(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching milestone progress:', error);
+      setMilestoneProgress([]);
     }
   };
 
