@@ -309,24 +309,29 @@ const AIAssist: React.FC = () => {
         }
       }
 
-      // Check for duplicate content
+      // Comprehensive duplicate check for all types of chats
       const firstMessage = initialMessages[0]?.content;
-      if (firstMessage && firstMessage.includes('Quiz Review')) {
+      if (firstMessage) {
         const existingChat = chatHistories.find(chat => {
           const chatFirstMessage = chat.messages[0]?.content || '';
-          if (!chatFirstMessage.includes('Quiz Review')) return false;
           
-          const newCourseMatch = firstMessage.match(/Course: (.*?)\n/);
-          const newScoreMatch = firstMessage.match(/Score: (\d+)\/(\d+)/);
-          const chatCourseMatch = chatFirstMessage.match(/Course: (.*?)\n/);
-          const chatScoreMatch = chatFirstMessage.match(/Score: (\d+)\/(\d+)/);
+          // Special handling for Quiz Review
+          if (firstMessage.includes('Quiz Review') && chatFirstMessage.includes('Quiz Review')) {
+            const newCourseMatch = firstMessage.match(/Course: (.*?)\n/);
+            const newScoreMatch = firstMessage.match(/Score: (\d+)\/(\d+)/);
+            const chatCourseMatch = chatFirstMessage.match(/Course: (.*?)\n/);
+            const chatScoreMatch = chatFirstMessage.match(/Score: (\d+)\/(\d+)/);
+            
+            return newCourseMatch && 
+                   chatCourseMatch && 
+                   newScoreMatch &&
+                   chatScoreMatch &&
+                   newCourseMatch[1].trim() === chatCourseMatch[1].trim() &&
+                   newScoreMatch[0] === chatScoreMatch[0];
+          }
           
-          return newCourseMatch && 
-                 chatCourseMatch && 
-                 newScoreMatch &&
-                 chatScoreMatch &&
-                 newCourseMatch[1].trim() === chatCourseMatch[1].trim() &&
-                 newScoreMatch[0] === chatScoreMatch[0];
+          // Generic content similarity check
+          return chatFirstMessage.trim() === firstMessage.trim();
         });
 
         if (existingChat) {
@@ -349,7 +354,10 @@ const AIAssist: React.FC = () => {
       setCurrentChatId(newChatId);
       sessionRef.current = newChatId;
       localStorage.setItem('currentAIChatSession', newChatId);
-      await loadChatHistories();
+      
+      // Update chat histories state
+      setChatHistories(prevHistories => [...prevHistories, response.data]);
+      
       return newChatId;
     } catch (error) {
       console.error('Error creating new chat:', error);
@@ -972,7 +980,5 @@ const AIAssist: React.FC = () => {
     </motion.div>
   );
 };
-
-
 
 export default AIAssist;
