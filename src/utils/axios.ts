@@ -1,17 +1,16 @@
 import axios from 'axios';
 
-// Create axios instance with default config
-export const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend.vercel.app',
-  timeout: 30000, // Increased timeout to 30 seconds
-  withCredentials: true,
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://epsilora-backend.vercel.app';
+
+const axiosInstance = axios.create({
+  baseURL: BASE_URL,
+  timeout: 180000, // 3 minutes
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
+  },
 });
 
-// Add request interceptor to add auth token
+// Add request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -25,39 +24,32 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// Add response interceptor to handle common errors
+// Add response interceptor
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.code === 'ECONNABORTED') {
-      // Handle timeout error
-      console.error('Request timed out:', error.config?.url);
-      throw new Error('Request timed out. Please try again.');
-    }
-    
-    if (error.response?.status === 401) {
-      // Clear token on unauthorized
-      localStorage.removeItem('token');
-      
-      // Only redirect if we're not already on the login page and not trying to log in
-      const isLoginPage = window.location.pathname.includes('/login');
-      const isLoginRequest = error.config?.url?.includes('/login');
-      
-      if (!isLoginPage && !isLoginRequest) {
-        window.location.href = '/login';
-      }
-    }
-    
-    // Network errors
-    if (error.message === 'Network Error') {
-      console.error('Network error:', error);
-      throw new Error('Unable to connect to server. Please check your internet connection.');
-    }
+    const originalRequest = error.config;
 
-    // Handle CORS errors
-    if (error.message?.includes('CORS')) {
-      console.error('CORS error:', error);
-      throw new Error('Unable to connect to server due to CORS policy.');
+    // If error is 401 and we haven't tried to refresh token yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Try to refresh token
+        const response = await axios.post(`${BASE_URL}/api/auth/refresh-token`, {
+          refreshToken: localStorage.getItem('refreshToken')
+        });
+
+        if (response.data.token) {
+          localStorage.setItem('token', response.data.token);
+          originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
+          return axiosInstance(originalRequest);
+        }
+      } catch (refreshError) {
+        // If refresh fails, redirect to login
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
     }
 
     return Promise.reject(error);

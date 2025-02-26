@@ -45,7 +45,8 @@ const app = express();
 const corsOptions = {
   origin: [
     'https://epsilora.vercel.app',
-    'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app',
+    'https://epsilora-chaman-ss-projects.vercel.app',
+    'https://epsilora-8f6lvf0o2-chaman-ss-projects.vercel.app',
     'http://localhost:3000',
     'http://localhost:5173'
   ],
@@ -411,10 +412,9 @@ app.delete('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
 
 // Quiz Generation Route with Enhanced Error Handling
 app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
-  // Set a longer timeout for this specific route
-  req.setTimeout(180000); // 3 minutes
-  res.setTimeout(180000);  // 3 minutes
-
+  const startTime = Date.now();
+  console.log('Quiz generation started:', new Date().toISOString());
+  
   try {
     const { courseId, numberOfQuestions, difficulty, timePerQuestion } = req.body;
 
