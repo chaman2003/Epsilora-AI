@@ -15,7 +15,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import progressRoutes from './routes/progress.js';
 import { MongoClient } from 'mongodb';
 
-require('dotenv').config(); // Add dotenv to load environment variables
+// Load environment variables
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -40,18 +41,21 @@ try {
 
 const app = express();
 
-// Configure CORS to allow all origins
+// CORS configuration
 const corsOptions = {
-  origin: true,  // This will allow all origins
-  credentials: true,  // Allow credentials such as cookies or authorization headers
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],  // Allowed HTTP methods
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],  // Allowed headers
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],  // Exposed headers for the response
-  preflightContinue: false,  // Continue with the request if the preflight request is successful
-  optionsSuccessStatus: 204,  // Status code for successful OPTIONS requests
+  origin: [
+    'https://epsilora.vercel.app',
+    'https://epsilora-h90b3ugzl-chaman-ss-projects.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
 };
 
-// Apply CORS middleware with open configuration
+// Apply CORS middleware
 app.use(cors(corsOptions));
 
 // Middleware to handle requests and responses
