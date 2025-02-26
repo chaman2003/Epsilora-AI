@@ -22,7 +22,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Get environment variables
-const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY;
+const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -30,7 +30,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 let genAI;
 try {
   if (!GEMINI_API_KEY) {
-    console.error('Warning: VITE_GEMINI_API_KEY not found in environment variables');
+    console.error('Warning: Neither VITE_GEMINI_API_KEY nor GEMINI_API_KEY found in environment variables');
   } else {
     genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     console.log('Gemini AI initialized successfully');
@@ -431,11 +431,11 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
     }
 
     // Add error handling for API key
-    if (!process.env.GEMINI_API_KEY) {
+    if (!GEMINI_API_KEY) {
       console.error('Missing Gemini API key');
       return res.status(500).json({
         message: 'Server configuration error',
-        error: 'Missing API key'
+        error: 'Missing API key. Check VITE_GEMINI_API_KEY or GEMINI_API_KEY in environment variables'
       });
     }
 
