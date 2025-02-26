@@ -430,13 +430,19 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       });
     }
 
-    // Add error handling for API key
-    if (!GEMINI_API_KEY) {
-      console.error('Missing Gemini API key');
+    // Check if Gemini AI is initialized
+    if (!genAI) {
+      console.error('Gemini AI not initialized');
       return res.status(500).json({
         message: 'Server configuration error',
-        error: 'Missing API key. Check VITE_GEMINI_API_KEY or GEMINI_API_KEY in environment variables'
+        error: 'AI service not initialized'
       });
+    }
+
+    // Initialize Gemini model
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    if (!model) {
+      throw new Error('Failed to initialize Gemini model');
     }
 
     const course = await Course.findById(courseId);
@@ -467,7 +473,14 @@ Output Format (STRICT JSON ONLY):
 
 CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
 
+    console.log('Sending prompt to Gemini...');
     const result = await model.generateContent(prompt);
+    console.log('Received response from Gemini');
+    
+    if (!result?.response) {
+      throw new Error('No response from AI model');
+    }
+
     const response = await result.response;
     let text = response.text();
 
@@ -527,7 +540,8 @@ CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
     console.error('Quiz Generation Error:', error);
     res.status(500).json({
       message: 'Unexpected error in quiz generation',
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
