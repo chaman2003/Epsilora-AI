@@ -290,7 +290,7 @@ const AIAssist: React.FC = () => {
     });
   };
 
-  // Modify createNewChat to be more strict about duplicates
+  // Modified createNewChat to be more strict about duplicates
   const createNewChat = async (initialMessages: Message[] = []) => {
     try {
       const token = localStorage.getItem('token');
@@ -299,51 +299,45 @@ const AIAssist: React.FC = () => {
         return null;
       }
 
-      // Check if we already have a session
-      if (sessionRef.current) {
-        const existingChat = chatHistories.find(ch => ch._id === sessionRef.current);
-        if (existingChat) {
-          setCurrentChatId(existingChat._id);
-          setMessages(existingChat.messages);
-          return existingChat._id;
+      // Check for an exact match in existing chat histories
+      const existingChat = chatHistories.find(chat => {
+        // If no messages, return false
+        if (chat.messages.length === 0 || initialMessages.length === 0) return false;
+
+        // Compare first messages for similarity
+        const chatFirstMessage = chat.messages[0].content.trim().toLowerCase();
+        const newFirstMessage = initialMessages[0].content.trim().toLowerCase();
+
+        // Special handling for quiz reviews
+        if (chatFirstMessage.includes('quiz review') && newFirstMessage.includes('quiz review')) {
+          const chatCourseMatch = chatFirstMessage.match(/course: (.*?)\n/);
+          const newCourseMatch = newFirstMessage.match(/course: (.*?)\n/);
+          const chatScoreMatch = chatFirstMessage.match(/score: (\d+)\/(\d+)/);
+          const newScoreMatch = newFirstMessage.match(/score: (\d+)\/(\d+)/);
+
+          return chatCourseMatch && 
+                 newCourseMatch && 
+                 chatScoreMatch && 
+                 newScoreMatch &&
+                 chatCourseMatch[1] === newCourseMatch[1] &&
+                 chatScoreMatch[0] === newScoreMatch[0];
         }
+
+        // Generic message comparison
+        return chatFirstMessage === newFirstMessage;
+      });
+
+      // If an exact match exists, restore that chat
+      if (existingChat) {
+        setCurrentChatId(existingChat._id);
+        setMessages(existingChat.messages);
+        sessionRef.current = existingChat._id;
+        localStorage.setItem('currentAIChatSession', existingChat._id);
+        localStorage.setItem('lastActiveChatId', existingChat._id);
+        return existingChat._id;
       }
 
-      // Comprehensive duplicate check for all types of chats
-      const firstMessage = initialMessages[0]?.content;
-      if (firstMessage) {
-        const existingChat = chatHistories.find(chat => {
-          const chatFirstMessage = chat.messages[0]?.content || '';
-          
-          // Special handling for Quiz Review
-          if (firstMessage.includes('Quiz Review') && chatFirstMessage.includes('Quiz Review')) {
-            const newCourseMatch = firstMessage.match(/Course: (.*?)\n/);
-            const newScoreMatch = firstMessage.match(/Score: (\d+)\/(\d+)/);
-            const chatCourseMatch = chatFirstMessage.match(/Course: (.*?)\n/);
-            const chatScoreMatch = chatFirstMessage.match(/Score: (\d+)\/(\d+)/);
-            
-            return newCourseMatch && 
-                   chatCourseMatch && 
-                   newScoreMatch &&
-                   chatScoreMatch &&
-                   newCourseMatch[1].trim() === chatCourseMatch[1].trim() &&
-                   newScoreMatch[0] === chatScoreMatch[0];
-          }
-          
-          // Generic content similarity check
-          return chatFirstMessage.trim() === firstMessage.trim();
-        });
-
-        if (existingChat) {
-          setCurrentChatId(existingChat._id);
-          setMessages(existingChat.messages);
-          sessionRef.current = existingChat._id;
-          localStorage.setItem('currentAIChatSession', existingChat._id);
-          return existingChat._id;
-        }
-      }
-
-      // Create new chat only if no duplicate exists
+      // Create a new chat if no duplicate exists
       const response = await axiosInstance.post('/api/chat-history', {
         messages: initialMessages
       }, {
@@ -354,9 +348,13 @@ const AIAssist: React.FC = () => {
       setCurrentChatId(newChatId);
       sessionRef.current = newChatId;
       localStorage.setItem('currentAIChatSession', newChatId);
+      localStorage.setItem('lastActiveChatId', newChatId);
       
-      // Update chat histories state
-      setChatHistories(prevHistories => [...prevHistories, response.data]);
+      // Update chat histories, preventing duplicates
+      setChatHistories(prevHistories => {
+        const isDuplicate = prevHistories.some(chat => chat._id === newChatId);
+        return isDuplicate ? prevHistories : [...prevHistories, response.data];
+      });
       
       return newChatId;
     } catch (error) {
