@@ -474,11 +474,21 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       });
     }
 
-    // Initialize Gemini model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
+    // Initialize Gemini model with correct version
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.0-flash",
+      apiVersion: 'v1beta'
+    });
+    
     if (!model) {
       throw new Error('Failed to initialize Gemini model');
     }
+
+    // Log model initialization
+    console.log('Gemini model initialized:', {
+      model: "gemini-2.0-flash",
+      apiVersion: 'v1beta'
+    });
 
     const course = await Course.findById(courseId);
     if (!course) {
