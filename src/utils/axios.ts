@@ -8,6 +8,9 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  params: {
+    key: import.meta.env.VITE_GEMINI_API_KEY
+  }
 });
 
 // Add request interceptor
