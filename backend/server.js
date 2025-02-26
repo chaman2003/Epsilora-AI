@@ -25,18 +25,17 @@ const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY;
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// Initialize Gemini AI
-let genAI;
-try {
-  if (!GEMINI_API_KEY) {
-    console.error('Warning: VITE_GEMINI_API_KEY not found in environment variables');
-  } else {
-    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    console.log('Gemini AI initialized successfully');
+// Initialize Gemini API with proper configuration
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-1.0-pro",
+  generationConfig: {
+    temperature: 0.7,
+    maxOutputTokens: 8192,
+    topP: 0.8,
+    topK: 40
   }
-} catch (error) {
-  console.error('Error initializing Gemini AI:', error);
-}
+});
 
 const app = express();
 
@@ -427,12 +426,21 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       });
     }
 
+    // Add error handling for API key
+    if (!process.env.GEMINI_API_KEY) {
+      console.error('Missing Gemini API key');
+      return res.status(500).json({
+        message: 'Server configuration error',
+        error: 'Missing API key'
+      });
+    }
+
     const course = await Course.findById(courseId);
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    // Create prompt for Gemini with more robust error handling
+    // Create prompt for Gemini
     const prompt = `You are a precise quiz generator for the course "${course.name}". 
 Generate ${numberOfQuestions} unique multiple choice questions.
 
@@ -455,85 +463,74 @@ Output Format (STRICT JSON ONLY):
 
 CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-pro",
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 8192,
-        topP: 0.8,
-        topK: 40
-      }
-    });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text();
 
+    // Aggressive text cleaning
+    text = text.replace(/```(json)?/g, '')
+               .replace(/[\n\r\t]/g, '')
+               .trim();
+
+    // Validate JSON structure
+    let questions;
     try {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      let text = response.text();
-
-      // Aggressive text cleaning
-      text = text.replace(/```(json)?/g, '')
-                 .replace(/[\n\r\t]/g, '')
-                 .trim();
-
-      // Validate JSON structure
-      let questions;
-      try {
-        questions = JSON.parse(text);
-      } catch (parseError) {
-        console.error('JSON Parsing Error:', parseError);
-        console.error('Raw text:', text);
-        return res.status(500).json({
-          message: 'Failed to parse quiz data',
-          rawText: text.slice(0, 500), // Limit raw text for safety
-          error: parseError.message
-        });
-      }
-
-      // Validate questions
-      if (!Array.isArray(questions)) {
-        return res.status(500).json({ 
-          message: 'Invalid quiz format',
-          details: 'Expected an array of questions'
-        });
-      }
-
-      if (questions.length !== numberOfQuestions) {
-        return res.status(500).json({
-          message: 'Incorrect number of questions generated',
-          expected: numberOfQuestions,
-          actual: questions.length
-        });
-      }
-
-      // Clean and validate each question
-      const validatedQuestions = questions.map((q, index) => {
-        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || !q.correctAnswer) {
-          throw new Error(`Invalid question format at index ${index}`);
-        }
-
-        return {
-          id: index + 1,
-          question: q.question.trim(),
-          options: q.options.map(opt => opt.trim()),
-          correctAnswer: q.correctAnswer.trim().toUpperCase(),
-          timePerQuestion
-        };
-      });
-
-      res.json(validatedQuestions);
-
-    } catch (aiError) {
-      console.error('AI Generation Error:', aiError);
-      res.status(500).json({
-        message: 'Failed to generate quiz questions',
-        error: aiError.message
+      questions = JSON.parse(text);
+    } catch (parseError) {
+      console.error('JSON Parsing Error:', parseError);
+      console.error('Raw text:', text);
+      return res.status(500).json({
+        message: 'Failed to parse quiz data',
+        rawText: text.slice(0, 500), // Limit raw text for safety
+        error: parseError.message
       });
     }
-  } catch (error) {
-    console.error('Quiz Generation Error:', error);
+
+    // Validate questions
+    if (!Array.isArray(questions)) {
+      return res.status(500).json({ 
+        message: 'Invalid quiz format',
+        details: 'Expected an array of questions'
+      });
+    }
+
+    if (questions.length !== numberOfQuestions) {
+      return res.status(500).json({
+        message: 'Incorrect number of questions generated',
+        expected: numberOfQuestions,
+        actual: questions.length
+      });
+    }
+
+    // Clean and validate each question
+    const validatedQuestions = questions.map((q, index) => {
+      if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || !q.correctAnswer) {
+        throw new Error(`Invalid question format at index ${index}`);
+      }
+
+      return {
+        id: index + 1,
+        question: q.question.trim(),
+        options: q.options.map(opt => opt.trim()),
+        correctAnswer: q.correctAnswer.trim().toUpperCase(),
+        timePerQuestion
+      };
+    });
+
+    res.json(validatedQuestions);
+
+  } catch (aiError) {
+    console.error('AI Generation Error Details:', {
+      name: aiError.name,
+      message: aiError.message,
+      status: aiError.status,
+      details: aiError.errorDetails
+    });
+    
     res.status(500).json({
-      message: 'Unexpected error in quiz generation',
-      error: error.message
+      message: 'Failed to generate quiz questions',
+      error: aiError.message,
+      details: aiError.errorDetails
     });
   }
 });
