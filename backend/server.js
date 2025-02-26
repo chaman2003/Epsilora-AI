@@ -25,23 +25,18 @@ const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY;
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// Use environment variable for API key
-const API_KEY = process.env.VITE_GEMINI_API_KEY;
-if (!API_KEY) {
-  console.error('CRITICAL: Google API Key is missing!');
-  process.exit(1);
-}
-
-const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ 
-  model: "gemini-1.0-pro",
-  generationConfig: {
-    temperature: 0.7,
-    maxOutputTokens: 8192,
-    topP: 0.8,
-    topK: 40
+// Initialize Gemini AI
+let genAI;
+try {
+  if (!GEMINI_API_KEY) {
+    console.error('Warning: VITE_GEMINI_API_KEY not found in environment variables');
+  } else {
+    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    console.log('Gemini AI initialized successfully');
   }
-});
+} catch (error) {
+  console.error('Error initializing Gemini AI:', error);
+}
 
 const app = express();
 
@@ -524,50 +519,19 @@ CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
 
     res.json(validatedQuestions);
 
-  } catch (aiError) {
-    console.error('AI Generation Error Details:', {
-      name: aiError.name,
-      message: aiError.message,
-      status: aiError.status,
-      details: aiError.errorDetails
-    });
-    
-    res.status(500).json({
-      message: 'Failed to generate quiz questions',
-      error: aiError.message,
-      details: aiError.errorDetails
-    });
-  }
-});
-
-async function generateQuestions(prompt) {
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text();
-
-    // Aggressive text cleaning
-    text = text.replace(/```(json)?/g, '')
-               .replace(/[\n\r\t]/g, '')
-               .trim();
-
-    // Validate JSON structure
-    let questions;
-    try {
-      questions = JSON.parse(text);
-      return questions;
-    } catch (parseError) {
-      console.error('JSON Parsing Error:', parseError);
-      console.error('Raw text:', text);
-      throw new Error('Failed to parse generated questions');
+    } catch (aiError) {
+      console.error('AI Generation Error:', aiError);
+      res.status(500).json({
+        message: 'Failed to generate quiz questions',
+        error: aiError.message
+      });
     }
   } catch (error) {
-    console.error('Generative AI Error:', {
-      message: error.message,
-      status: error.status,
-      details: error.errorDetails
+    console.error('Quiz Generation Error:', error);
+    res.status(500).json({
+      message: 'Unexpected error in quiz generation',
+      error: error.message
     });
-    throw error; // Re-throw to be handled by caller
   }
 }
 
