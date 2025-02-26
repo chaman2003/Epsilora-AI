@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../config/axios';
 import axios from 'axios';
@@ -18,6 +18,11 @@ interface ChatHistory {
   _id: string;
   messages: Message[];
   createdAt: string;
+  type?: string;
+  metadata?: {
+    quizSummary: string;
+    courseName: string;
+  };
 }
 
 interface QuizData {
@@ -156,28 +161,29 @@ const AIAssist: React.FC = () => {
   useEffect(() => {
     if (!isInitialized || !quizData || currentChatId) return;
 
-    const processQuizData = async () => {
-      const summary = generateQuizSummary(quizData);
-      const existingQuizChat = chatHistories.find(chat => 
-        chat.messages.some(msg => {
-          if (!msg.content.includes('Quiz Review')) return false;
-          const courseMatch = msg.content.match(/Course: (.*?)\n/);
-          const scoreMatch = msg.content.match(/Score: (\d+)\/(\d+)/);
-          return courseMatch && 
-                 scoreMatch && 
-                 courseMatch[1].trim() === quizData.courseName &&
-                 `${scoreMatch[1]}/${scoreMatch[2]}` === `${quizData.score}/${quizData.totalQuestions}`;
-        })
+    const processQuizData = useCallback(async () => {
+      if (!quizData || !isInitialized) return;
+
+      // Check if a chat for this quiz summary already exists
+      const existingQuizChat = chatHistories.find(
+        chat => chat.type === 'quiz_review' && 
+                chat.metadata?.quizSummary === generateQuizSummary(quizData)
       );
 
       if (existingQuizChat) {
         setCurrentChatId(existingQuizChat._id);
         setMessages(existingQuizChat.messages);
       } else {
-        const quizMessage = { role: 'assistant' as const, content: summary };
-        await createNewChat([quizMessage]);
+        const quizMessage = { role: 'assistant' as const, content: generateQuizSummary(quizData) };
+        await createNewChat([quizMessage], {
+          type: 'quiz_review',
+          metadata: {
+            quizSummary: generateQuizSummary(quizData),
+            courseName: quizData.courseName
+          }
+        });
       }
-    };
+    }, [quizData, isInitialized, currentChatId, chatHistories]);
 
     processQuizData();
   }, [quizData, isInitialized, currentChatId, chatHistories]);
@@ -291,7 +297,7 @@ const AIAssist: React.FC = () => {
   };
 
   // Modified createNewChat to be more strict about duplicates
-  const createNewChat = async (initialMessages: Message[] = []) => {
+  const createNewChat = async (initialMessages: Message[] = [], metadata?: ChatHistory['metadata']) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -339,7 +345,9 @@ const AIAssist: React.FC = () => {
 
       // Create a new chat if no duplicate exists
       const response = await axiosInstance.post('/api/chat-history', {
-        messages: initialMessages
+        messages: initialMessages,
+        type: metadata?.type,
+        metadata
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
