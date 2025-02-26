@@ -410,6 +410,41 @@ app.delete('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
   }
 });
 
+// Utility function for exponential backoff retry
+async function retryOperation(operation, maxRetries = 3, initialDelay = 1000) {
+  let retries = 0;
+  while (retries < maxRetries) {
+    try {
+      return await operation();
+    } catch (error) {
+      // Check if error is retriable
+      const retriableErrors = [
+        'ECONNABORTED', 
+        'ECONNRESET', 
+        'ETIMEDOUT', 
+        'Service Unavailable', 
+        'Too Many Requests'
+      ];
+
+      const isRetriableError = retriableErrors.some(errorType => 
+        error.message.includes(errorType)
+      );
+
+      if (!isRetriableError || retries === maxRetries - 1) {
+        throw error;
+      }
+
+      // Exponential backoff
+      const delay = initialDelay * Math.pow(2, retries);
+      console.log(`Retry attempt ${retries + 1}: Waiting ${delay}ms`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      retries++;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 // Quiz Generation Route with Enhanced Error Handling
 app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
   const startTime = Date.now();
@@ -474,7 +509,9 @@ Output Format (STRICT JSON ONLY):
 CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
 
     console.log('Sending prompt to Gemini...');
-    const result = await model.generateContent(prompt);
+    const result = await retryOperation(async () => {
+      return await model.generateContent(prompt);
+    });
     console.log('Received response from Gemini');
     
     if (!result?.response) {
@@ -563,7 +600,9 @@ app.post('/api/ai-assist', authenticateToken, async (req, res) => {
 
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
-      const result = await model.generateContent(userMessage);
+      const result = await retryOperation(async () => {
+        return await model.generateContent(userMessage);
+      });
       const response = await result.response;
       const text = response.text();
       
@@ -974,3 +1013,17 @@ app.use('/api/progress', progressRoutes);
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// Update error handling to use new retry mechanism
+async function generateQuizWithRetry() {
+  try {
+    // Use the new method for quiz generation
+    const quizContent = await retryOperation(async () => {
+      // Quiz generation logic here
+    });
+    return quizContent;
+  } catch (error) {
+    console.error('Error generating quiz:', error);
+    throw error;
+  }
+}
