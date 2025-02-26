@@ -440,7 +440,7 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
     }
 
     // Initialize Gemini model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
     if (!model) {
       throw new Error('Failed to initialize Gemini model');
     }
@@ -562,7 +562,7 @@ app.post('/api/ai-assist', authenticateToken, async (req, res) => {
     const userMessage = messages[messages.length - 1].content;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
       const result = await model.generateContent(userMessage);
       const response = await result.response;
       const text = response.text();
