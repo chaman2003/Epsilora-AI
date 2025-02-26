@@ -158,35 +158,34 @@ const AIAssist: React.FC = () => {
     initializeAIAssist();
   }, [isAuthenticated, navigate]);
 
+  const processQuizData = useCallback(async () => {
+    if (!quizData || !isInitialized || currentChatId) return;
+
+    // Check if a chat for this quiz summary already exists
+    const existingQuizChat = chatHistories.find(
+      chat => chat.type === 'quiz_review' && 
+              chat.metadata?.quizSummary === generateQuizSummary(quizData)
+    );
+
+    if (existingQuizChat) {
+      setCurrentChatId(existingQuizChat._id);
+      setMessages(existingQuizChat.messages);
+    } else {
+      const quizMessage = { role: 'assistant' as const, content: generateQuizSummary(quizData) };
+      await createNewChat([quizMessage], {
+        type: 'quiz_review',
+        metadata: {
+          quizSummary: generateQuizSummary(quizData),
+          courseName: quizData.courseName
+        }
+      });
+    }
+  }, [quizData, isInitialized, currentChatId, chatHistories, generateQuizSummary, createNewChat]);
+
   useEffect(() => {
     if (!isInitialized || !quizData || currentChatId) return;
-
-    const processQuizData = useCallback(async () => {
-      if (!quizData || !isInitialized) return;
-
-      // Check if a chat for this quiz summary already exists
-      const existingQuizChat = chatHistories.find(
-        chat => chat.type === 'quiz_review' && 
-                chat.metadata?.quizSummary === generateQuizSummary(quizData)
-      );
-
-      if (existingQuizChat) {
-        setCurrentChatId(existingQuizChat._id);
-        setMessages(existingQuizChat.messages);
-      } else {
-        const quizMessage = { role: 'assistant' as const, content: generateQuizSummary(quizData) };
-        await createNewChat([quizMessage], {
-          type: 'quiz_review',
-          metadata: {
-            quizSummary: generateQuizSummary(quizData),
-            courseName: quizData.courseName
-          }
-        });
-      }
-    }, [quizData, isInitialized, currentChatId, chatHistories]);
-
     processQuizData();
-  }, [quizData, isInitialized, currentChatId, chatHistories]);
+  }, [quizData, isInitialized, currentChatId, processQuizData]);
 
   useEffect(() => {
     if (messages.length > 0) {
