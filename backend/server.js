@@ -523,13 +523,6 @@ CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
 
     res.json(validatedQuestions);
 
-    } catch (aiError) {
-      console.error('AI Generation Error:', aiError);
-      res.status(500).json({
-        message: 'Failed to generate quiz questions',
-        error: aiError.message
-      });
-    }
   } catch (error) {
     console.error('Quiz Generation Error:', error);
     res.status(500).json({
@@ -537,7 +530,7 @@ CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
       error: error.message
     });
   }
-}
+});
 
 // AI Assistant endpoint
 app.post('/api/ai-assist', authenticateToken, async (req, res) => {
