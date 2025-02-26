@@ -155,39 +155,10 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    // Prevent multiple initializations
-    if (initRef.current) return;
-    initRef.current = true;
-
     const initializeAIAssist = async () => {
       try {
-        await loadChatHistories();
-        
-        // Try to restore last active chat first
-        const lastActiveChatId = localStorage.getItem('lastActiveChatId');
-        if (lastActiveChatId) {
-          const existingChat = chatHistories.find(ch => ch._id === lastActiveChatId);
-          if (existingChat) {
-            setCurrentChatId(lastActiveChatId);
-            setMessages(existingChat.messages);
-            lastActiveChatRef.current = lastActiveChatId;
-            return;
-          }
-        }
-
-        // If no last active chat, try to use latest chat from history
-        if (chatHistories.length > 0) {
-          const latestChat = chatHistories[0]; // Assuming chats are sorted by date
-          setCurrentChatId(latestChat._id);
-          setMessages(latestChat.messages);
-          lastActiveChatRef.current = latestChat._id;
-          localStorage.setItem('lastActiveChatId', latestChat._id);
-          return;
-        }
-
-        // If no history exists, proceed with normal initialization
-        let quizDataToUse = quizData;
         const storedQuizData = localStorage.getItem('quizData');
+        let quizDataToUse = quizData;
 
         if (!quizDataToUse && storedQuizData) {
           try {
@@ -210,31 +181,7 @@ const AIAssist: React.FC = () => {
     };
 
     initializeAIAssist();
-  }, [isAuthenticated, navigate]);
-
-  const processQuizData = useCallback(async () => {
-    if (!quizData || !isInitialized || currentChatId) return;
-
-    // Check if a chat for this quiz summary already exists
-    const existingQuizChat = chatHistories.find(
-      chat => chat.type === 'quiz_review' && 
-              chat.metadata?.quizSummary === generateQuizSummary(quizData)
-    );
-
-    if (existingQuizChat) {
-      setCurrentChatId(existingQuizChat._id);
-      setMessages(existingQuizChat.messages);
-    } else {
-      const quizMessage = { role: 'assistant' as const, content: generateQuizSummary(quizData) };
-      await createNewChat([quizMessage], {
-        type: 'quiz_review',
-        metadata: {
-          quizSummary: generateQuizSummary(quizData),
-          courseName: quizData.courseName
-        }
-      });
-    }
-  }, [quizData, isInitialized, currentChatId, chatHistories, generateQuizSummary, createNewChat]);
+  }, [isAuthenticated, navigate, quizData]);
 
   useEffect(() => {
     if (!isInitialized || !quizData || currentChatId) return;
