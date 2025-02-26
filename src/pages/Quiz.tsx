@@ -393,167 +393,166 @@ useEffect(() => {
   }
 }, [isAuthenticated, formattedQuizHistory]);
 
-  const generateQuiz = async () => {
-    if (!selectedCourse) {
-      toast.error('Please select a course first');
-      return;
-    }
-  
-    if (!isAuthenticated) {
-      toast.error('Please log in to generate a quiz');
-      navigate('/login', { state: { from: '/quiz' } });
-      return;
-    }
-  
-    setLoading(true);
+const generateQuiz = async () => {
+  if (!selectedCourse) {
+    toast.error('Please select a course first');
+    return;
+  }
+
+  if (!isAuthenticated) {
+    toast.error('Please log in to generate a quiz');
+    navigate('/login', { state: { from: '/quiz' } });
+    return;
+  }
+
+  setLoading(true);
+  const loadingToast = toast.loading('Generating quiz questions...');
+  let retryCount = 0;
+  const maxRetries = 3;
+
+  const attemptQuizGeneration = async (): Promise<any> => {
     try {
-      // Get auth token
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
       }
-  
-      // Create custom axios instance with auth header and timeout
-      const customAxios = axiosInstance.create({
-        timeout: 30000,
+
+      // Set timeout to 30 seconds
+      const response = await axiosInstance.post('/api/generate-quiz', {
+        courseId: selectedCourse,
+        numberOfQuestions: quizDetails.numberOfQuestions,
+        difficulty: quizDetails.difficulty,
+        timePerQuestion: quizDetails.timePerQuestion
+      }, {
+        timeout: 180000,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-  
-      // Add loading toast
-      const loadingToast = toast.loading('Generating quiz questions...');
-  
-      try {
-        const response = await customAxios.post('/api/generate-quiz', {
-          courseId: selectedCourse,
-          numberOfQuestions: quizDetails.numberOfQuestions,
-          difficulty: quizDetails.difficulty,
-          timePerQuestion: quizDetails.timePerQuestion
-        });
-  
-        // Handle both string and parsed JSON responses
-        const rawData = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-        // Clean the JSON string
-        const cleanedData = rawData.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-        const quizData = JSON.parse(cleanedData);
-  
-        // Validate quiz data
-        if (!Array.isArray(quizData)) {
-          throw new Error('Invalid quiz format: expected an array of questions');
-        }
-        if (quizData.length === 0) {
-          throw new Error('No questions were generated. Please try again.');
-        }
-  
-        // Clean and validate each question
-        const cleanedQuestions = quizData.map((q, index) => {
-          if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
-            throw new Error(`Invalid question format at index ${index}`);
-          }
-          return {
-            id: q.id || index + 1,
-            question: q.question.trim().replace(/\\n/g, '\n').replace(/\\/g, ''),
-            options: q.options.map((opt: string) => 
-              opt.trim().replace(/\\n/g, '\n').replace(/\\/g, '')
-            ),
-            correctAnswer: q.correctAnswer.trim().toUpperCase()
-          };
-        });
-  
-        // Validate cleaned questions
-        const validQuestions = cleanedQuestions.every(q => 
-          q.id && 
-          q.question && 
-          Array.isArray(q.options) && 
-          q.options.length === 4 &&
-          q.correctAnswer && 
-          ['A', 'B', 'C', 'D'].includes(q.correctAnswer)
-        );
-  
-        if (!validQuestions) {
-          throw new Error('Invalid question format in response');
-        }
-  
-        // Update state with validated questions
-        setQuestions(cleanedQuestions);
-        setQuizStarted(true);
-        setCurrentQuestion(0);
-        setScore(0);
-        setShowResult(false);
-        setSelectedAnswer(null);
-        setTimeLeft(quizDetails.timePerQuestion);
-        setTimerActive(true);
-        setStartTime(new Date());
-  
-        // Dismiss loading toast and show success
-        toast.dismiss(loadingToast);
-        toast.success('Quiz generated successfully!');
-  
-      } catch (parseError) {
-        console.error('Error parsing quiz data:', parseError);
-        console.error('Raw quiz data:', response.data);
-        toast.dismiss(loadingToast);
-        throw new Error('Failed to parse quiz data. Please try again.');
-      }
-  
+
+      return response;
     } catch (error: any) {
-      console.error('Error generating quiz:', error);
-      let errorMessage = 'Failed to generate quiz. Please try again.';
-      
-      // Handle specific error cases
-      if (error.response?.status === 401) {
-        errorMessage = 'Your session has expired. Please log in again.';
-        // Clear invalid token
-        localStorage.removeItem('token');
-        // Redirect to login
-        navigate('/login', { state: { from: '/quiz' } });
-      } else if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Request timed out. The server is taking too long to respond. Please try again.';
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-        console.error('Server error details:', error.response.data);
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (error.response?.status === 500 && retryCount < maxRetries) {
+        retryCount++;
+        console.log(`Retry attempt ${retryCount} of ${maxRetries}`);
+        await new Promise(resolve => setTimeout(resolve, 2000 * retryCount)); // Exponential backoff
+        return attemptQuizGeneration();
       }
-  
-      toast.error(errorMessage);
+      throw error;
+    }
+  };
+
+  try {
+    const response = await attemptQuizGeneration();
+
+    // Validate response
+    if (!response?.data) {
+      throw new Error('No data received from server');
+    }
+
+    // Parse response data safely
+    let quizData;
+    try {
+      quizData = typeof response.data === 'string' 
+        ? JSON.parse(response.data.replace(/\n/g, '\\n')) 
+        : response.data;
+    } catch (parseError) {
+      console.error('Failed to parse quiz data:', parseError);
+      throw new Error('Invalid quiz data format received from server');
+    }
+
+    // Validate quiz data structure
+    if (!Array.isArray(quizData)) {
+      throw new Error('Invalid quiz format: expected an array of questions');
+    }
+
+    if (quizData.length === 0) {
+      throw new Error('No questions were generated');
+    }
+
+    // Process and validate each question
+    const validatedQuestions = quizData.map((q, index) => {
+      if (!q || typeof q !== 'object') {
+        throw new Error(`Invalid question object at index ${index}`);
+      }
+
+      if (!q.question || !Array.isArray(q.options) || !q.correctAnswer) {
+        throw new Error(`Missing required fields in question at index ${index}`);
+      }
+
+      return {
+        id: index + 1,
+        question: q.question.trim(),
+        options: q.options.map((opt: string) => opt.trim()),
+        correctAnswer: q.correctAnswer.trim().toUpperCase()
+      };
+    });
+
+    // Update state with validated questions
+    setQuestions(validatedQuestions);
+    setQuizStarted(true);
+    setCurrentQuestion(0);
+    setScore(0);
+    setShowResult(false);
+    setSelectedAnswer(null);
+    setTimeLeft(quizDetails.timePerQuestion);
+    setTimerActive(true);
+    setStartTime(new Date());
+
+    toast.dismiss(loadingToast);
+    toast.success('Quiz generated successfully!');
+
+  } catch (error: any) {
+    console.error('Error generating quiz:', error);
+    toast.dismiss(loadingToast);
+
+    let errorMessage = 'Failed to generate quiz. Please try again.';
+    
+    if (error.response?.status === 500) {
+      errorMessage = 'The server is having trouble generating questions. Please try again or choose a different course.';
+    } else if (error.response?.status === 401) {
+      errorMessage = 'Your session has expired. Please log in again.';
+      localStorage.removeItem('token');
+      navigate('/login', { state: { from: '/quiz' } });
+    } else if (error.code === 'ECONNABORTED') {
+      errorMessage = 'Request timed out. Please check your connection and try again.';
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    toast.error(errorMessage, {
+      duration: 5000,
+      id: 'quiz-error',
+    });
+
+    // Show retry button for 500 errors
+    if (error.response?.status === 500) {
       toast((t) => (
         <div>
           <p>{errorMessage}</p>
-          {error.response?.status !== 401 && (
-            <button
-              onClick={() => {
-                toast.dismiss(t.id);
-                generateQuiz();
-              }}
-              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Retry
-            </button>
-          )}
+          <button
+            onClick={() => {
+              toast.dismiss(t.id);
+              generateQuiz();
+            }}
+            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Retry Generation
+          </button>
         </div>
       ), {
-        duration: 5000,
+        duration: 10000,
       });
-  
-      // If it's an auth error, trigger auth refresh
-      if (error.response?.status === 401) {
-        // You might want to implement a refresh token mechanism here
-        try {
-          await user?.refreshToken();
-          // Retry the quiz generation after token refresh
-          generateQuiz();
-        } catch (refreshError) {
-          console.error('Failed to refresh authentication:', refreshError);
-        }
-      }
-    } finally {
-      setLoading(false);
     }
-  };
-  
+
+  } finally {
+    setLoading(false);
+  }
+};
+
   useEffect(() => {
     if (questions.length > 0) {
       const initialStates = questions.map(() => ({

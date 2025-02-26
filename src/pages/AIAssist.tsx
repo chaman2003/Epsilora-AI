@@ -54,6 +54,10 @@ const AIAssist: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('token') !== null;
+  const [isInitialized, setIsInitialized] = useState(false);
+  const initRef = useRef(false);
+  const sessionRef = useRef<string | null>(null);
+  const lastActiveChatRef = useRef<string | null>(null);
 
   // Check if this is a new session and reset data if needed
   useEffect(() => {
@@ -92,78 +96,91 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    loadChatHistories();
+    // Prevent multiple initializations
+    if (initRef.current) return;
+    initRef.current = true;
 
-    const initializeQuizData = async () => {
-      let quizDataToUse = quizData;
-      const storedQuizData = localStorage.getItem('quizData');
-
-      if (!quizDataToUse && storedQuizData) {
-        try {
-          quizDataToUse = JSON.parse(storedQuizData);
-          console.log('Retrieved quiz data from localStorage:', quizDataToUse);
-          setQuizData(quizDataToUse);
-        } catch (error) {
-          console.error('Error parsing quiz data from localStorage:', error);
+    const initializeAIAssist = async () => {
+      try {
+        await loadChatHistories();
+        
+        // Try to restore last active chat first
+        const lastActiveChatId = localStorage.getItem('lastActiveChatId');
+        if (lastActiveChatId) {
+          const existingChat = chatHistories.find(ch => ch._id === lastActiveChatId);
+          if (existingChat) {
+            setCurrentChatId(lastActiveChatId);
+            setMessages(existingChat.messages);
+            lastActiveChatRef.current = lastActiveChatId;
+            return;
+          }
         }
-      }
 
-      if (!quizDataToUse) {
-        console.warn('No quiz data available, proceeding without quiz data.');
-        // Allow access to AI Assist even without quiz data
-        setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
-        return;
-      }
+        // If no last active chat, try to use latest chat from history
+        if (chatHistories.length > 0) {
+          const latestChat = chatHistories[0]; // Assuming chats are sorted by date
+          setCurrentChatId(latestChat._id);
+          setMessages(latestChat.messages);
+          lastActiveChatRef.current = latestChat._id;
+          localStorage.setItem('lastActiveChatId', latestChat._id);
+          return;
+        }
 
-      console.log('Using quiz data:', quizDataToUse);
-      const summary = generateQuizSummary(quizDataToUse);
+        // If no history exists, proceed with normal initialization
+        let quizDataToUse = quizData;
+        const storedQuizData = localStorage.getItem('quizData');
 
-      const storedMessages = localStorage.getItem('aiAssistMessages');
-      if (storedMessages) {
-        try {
-          const parsedMessages = JSON.parse(storedMessages);
-          setMessages(parsedMessages);
-        } catch (error) {
-          console.error('Error parsing stored messages:', error);
+        if (!quizDataToUse && storedQuizData) {
+          try {
+            quizDataToUse = JSON.parse(storedQuizData);
+            setQuizData(quizDataToUse);
+          } catch (error) {
+            console.error('Error parsing quiz data from localStorage:', error);
+          }
+        }
+
+        if (quizDataToUse) {
+          const summary = generateQuizSummary(quizDataToUse);
           setMessages([{ role: 'assistant', content: summary }]);
+        } else {
+          setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
         }
-      } else {
-        setMessages([{ role: 'assistant', content: summary }]);
-
-        createNewChat([{ role: 'assistant', content: summary }]);
+      } finally {
+        setIsInitialized(true);
       }
     };
 
-    initializeQuizData();
-  }, [isAuthenticated, navigate, quizData, setQuizData]);
+    initializeAIAssist();
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
-    if (quizData && !currentChatId) {
-      // Find existing quiz review chat
+    if (!isInitialized || !quizData || currentChatId) return;
+
+    const processQuizData = async () => {
+      const summary = generateQuizSummary(quizData);
       const existingQuizChat = chatHistories.find(chat => 
-        chat.messages.some(msg => msg.content.includes('Quiz Review'))
+        chat.messages.some(msg => {
+          if (!msg.content.includes('Quiz Review')) return false;
+          const courseMatch = msg.content.match(/Course: (.*?)\n/);
+          const scoreMatch = msg.content.match(/Score: (\d+)\/(\d+)/);
+          return courseMatch && 
+                 scoreMatch && 
+                 courseMatch[1].trim() === quizData.courseName &&
+                 `${scoreMatch[1]}/${scoreMatch[2]}` === `${quizData.score}/${quizData.totalQuestions}`;
+        })
       );
 
       if (existingQuizChat) {
-        // Use existing chat
         setCurrentChatId(existingQuizChat._id);
         setMessages(existingQuizChat.messages);
-      }
-
-      const summary = generateQuizSummary(quizData);
-      const quizMessage = { role: 'assistant' as const, content: summary };
-      
-      if (existingQuizChat) {
-        // Append to existing chat
-        const updatedMessages = [...messages, quizMessage];
-        setMessages(updatedMessages);
-        saveMessagesToChat(existingQuizChat._id, updatedMessages);
       } else {
-        // Create new chat
-        createNewChat([quizMessage]);
+        const quizMessage = { role: 'assistant' as const, content: summary };
+        await createNewChat([quizMessage]);
       }
-    }
-  }, [quizData]);
+    };
+
+    processQuizData();
+  }, [quizData, isInitialized, currentChatId, chatHistories]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -174,6 +191,7 @@ const AIAssist: React.FC = () => {
   useEffect(() => {
     return () => {
       localStorage.removeItem('aiAssistMessages');
+      localStorage.removeItem('currentAIChatSession');
     };
   }, []);
 
@@ -186,6 +204,13 @@ const AIAssist: React.FC = () => {
       setCurrentQuizData(null);
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (currentChatId) {
+      lastActiveChatRef.current = currentChatId;
+      localStorage.setItem('lastActiveChatId', currentChatId);
+    }
+  }, [currentChatId]);
 
   const parseQuizReview = (content: string) => {
     const scoreMatch = content.match(/🏆 Score: (\d+)\/(\d+)/);
@@ -203,35 +228,69 @@ const AIAssist: React.FC = () => {
     };
   };
 
-  const loadChatHistories = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
+  const loadChatHistories = (() => {
+    let loading = false;
+    let lastFetch = 0;
+    const FETCH_COOLDOWN = 1000; // 1 second cooldown
+
+    return async () => {
+      if (loading || Date.now() - lastFetch < FETCH_COOLDOWN) {
         return;
       }
 
-      const response = await axiosInstance.get('/api/chat-history', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      // For new users, ensure we start with a clean slate
-      if (response.data.length === 0) {
-        setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
-        setCurrentChatId(null);
+      loading = true;
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+
+        const response = await axiosInstance.get('/api/chat-history', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.data.length === 0) {
+          setMessages([{ role: 'assistant', content: 'Welcome to AI Assist! Feel free to ask any questions.' }]);
+          setCurrentChatId(null);
+        }
+        
+        setChatHistories(response.data);
+        lastFetch = Date.now();
+      } catch (error) {
+        console.error('Error loading chat histories:', error);
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          navigate('/login');
+        } else {
+          toast.error('Failed to load chat history');
+        }
+      } finally {
+        loading = false;
       }
-      
-      setChatHistories(response.data);
-    } catch (error) {
-      console.error('Error loading chat histories:', error);
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        navigate('/login');
-      } else {
-        toast.error('Failed to load chat history');
-      }
-    }
+    };
+  })();
+
+  // Add this function to check for duplicate quiz reviews
+  const isDuplicateQuizReview = (newContent: string, existingChats: ChatHistory[]) => {
+    if (!newContent.includes('Quiz Review')) return false;
+
+    const courseMatch = newContent.match(/Course: (.*?)\n/);
+    const scoreMatch = newContent.match(/Score: (\d+)\/(\d+)/);
+    
+    if (!courseMatch || !scoreMatch) return false;
+
+    const newCourse = courseMatch[1].trim();
+    const newScore = `${scoreMatch[1]}/${scoreMatch[2]}`;
+
+    return existingChats.some(chat => {
+      const firstMessage = chat.messages[0]?.content || '';
+      return firstMessage.includes('Quiz Review') &&
+             firstMessage.includes(`Course: ${newCourse}`) &&
+             firstMessage.includes(`Score: ${newScore}`);
+    });
   };
 
+  // Modify createNewChat to be more strict about duplicates
   const createNewChat = async (initialMessages: Message[] = []) => {
     try {
       const token = localStorage.getItem('token');
@@ -240,7 +299,46 @@ const AIAssist: React.FC = () => {
         return null;
       }
 
-      // Create new chat for all quiz reviews
+      // Check if we already have a session
+      if (sessionRef.current) {
+        const existingChat = chatHistories.find(ch => ch._id === sessionRef.current);
+        if (existingChat) {
+          setCurrentChatId(existingChat._id);
+          setMessages(existingChat.messages);
+          return existingChat._id;
+        }
+      }
+
+      // Check for duplicate content
+      const firstMessage = initialMessages[0]?.content;
+      if (firstMessage && firstMessage.includes('Quiz Review')) {
+        const existingChat = chatHistories.find(chat => {
+          const chatFirstMessage = chat.messages[0]?.content || '';
+          if (!chatFirstMessage.includes('Quiz Review')) return false;
+          
+          const newCourseMatch = firstMessage.match(/Course: (.*?)\n/);
+          const newScoreMatch = firstMessage.match(/Score: (\d+)\/(\d+)/);
+          const chatCourseMatch = chatFirstMessage.match(/Course: (.*?)\n/);
+          const chatScoreMatch = chatFirstMessage.match(/Score: (\d+)\/(\d+)/);
+          
+          return newCourseMatch && 
+                 chatCourseMatch && 
+                 newScoreMatch &&
+                 chatScoreMatch &&
+                 newCourseMatch[1].trim() === chatCourseMatch[1].trim() &&
+                 newScoreMatch[0] === chatScoreMatch[0];
+        });
+
+        if (existingChat) {
+          setCurrentChatId(existingChat._id);
+          setMessages(existingChat.messages);
+          sessionRef.current = existingChat._id;
+          localStorage.setItem('currentAIChatSession', existingChat._id);
+          return existingChat._id;
+        }
+      }
+
+      // Create new chat only if no duplicate exists
       const response = await axiosInstance.post('/api/chat-history', {
         messages: initialMessages
       }, {
@@ -249,6 +347,8 @@ const AIAssist: React.FC = () => {
       
       const newChatId = response.data._id;
       setCurrentChatId(newChatId);
+      sessionRef.current = newChatId;
+      localStorage.setItem('currentAIChatSession', newChatId);
       await loadChatHistories();
       return newChatId;
     } catch (error) {
@@ -271,6 +371,8 @@ const AIAssist: React.FC = () => {
       if (chat) {
         setMessages(chat.messages);
         setCurrentChatId(chatId);
+        lastActiveChatRef.current = chatId;
+        localStorage.setItem('lastActiveChatId', chatId);
       } else {
         toast.error('Chat not found');
       }
@@ -303,46 +405,67 @@ const AIAssist: React.FC = () => {
     }
   };
 
+  // Enhanced timestamp formatting with date
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const timeFormat = { hour: '2-digit', minute: '2-digit' } as const;
+    const dateFormat = { 
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    } as const;
+
+    if (date.toDateString() === today.toDateString()) {
+      return `Today at ${date.toLocaleTimeString([], timeFormat)}`;
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return `Yesterday at ${date.toLocaleTimeString([], timeFormat)}`;
+    } else {
+      return `${date.toLocaleDateString([], dateFormat)} at ${date.toLocaleTimeString([], timeFormat)}`;
+    }
+  };
+
+  // Improved message deduplication and organization
+  const organizeMessages = (messages: Message[]): Message[] => {
+    const seen = new Set();
+    return messages
+      .filter(msg => {
+        const key = `${msg.role}-${msg.content.trim()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(msg => ({
+        ...msg,
+        content: msg.content.trim()
+      }));
+  };
+
+  // Enhanced save messages function
   const saveMessagesToChat = async (chatId: string, messages: Message[]) => {
     const token = localStorage.getItem('token');
     if (!token) return false;
 
     try {
-      // Try multiple ways to save messages
-      try {
-        // Method 1: Save as messages array
-        await axiosInstance.put(`/api/chat-history/${chatId}`, {
-          messages: messages
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      } catch (e) {
-        console.log('Method 1 failed, trying method 2');
-        // Method 2: Save messages one by one
-        for (const message of messages) {
-          await axiosInstance.put(`/api/chat-history/${chatId}`, {
-            message: message
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-        }
-      }
+      const organizedMessages = organizeMessages(messages);
+      
+      await axiosInstance.put(`/api/chat-history/${chatId}`, {
+        messages: organizedMessages
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-      // Verify messages were saved
-      const savedChat = chatHistories.find(ch => ch._id === chatId);
-      if (!savedChat || savedChat.messages.length !== messages.length) {
-        // If verification fails, try one more time with both methods
-        try {
-          await axiosInstance.put(`/api/chat-history/${chatId}`, {
-            messages: messages,
-            message: messages[messages.length - 1]
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-        } catch (e) {
-          console.error('Final save attempt failed:', e);
-          return false;
-        }
+      // Verify save was successful
+      const response = await axiosInstance.get(`/api/chat-history/${chatId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.messages.length !== organizedMessages.length) {
+        throw new Error('Message count mismatch');
       }
 
       return true;
@@ -352,18 +475,31 @@ const AIAssist: React.FC = () => {
     }
   };
 
+  // Modified handle send to prevent duplicates
   const handleSend = async () => {
     if (!input.trim() || loading) return;
-
+    
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/login');
       return;
     }
 
-    const userMessage = { role: 'user' as const, content: input };
+    const userMessage = { role: 'user' as const, content: input.trim() };
     setInput('');
-    const newMessages = [...messages, userMessage];
+    
+    // Check for duplicate message
+    const isDuplicate = messages.some(msg => 
+      msg.role === userMessage.role && 
+      msg.content === userMessage.content
+    );
+    
+    if (isDuplicate) {
+      toast.error('This message was already sent');
+      return;
+    }
+
+    const newMessages = organizeMessages([...messages, userMessage]);
     setMessages(newMessages);
     setLoading(true);
 
@@ -464,39 +600,48 @@ const AIAssist: React.FC = () => {
     }
   };
 
-  const generateQuizSummary = (data: QuizData) => {
-    console.log('Generating summary for quiz data:', data);
+  const generateQuizSummary = (() => {
+    const cache = new Map<string, string>();
     
-    let summary = `# 🎓 Quiz Review\n\n`;
-    summary += `## 📘 Course: ${data.courseName} \n`;
-    summary += `**🧠 Difficulty:** ${data.difficulty} \n`;
-    summary += `**🏆 Score:** ${data.score}/${data.totalQuestions} \n\n`;
-
-    summary += `## 🔍 Questions \n\n`;
-    data.questions.forEach((q, index) => {
-      summary += `### 📝 Question ${index + 1} ${q.isCorrect ? '✅' : '❌'} \n\n`;
-      summary += `**${q.question}** \n\n`;
+    return (data: QuizData) => {
+      const cacheKey = `${data.courseName}-${data.score}-${data.totalQuestions}`;
       
-      summary += `**Options:** \n\n`;
-      if (Array.isArray(q.options)) {
-        q.options.forEach(opt => {
-          const isUserAnswer = opt.label === q.userAnswer;
-          const isCorrectAnswer = opt.label === q.correctAnswer;
-          summary += `${isUserAnswer ? '👉 ' : ''}${opt.text} ${isCorrectAnswer ? '✅' : ''}\n\n`;
-        });
+      if (cache.has(cacheKey)) {
+        return cache.get(cacheKey)!;
       }
-      
-      summary += `\n**Your Answer:** ${q.userAnswer} `;
-      if (q.isCorrect) {
-        summary += `✅ Correct!\n\n`;
-      } else {
-        summary += `❌ Wrong\n\n`;
-        summary += `\n**_Correct answer was ${q.correctAnswer}_**\n\n`;
-      }
-    });
 
-    return summary;
-  };
+      let summary = `# 🎓 Quiz Review\n\n`;
+      summary += `## 📘 Course: ${data.courseName} \n`;
+      summary += `**🧠 Difficulty:** ${data.difficulty} \n`;
+      summary += `**🏆 Score:** ${data.score}/${data.totalQuestions} \n\n`;
+
+      summary += `## 🔍 Questions \n\n`;
+      data.questions.forEach((q, index) => {
+        summary += `### 📝 Question ${index + 1} ${q.isCorrect ? '✅' : '❌'} \n\n`;
+        summary += `**${q.question}** \n\n`;
+        
+        summary += `**Options:** \n\n`;
+        if (Array.isArray(q.options)) {
+          q.options.forEach(opt => {
+            const isUserAnswer = opt.label === q.userAnswer;
+            const isCorrectAnswer = opt.label === q.correctAnswer;
+            summary += `${isUserAnswer ? '👉 ' : ''}${opt.text} ${isCorrectAnswer ? '✅' : ''}\n\n`;
+          });
+        }
+        
+        summary += `\n**Your Answer:** ${q.userAnswer} `;
+        if (q.isCorrect) {
+          summary += `✅ Correct!\n\n`;
+        } else {
+          summary += `❌ Wrong\n\n`;
+          summary += `\n**_Correct answer was ${q.correctAnswer}_**\n\n`;
+        }
+      });
+
+      cache.set(cacheKey, summary);
+      return summary;
+    };
+  })();
 
   const StyledComponents = {
     MainTitle: (text: string) => `# ${text}`,
@@ -562,9 +707,22 @@ const AIAssist: React.FC = () => {
                 <div className="overflow-y-auto h-[calc(100%-9rem)] p-4 space-y-4">
                   {chatHistories.map((chat, index) => {
                     const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
-                    const chatPreview = isQuizReview 
-                      ? `Quiz Review #${chatHistories.length - index}`
-                      : chat.messages[0]?.content.slice(0, 30) + '...';
+                    let chatPreview = '';
+                    let courseName = '';
+                    let timestamp = formatTimestamp(chat.createdAt);
+                    
+                    if (isQuizReview) {
+                      const courseMatch = chat.messages[0]?.content.match(/Course: (.*?)\n/);
+                      const scoreMatch = chat.messages[0]?.content.match(/Score: (\d+)\/(\d+)/);
+                      courseName = courseMatch ? courseMatch[1].trim() : '';
+                      const score = scoreMatch ? `(${scoreMatch[1]}/${scoreMatch[2]})` : '';
+                      chatPreview = `Quiz Review: ${courseName} ${score}`;
+                    } else {
+                      const firstMessage = chat.messages[0]?.content || '';
+                      chatPreview = firstMessage.length > 40 
+                        ? `${firstMessage.slice(0, 40)}...`
+                        : firstMessage;
+                    }
 
                     return (
                       <div
@@ -580,13 +738,23 @@ const AIAssist: React.FC = () => {
                         }}
                       >
                         <div className="flex items-center space-x-3">
-                          <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                          <div className="flex-1 truncate">
+                          <div className={`p-2 rounded-lg ${
+                            isQuizReview 
+                              ? 'bg-purple-100 dark:bg-purple-900/50' 
+                              : 'bg-indigo-100 dark:bg-indigo-900/50'
+                          }`}>
+                            {isQuizReview ? (
+                              <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            ) : (
+                              <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                               {chatPreview}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {new Date(chat.createdAt).toLocaleDateString()}
+                              {timestamp}
                             </p>
                           </div>
                           <button
@@ -765,25 +933,6 @@ const AIAssist: React.FC = () => {
                   </motion.div>
                 ))}
               </AnimatePresence>
-              {loading && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-start px-4"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
-                      <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md">
-                      <div className="flex items-center space-x-3">
-                        <Loader2 className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-400" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">Thinking...</span>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
               <div ref={messagesEndRef} className="h-4" />
             </div>
 
