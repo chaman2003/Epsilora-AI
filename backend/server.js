@@ -609,9 +609,14 @@ app.post('/api/ai-assist', authenticateToken, async (req, res) => {
     const userMessage = messages[messages.length - 1].content;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
       const result = await retryOperation(async () => {
-        return await model.generateContent(userMessage);
+        try {
+          return await model.generateContent(userMessage);
+        } catch (error) {
+          console.error('Detailed Gemini AI Generation Error:', error);
+          throw error;  // Re-throw to be caught by outer catch block
+        }
       });
       const response = await result.response;
       const text = response.text();
@@ -620,8 +625,8 @@ app.post('/api/ai-assist', authenticateToken, async (req, res) => {
     } catch (aiError) {
       console.error('Gemini AI Error:', aiError);
       res.status(500).json({ 
-        error: 'AI processing error',
-        details: aiError.message 
+        error: 'Failed to generate content', 
+        details: aiError.message || 'Unknown error occurred' 
       });
     }
   } catch (error) {
