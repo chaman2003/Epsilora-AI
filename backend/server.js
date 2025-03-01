@@ -476,7 +476,7 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
 
     // Initialize Gemini model with correct version
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash",
+      model: "models/gemini-2.0-flash",
       apiVersion: 'v1beta'
     });
     
@@ -486,7 +486,7 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
 
     // Log model initialization
     console.log('Gemini model initialized:', {
-      model: "gemini-2.0-flash",
+      model: "models/gemini-2.0-flash",
       apiVersion: 'v1beta'
     });
 
@@ -609,15 +609,46 @@ app.post('/api/ai-assist', authenticateToken, async (req, res) => {
     const userMessage = messages[messages.length - 1].content;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      const result = await retryOperation(async () => {
-        try {
-          return await model.generateContent(userMessage);
-        } catch (error) {
-          console.error('Detailed Gemini AI Generation Error:', error);
-          throw error;  // Re-throw to be caught by outer catch block
+      // Use the full model path and specify API version
+      const model = genAI.getGenerativeModel({ 
+        model: "models/gemini-pro",
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 2048
         }
       });
+
+      const result = await retryOperation(async () => {
+        try {
+          // Add more detailed configuration
+          const generationConfig = {
+            maxOutputTokens: 2048,
+            temperature: 0.9,
+            topP: 0.8,
+            topK: 10
+          };
+          
+          return await model.generateContent(userMessage, generationConfig);
+        } catch (error) {
+          console.error('Detailed Gemini AI Generation Error:', {
+            message: error.message,
+            status: error.status,
+            details: error.errorDetails
+          });
+          
+          // Provide more context about potential issues
+          if (error.status === 404) {
+            console.error('Model not found. Check:',
+              '1. API Key validity',
+              '2. Model name correctness',
+              '3. API version compatibility'
+            );
+          }
+          
+          throw error;
+        }
+      });
+
       const response = await result.response;
       const text = response.text();
       
@@ -626,7 +657,8 @@ app.post('/api/ai-assist', authenticateToken, async (req, res) => {
       console.error('Gemini AI Error:', aiError);
       res.status(500).json({ 
         error: 'Failed to generate content', 
-        details: aiError.message || 'Unknown error occurred' 
+        details: aiError.message || 'Unknown error occurred',
+        suggestion: 'Check API configuration and model availability'
       });
     }
   } catch (error) {
