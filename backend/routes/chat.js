@@ -235,4 +235,6 @@ router.delete('/ai/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Chat History Route
+
 export default router;

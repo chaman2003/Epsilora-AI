@@ -26,19 +26,6 @@ const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// Initialize Gemini AI
-let genAI;
-try {
-  if (!GEMINI_API_KEY) {
-    console.error('Warning: Neither VITE_GEMINI_API_KEY nor GEMINI_API_KEY found in environment variables');
-  } else {
-    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    console.log('Gemini AI initialized successfully');
-  }
-} catch (error) {
-  console.error('Error initializing Gemini AI:', error);
-}
-
 const app = express();
 
 // CORS configuration
@@ -82,76 +69,42 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB connection with retry logic
-const connectDB = async (retries = 5) => {
-  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/epsilora';
-  console.log('Attempting to connect to MongoDB...');
-  
-  // Add mongoose debug logging
-  mongoose.set('debug', true);
-  
-  while (retries > 0) {
-    try {
-      console.log(`Connection attempt ${6 - retries}/5`);
-      await mongoose.connect(MONGODB_URI, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        serverSelectionTimeoutMS: 5000,
-        heartbeatFrequencyMS: 2000,
-        family: 4 // Force IPv4
-      });
-      
-      // Test the connection
-      await mongoose.connection.db.admin().ping();
-      console.log('MongoDB Connected Successfully');
-      
-      // Add connection event listeners
-      mongoose.connection.on('error', err => {
-        console.error('MongoDB connection error:', err);
-      });
-      
-      mongoose.connection.on('disconnected', () => {
-        console.log('MongoDB disconnected');
-      });
-      
-      mongoose.connection.on('reconnected', () => {
-        console.log('MongoDB reconnected');
-      });
-      
-      return;
-    } catch (err) {
-      console.error(`MongoDB connection attempt failed (${retries} retries left):`, {
-        message: err.message,
-        code: err.code,
-        name: err.name,
-        stack: err.stack
-      });
-      
-      retries -= 1;
-      if (retries === 0) {
-        console.error('All connection attempts failed. Last error:', err);
-        throw new Error('Failed to connect to MongoDB after multiple attempts');
-      }
-      console.log('Waiting 5 seconds before next retry...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-  }
-};
-
 // Initialize MongoDB connection
-(async () => {
-  try {
-    await connectDB();
-  } catch (err) {
-    console.error('Fatal: Could not connect to MongoDB:', {
-      message: err.message,
-      code: err.code,
-      name: err.name,
-      stack: err.stack
-    });
-    process.exit(1);
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Initialize Gemini AI
+let genAI = null;
+try {
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY not found in environment variables');
   }
-})();
+
+  genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  
+  // Test the API key by making a simple request
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-pro-001",
+  });
+
+  console.log('Testing Gemini AI connection...');
+  
+  const result = await model.generateContent({
+    contents: [{
+      parts: [{ text: "Hello, this is a test." }]
+    }]
+  });
+
+  if (result && result.response && result.response.text()) {
+    console.log('Gemini AI initialized successfully');
+  } else {
+    throw new Error('Failed to get valid response from Gemini AI');
+  }
+} catch (error) {
+  console.error('Error initializing Gemini AI:', error);
+  genAI = null;
+}
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -385,9 +338,10 @@ app.post('/api/chat-history', authenticateToken, async (req, res) => {
 
 app.put('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
   try {
+    // Update the entire messages array instead of using $push
     const chatHistory = await ChatHistory.findOneAndUpdate(
       { _id: req.params.chatId, userId: req.user.id },
-      { $push: { messages: req.body.message } },
+      { messages: req.body.messages },
       { new: true }
     );
     res.json(chatHistory);
@@ -407,6 +361,25 @@ app.delete('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error deleting chat history:', error);
     res.status(500).json({ error: 'Failed to delete chat history' });
+  }
+});
+
+// Add endpoint to get specific chat history by ID
+app.get('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
+  try {
+    const chatHistory = await ChatHistory.findOne({
+      _id: req.params.chatId,
+      userId: req.user.id
+    });
+    
+    if (!chatHistory) {
+      return res.status(404).json({ error: 'Chat history not found' });
+    }
+    
+    res.json(chatHistory);
+  } catch (error) {
+    console.error('Error retrieving chat history:', error);
+    res.status(500).json({ error: 'Failed to retrieve chat history' });
   }
 });
 
@@ -445,6 +418,119 @@ async function retryOperation(operation, maxRetries = 3, initialDelay = 1000) {
   throw new Error('Max retries exceeded');
 }
 
+const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-001:generateContent";
+
+// Main AI Assist Endpoint
+app.post('/api/super-simple-ai', authenticateToken, async (req, res) => {
+  console.log('AI assist request received:', new Date().toISOString());
+  
+  try {
+    const { messages } = req.body;
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Invalid request format' });
+    }
+
+    const apiKey = GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    const lastMessage = messages[messages.length - 1];
+    console.log('Processing message:', lastMessage.content.substring(0, 100));
+
+    // Enhanced prompt to encourage more interactive and colorful responses
+    const enhancedPrompt = `
+You are an engaging and helpful AI assistant. Please provide a response that is:
+1. Well-formatted with markdown
+2. Uses emojis where appropriate
+3. Includes colorful formatting (using markdown)
+4. Structures information in an easy-to-read way
+5. Uses bullet points, numbered lists, or tables when relevant
+6. Highlights important information with bold or italics
+7. Uses code blocks with syntax highlighting when showing code
+
+Here's the user's message: ${lastMessage.content}
+
+Remember to:
+- Use **bold** for emphasis
+- Add relevant emojis
+- Structure your response with clear headings
+- Use \`code\` formatting for technical terms
+- Include examples in \`\`\`language\n code blocks \`\`\` when relevant
+`;
+
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-001" });
+      
+      const result = await model.generateContent({
+        contents: [{ parts: [{ text: enhancedPrompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          }
+        ]
+      });
+
+      if (!result || !result.response) {
+        throw new Error('No response from AI model');
+      }
+
+      const text = result.response.text();
+      
+      // Process the response to ensure markdown is preserved
+      const processedResponse = text
+        .replace(/\\n/g, '\n')  // Preserve newlines
+        .replace(/\\`/g, '`')   // Preserve code blocks
+        .replace(/\\\*/g, '*')  // Preserve bold/italic
+        .trim();
+
+      console.log('Successfully generated interactive response');
+      return res.json({ 
+        message: processedResponse,
+        format: 'markdown'  // Indicate to frontend that response contains markdown
+      });
+
+    } catch (error) {
+      console.error('AI Generation Error:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+
+      return res.status(500).json({
+        error: 'Failed to generate content',
+        details: error.message,
+        suggestion: 'Please try again in a moment'
+      });
+    }
+  } catch (error) {
+    console.error('General Error:', error);
+    return res.status(500).json({ 
+      error: 'Server error',
+      message: error.message
+    });
+  }
+});
+
 // Quiz Generation Route with Enhanced Error Handling
 app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
   const startTime = Date.now();
@@ -465,30 +551,14 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if Gemini AI is initialized
-    if (!genAI) {
-      console.error('Gemini AI not initialized');
+    // Check if API key is available
+    if (!GEMINI_API_KEY) {
+      console.error('Gemini API key not found');
       return res.status(500).json({
         message: 'Server configuration error',
-        error: 'AI service not initialized'
+        error: 'API key not configured'
       });
     }
-
-    // Initialize Gemini model with correct version
-    const model = genAI.getGenerativeModel({ 
-      model: "models/gemini-2.0-flash",
-      apiVersion: 'v1beta'
-    });
-    
-    if (!model) {
-      throw new Error('Failed to initialize Gemini model');
-    }
-
-    // Log model initialization
-    console.log('Gemini model initialized:', {
-      model: "models/gemini-2.0-flash",
-      apiVersion: 'v1beta'
-    });
 
     const course = await Course.findById(courseId);
     if (!course) {
@@ -496,7 +566,7 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
     }
 
     // Create prompt for Gemini
-    const prompt = `You are a precise quiz generator for the course "${course.name}". 
+    const promptText = `You are a precise quiz generator for the course "${course.name}". 
 Generate ${numberOfQuestions} unique multiple choice questions.
 
 Strict Requirements:
@@ -519,69 +589,85 @@ Output Format (STRICT JSON ONLY):
 CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
 
     console.log('Sending prompt to Gemini...');
-    const result = await retryOperation(async () => {
-      return await model.generateContent(prompt);
-    });
-    console.log('Received response from Gemini');
     
-    if (!result?.response) {
-      throw new Error('No response from AI model');
-    }
+    const result = await retryOperation(async () => {
+      try {
+        // Use the API key as a query parameter instead of Authorization header
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-001:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{ text: promptText }]
+            }]
+          })
+        });
 
-    const response = await result.response;
-    let text = response.text();
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
+        }
 
-    // Aggressive text cleaning
-    text = text.replace(/```(json)?/g, '')
-               .replace(/[\n\r\t]/g, '')
-               .trim();
+        const data = await response.json();
+        const generatedText = data.candidates[0]?.content?.parts[0]?.text;
 
-    // Validate JSON structure
-    let questions;
-    try {
-      questions = JSON.parse(text);
-    } catch (parseError) {
-      console.error('JSON Parsing Error:', parseError);
-      console.error('Raw text:', text);
-      return res.status(500).json({
-        message: 'Failed to parse quiz data',
-        rawText: text.slice(0, 500), // Limit raw text for safety
-        error: parseError.message
-      });
-    }
+        if (!generatedText) {
+          throw new Error('No content generated from the API');
+        }
 
-    // Validate questions
-    if (!Array.isArray(questions)) {
-      return res.status(500).json({ 
-        message: 'Invalid quiz format',
-        details: 'Expected an array of questions'
-      });
-    }
+        // Clean and parse the response
+        const cleanedText = generatedText.replace(/```(json)?/g, '')
+                                       .replace(/[\n\r\t]/g, '')
+                                       .trim();
 
-    if (questions.length !== numberOfQuestions) {
-      return res.status(500).json({
-        message: 'Incorrect number of questions generated',
-        expected: numberOfQuestions,
-        actual: questions.length
-      });
-    }
+        // Validate JSON structure
+        let questions;
+        try {
+          questions = JSON.parse(cleanedText);
+        } catch (parseError) {
+          console.error('JSON Parsing Error:', parseError);
+          console.error('Raw text:', cleanedText);
+          return res.status(500).json({
+            message: 'Failed to parse quiz data',
+            rawText: cleanedText.slice(0, 500),
+            error: parseError.message
+          });
+        }
 
-    // Clean and validate each question
-    const validatedQuestions = questions.map((q, index) => {
-      if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || !q.correctAnswer) {
-        throw new Error(`Invalid question format at index ${index}`);
+        // Validate questions
+        if (!Array.isArray(questions)) {
+          throw new Error('Invalid quiz format: Expected an array of questions');
+        }
+
+        if (questions.length !== numberOfQuestions) {
+          throw new Error(`Incorrect number of questions: Expected ${numberOfQuestions}, got ${questions.length}`);
+        }
+
+        // Clean and validate each question
+        const validatedQuestions = questions.map((q, index) => {
+          if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || !q.correctAnswer) {
+            throw new Error(`Invalid question format at index ${index}`);
+          }
+
+          return {
+            id: index + 1,
+            question: q.question.trim(),
+            options: q.options.map(opt => opt.trim()),
+            correctAnswer: q.correctAnswer.trim().toUpperCase(),
+            timePerQuestion
+          };
+        });
+
+        return validatedQuestions;
+      } catch (error) {
+        console.error('Quiz Generation Error:', error);
+        throw error;
       }
-
-      return {
-        id: index + 1,
-        question: q.question.trim(),
-        options: q.options.map(opt => opt.trim()),
-        correctAnswer: q.correctAnswer.trim().toUpperCase(),
-        timePerQuestion
-      };
     });
 
-    res.json(validatedQuestions);
+    res.json(result);
 
   } catch (error) {
     console.error('Quiz Generation Error:', error);
@@ -589,83 +675,6 @@ CRITICAL: Return ONLY a valid JSON array. NO additional text.`;
       message: 'Unexpected error in quiz generation',
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-
-// AI Assistant endpoint
-app.post('/api/ai-assist', authenticateToken, async (req, res) => {
-  try {
-    if (!genAI) {
-      throw new Error('Gemini AI not initialized. Check API key configuration.');
-    }
-
-    const { messages } = req.body;
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: 'Invalid messages format' });
-    }
-
-    // Get the latest user message
-    const userMessage = messages[messages.length - 1].content;
-
-    try {
-      // Use the full model path and specify API version
-      const model = genAI.getGenerativeModel({ 
-        model: "models/gemini-pro",
-        generationConfig: {
-          temperature: 0.9,
-          maxOutputTokens: 2048
-        }
-      });
-
-      const result = await retryOperation(async () => {
-        try {
-          // Add more detailed configuration
-          const generationConfig = {
-            maxOutputTokens: 2048,
-            temperature: 0.9,
-            topP: 0.8,
-            topK: 10
-          };
-          
-          return await model.generateContent(userMessage, generationConfig);
-        } catch (error) {
-          console.error('Detailed Gemini AI Generation Error:', {
-            message: error.message,
-            status: error.status,
-            details: error.errorDetails
-          });
-          
-          // Provide more context about potential issues
-          if (error.status === 404) {
-            console.error('Model not found. Check:',
-              '1. API Key validity',
-              '2. Model name correctness',
-              '3. API version compatibility'
-            );
-          }
-          
-          throw error;
-        }
-      });
-
-      const response = await result.response;
-      const text = response.text();
-      
-      res.json({ message: text });
-    } catch (aiError) {
-      console.error('Gemini AI Error:', aiError);
-      res.status(500).json({ 
-        error: 'Failed to generate content', 
-        details: aiError.message || 'Unknown error occurred',
-        suggestion: 'Check API configuration and model availability'
-      });
-    }
-  } catch (error) {
-    console.error('AI Assistant Error:', error);
-    res.status(500).json({ 
-      error: 'Failed to process request',
-      details: error.message 
     });
   }
 });
@@ -1027,6 +1036,170 @@ app.get('/api/quiz/stats', async (req, res) => {
     if (client) {
       await client.close();
     }
+  }
+});
+
+// Super Simple AI Assist Endpoint - Last Resort Approach
+app.post('/api/super-simple-ai', authenticateToken, async (req, res) => {
+  console.log('Simple AI assist endpoint called:', new Date().toISOString());
+  
+  try {
+    const { messages } = req.body;
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Invalid request format' });
+    }
+
+    // Extract API key
+    const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    console.log('API Key length:', apiKey ? apiKey.length : 0);
+    console.log('API Key prefix:', apiKey ? apiKey.substring(0, 7) : 'none');
+    
+    if (!apiKey) {
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    const lastMessage = messages[messages.length - 1];
+    console.log('Processing user message:', lastMessage.content.substring(0, 30) + '...');
+
+    // Hard-coded to use v1 API version with new model
+    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-001:generateContent?key=${apiKey}`;
+    console.log('Using API URL:', apiUrl.replace(apiKey, '[REDACTED]'));
+    
+    try {
+      // Simple, minimal request to the API
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: lastMessage.content }] }]
+        })
+      });
+      
+      console.log('Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        let errorMessage = `API error: ${response.status} ${response.statusText}`;
+        let responseBody = '';
+        
+        try {
+          const errorJson = await response.json();
+          responseBody = JSON.stringify(errorJson);
+          console.error('Error response:', errorJson);
+        } catch (e) {
+          responseBody = await response.text();
+          console.error('Error response text:', responseBody);
+        }
+        
+        return res.status(500).json({ 
+          error: 'Failed to generate content',
+          details: errorMessage,
+          responseBody,
+          suggestion: 'Please check your API key and make sure it has access to Gemini API'
+        });
+      }
+      
+      // Parse successful response
+      const data = await response.json();
+      console.log('Response received successfully');
+      
+      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        console.error('Invalid response format:', JSON.stringify(data).substring(0, 200));
+        return res.status(500).json({
+          error: 'Invalid API response',
+          details: 'Response did not contain the expected content format'
+        });
+      }
+      
+      const generatedText = data.candidates[0].content.parts[0].text;
+      console.log('Successfully generated text, length:', generatedText.length);
+      
+      return res.json({ message: generatedText });
+    } catch (error) {
+      console.error('Error making API request:', error);
+      return res.status(500).json({
+        error: 'Request failed',
+        details: error.message,
+        stack: error.stack
+      });
+    }
+  } catch (error) {
+    console.error('General error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Test endpoint to list available models
+app.get('/api/list-models', async (req, res) => {
+  console.log('Attempting to list available models...');
+  
+  // Enable CORS for testing
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  
+  try {
+    const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error('No API key found');
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+    console.log('Using API key:', apiKey.substring(0, 10) + '...');
+
+    // Try v1 first
+    try {
+      const v1Url = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
+      console.log('Trying v1 endpoint:', v1Url.replace(apiKey, '[REDACTED]'));
+      
+      const v1Response = await fetch(v1Url);
+      console.log('V1 response status:', v1Response.status);
+      
+      if (v1Response.ok) {
+        const data = await v1Response.json();
+        console.log('V1 Models found:', data);
+        return res.json({ 
+          version: 'v1', 
+          models: data,
+          message: 'Successfully retrieved models from v1 endpoint'
+        });
+      }
+      
+      const v1Error = await v1Response.text();
+      console.log('V1 error response:', v1Error);
+    } catch (v1Error) {
+      console.error('Error with v1:', v1Error);
+    }
+
+    // Try v1beta as fallback
+    const v1betaUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    console.log('Trying v1beta endpoint:', v1betaUrl.replace(apiKey, '[REDACTED]'));
+    
+    const v1betaResponse = await fetch(v1betaUrl);
+    console.log('V1beta response status:', v1betaResponse.status);
+
+    if (!v1betaResponse.ok) {
+      const error = await v1betaResponse.text();
+      console.error('V1beta error response:', error);
+      return res.status(500).json({ 
+        error: 'Failed to list models',
+        v1betaError: error,
+        message: 'Both v1 and v1beta endpoints failed'
+      });
+    }
+
+    const data = await v1betaResponse.json();
+    console.log('V1beta Models found:', data);
+    return res.json({ 
+      version: 'v1beta', 
+      models: data,
+      message: 'Successfully retrieved models from v1beta endpoint'
+    });
+
+  } catch (error) {
+    console.error('General error listing models:', error);
+    return res.status(500).json({ 
+      error: error.message,
+      stack: error.stack,
+      message: 'Unexpected error while listing models'
+    });
   }
 });
 

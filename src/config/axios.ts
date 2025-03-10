@@ -1,7 +1,8 @@
 import axios from 'axios';
 
+// Use the same backend URL as in utils/axios.ts for consistency
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend-chaman-ss-projects.vercel.app',
+  baseURL: import.meta.env.VITE_API_URL || 'https://epsilora-backend.vercel.app',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
