@@ -33,7 +33,7 @@ interface QuizData {
   questions: {
     question: string;
     isCorrect: boolean;
-    userAnswer: string;
+    userAnswer: string | null;
     correctAnswer: string;
     options: {
       label: string;
@@ -158,15 +158,18 @@ const AIAssist: React.FC = () => {
           q.options.forEach(opt => {
             const isUserAnswer = opt.label === q.userAnswer;
             const isCorrectAnswer = opt.label === q.correctAnswer;
-            summary += `${isUserAnswer ? '👉 ' : ''}${opt.text} ${isCorrectAnswer ? '✅' : ''}\n\n`;
+            summary += `${isUserAnswer ? '👉 ' : ''}**${opt.label}.** ${opt.text} ${isCorrectAnswer ? '✅' : ''}\n\n`;
           });
         }
         
-        summary += `\n**Your Answer:** ${q.userAnswer} `;
+        summary += `\n**Your Answer:** ${q.userAnswer || 'Not answered'} `;
         if (q.isCorrect) {
           summary += `✅ Correct!\n\n`;
-        } else {
+        } else if (q.userAnswer) {
           summary += `❌ Wrong\n\n`;
+          summary += `\n**_Correct answer was ${q.correctAnswer}_**\n\n`;
+        } else {
+          summary += `❓ Not attempted\n\n`;
           summary += `\n**_Correct answer was ${q.correctAnswer}_**\n\n`;
         }
       });
@@ -178,7 +181,10 @@ const AIAssist: React.FC = () => {
 
   const createNewChat = useCallback(async (
     initialMessages: Message[], 
-    metadata?: ChatHistory['metadata']
+    options?: {
+      type?: string;
+      metadata?: ChatHistory['metadata'];
+    }
   ) => {
     try {
       const token = localStorage.getItem('token');
@@ -189,7 +195,8 @@ const AIAssist: React.FC = () => {
 
       const response = await axiosInstance.post('/api/chat-history', {
         messages: initialMessages,
-        ...metadata
+        ...(options?.type && { type: options.type }),
+        ...(options?.metadata && { metadata: options.metadata })
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -211,7 +218,7 @@ const AIAssist: React.FC = () => {
     if (!quizData || !isInitialized || currentChatId) return;
 
     const existingQuizChat = chatHistories.find(
-      chat => chat.type === 'quiz_review' && 
+      (chat: ChatHistory) => chat.type === 'quiz_review' && 
               chat.metadata?.quizSummary === generateQuizSummary(quizData)
     );
 
@@ -392,7 +399,7 @@ const AIAssist: React.FC = () => {
       const isQuizReview = contextMessage.includes('Quiz Review');
 
       // Get AI response with context
-      const response = await axiosInstance.post('/api/ai-assist', {
+      const response = await axiosInstance.post('/api/super-simple-ai', {
         messages: newMessages,
         quizContext: null,
         chatContext: { 
@@ -445,33 +452,45 @@ const AIAssist: React.FC = () => {
     }
   }, [input, loading, messages, currentChatId, currentQuizData, chatHistories, navigate]);
 
-  const saveMessagesToChat = useCallback(async (chatId: string, messages: Message[]) => {
+  const saveMessagesToChat = async (chatId: string, messages: Message[]) => {
     const token = localStorage.getItem('token');
-    if (!token) return false;
+    if (!token) {
+      navigate('/login');
+      return false;
+    }
 
     try {
-      const organizedMessages = organizeMessages(messages);
       await axiosInstance.put(`/api/chat-history/${chatId}`, {
-        messages: organizedMessages
+        messages
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
-      // Verify save was successful
-      const response = await axiosInstance.get(`/api/chat-history/${chatId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (response.data.messages.length !== organizedMessages.length) {
-        throw new Error('Message count mismatch');
-      }
-
       return true;
     } catch (error) {
       console.error('Error saving messages:', error);
+      
+      // If it's a 404 error, the chat might have been deleted or doesn't exist
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        // Create a new chat instead of retrying
+        try {
+          const newChatResponse = await axiosInstance.post('/api/chat-history', {
+            messages,
+            title: messages[0]?.content.substring(0, 30) + '...' || 'New Chat'
+          }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          // Update the chat ID
+          setCurrentChatId(newChatResponse.data._id);
+          return true;
+        } catch (createError) {
+          console.error('Error creating new chat:', createError);
+          return false;
+        }
+      }
+      
       return false;
     }
-  }, [navigate]);
+  };
 
   const loadChat = async (chatId: string) => {
     try {
@@ -573,7 +592,9 @@ const AIAssist: React.FC = () => {
                     onClick={() => {
                       setMessages([]);
                       setCurrentChatId(null);
+                      localStorage.removeItem('lastActiveChatId');
                       setIsSidebarOpen(false);
+                      toast.success('Started a new chat');
                     }}
                     className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
                   >
@@ -677,11 +698,13 @@ const AIAssist: React.FC = () => {
                     <p className="text-indigo-100 text-sm mt-1">Powered by advanced AI to help you learn</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-4">
                   <button
                     onClick={() => {
                       setMessages([]);
                       setCurrentChatId(null);
+                      localStorage.removeItem('lastActiveChatId');
+                      toast.success('Started a new chat');
                     }}
                     className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
                   >
