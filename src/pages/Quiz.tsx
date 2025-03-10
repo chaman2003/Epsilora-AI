@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Bar, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -19,7 +19,7 @@ import { motion } from 'framer-motion';
 import { 
   Sun, 
   Moon, 
-  Target,
+  Target, 
   History, 
   Award, 
   Calendar, 
@@ -194,31 +194,18 @@ const Quiz: React.FC = () => {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // First, let's update the fetchQuizHistory function to better handle the course data:
+  // Move fetchQuizHistory declaration to the top of the component, before any useEffects
   const fetchQuizHistory = React.useCallback(async () => {
-    // Skip if we already have the history data and it's not a forced refresh
-    if (historyFetched && quizHistory.length > 0) {
-      console.log('Already have quiz history, skipping fetch');
-      return;
-    }
-    
+    if (historyFetched && quizHistory.length > 0) return;
     if (!user?._id) {
       console.log('User ID not available, skipping quiz history fetch');
       return;
     }
-    
     try {
       setIsLoadingHistory(true);
       console.log('Fetching quiz history...');
       const response = await axiosInstance.get(`/api/quiz-history/${user._id}`);
       console.log('Quiz history raw response:', response.data);
-      
-      if (!response.data || !response.data.history) {
-        console.log('No history data in response');
-        setIsLoadingHistory(false);
-        return;
-      }
-      
       const history = response.data.history.map((quiz: any) => ({
         id: quiz.id || quiz._id,
         courseId: quiz.courseId,
@@ -230,14 +217,8 @@ const Quiz: React.FC = () => {
         date: new Date(quiz.createdAt || quiz.date),
         questions: quiz.questions || []
       }));
-      
       setQuizHistory(history);
       setHistoryFetched(true);
-
-      // If we already have courses, update the history with course names immediately
-      if (courses.length > 0) {
-        updateHistoryWithCourseNames(history, courses);
-      }
 
       // Update quiz stats if available
       if (response.data.stats) {
@@ -249,38 +230,21 @@ const Quiz: React.FC = () => {
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [user?._id, courses, historyFetched, quizHistory.length]);
+  }, [historyFetched, quizHistory.length, user?._id]);
 
-  // Helper function to update history with course names - convert to useCallback with proper types
-  const updateHistoryWithCourseNames = React.useCallback((
-    history: QuizAttempt[],
-    courseList: Course[]
-  ) => {
-    if (!history.length || !courseList.length) return;
-    
-    const updatedHistory = history.map(quiz => {
-      const course = courseList.find(c => c._id === quiz.courseId);
-      const successRate = (quiz.score && quiz.totalQuestions) ? Math.round((quiz.score / quiz.totalQuestions) * 100) : 0;
-      return {
-        ...quiz,
-        courseName: course ? course.name : 'Unknown Course',
-        successRate
-      };
-    });
-    
-    setFormattedQuizHistory(updatedHistory);
-  }, []);
+  // Open history modal function
+  const openHistoryModal = () => {
+    setIsHistoryModalOpen(true);
+  };
 
-  // Now, update the fetchCourses function
-  const fetchCourses = React.useCallback(async () => {
-    // Skip fetch if we already have courses
-    if (courses.length > 0) {
-      console.log('Already have courses data, skipping fetch');
-      return;
-    }
-    
+  // Close history modal function
+  const closeHistoryModal = () => {
+    setIsHistoryModalOpen(false);
+  };
+
+  // Move other functions here that might be referenced in useEffects
+  const fetchCourses = async () => {
     try {
-      console.log('Fetching courses...');
       const response = await axiosInstance.get('/api/courses');
       console.log('Raw courses response:', response);
       
@@ -289,305 +253,406 @@ const Quiz: React.FC = () => {
         
         // Once we have courses, we can update the quiz history with course names
         if (quizHistory.length > 0) {
-          updateHistoryWithCourseNames(quizHistory, response.data);
+          const updatedHistory = quizHistory.map((quiz) => {
+            const course = response.data.find((c) => c._id === quiz.courseId);
+            return {
+              ...quiz,
+              courseName: course ? course.name : 'Unknown Course'
+            };
+          });
+          
+          setFormattedQuizHistory(updatedHistory);
         }
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
-      toast.error('Failed to fetch courses. Please try again.');
     }
-  }, [quizHistory, updateHistoryWithCourseNames]);
+  };
 
-  // Let's optimize our load data effect by also checking URL parameters
-  // This effect will now use a ref to prevent re-triggering the initial load
-  const dataLoadedRef = React.useRef(false);
-  const location = useLocation(); // Add this to track URL changes
-  
+  // Now that all function declarations are above, we can safely use them in useEffects
   useEffect(() => {
-    // Only load data once when the component mounts
-    if (dataLoadedRef.current) return;
-    
-    // Create a single function to load all initial data
-    const loadInitialData = async () => {
-      if (isAuthenticated && !isLoading && user?._id) {
-        dataLoadedRef.current = true;
-        console.log('Loading initial quiz data...');
-        
-        // Load courses first, then quiz history
-        await fetchCourses();
-        await fetchQuizHistory();
-        
-        console.log('Initial data loading complete');
-      }
-    };
-    
-    loadInitialData();
-    
-    // Reset the ref when URL path changes (user actually navigates to a different route)
-    return () => {
-      dataLoadedRef.current = false;
-    };
-  }, [isAuthenticated, isLoading, user, fetchCourses, fetchQuizHistory]);
-
-  // Fix the dependency arrays in other useEffects
-  useEffect(() => {
-    if (formattedQuizHistory && formattedQuizHistory.length > 0) {
-      calculateQuizStats();
+    if (isAuthenticated && !isLoading && user?._id) {
+      console.log('Authentication status:', isAuthenticated);
+      fetchCourses();
+      // Don't call fetchQuizStatsFromAPI() since the endpoint doesn't exist
+      fetchQuizHistory(); // Safe to call now that it's defined above
+    } else {
+      setError('Please log in to access your courses');
     }
-  }, [formattedQuizHistory]);
+  }, [isAuthenticated, isLoading, user?._id, fetchCourses, fetchQuizHistory]);
 
-  // Combine these two similar useEffects
   useEffect(() => {
-    // Only run this if both courses and quizHistory are loaded
     if (courses.length > 0 && quizHistory.length > 0) {
-      // Update the history with course names
-      updateHistoryWithCourseNames(quizHistory, courses);
-    }
-  }, [courses, quizHistory, updateHistoryWithCourseNames]);
-
-  // Remove unnecessary dependency on length values
-  // Clean up this useEffect to avoid redundant calculations
-  useEffect(() => {
-    if (!quizHistory?.length || !courses?.length) return;
-    
-    try {
-      // Prepare data for charts
-      const courseStats: { [key: string]: CourseStats } = courses.reduce((acc, course) => {
-        const courseQuizzes = quizHistory.filter(q => q.courseId === course._id) || [];
-        const correct = courseQuizzes.reduce((sum, q) => sum + (q.score || 0), 0);
-        const total = courseQuizzes.reduce((sum, q) => sum + (q.totalQuestions || 0), 0);
-        acc[course._id] = {
-          correct,
-          wrong: total - correct,
-          name: course.name.split(' ').slice(0, 3).join(' ')
-        };
-        return acc;
-      }, {});
-      setCorrectVsWrongData({
-        labels: Object.values(courseStats).map((s: CourseStats) => s.name),
-        datasets: [
-          {
-            label: 'Correct Answers',
-            data: Object.values(courseStats).map((s: CourseStats) => s.correct),
-            backgroundColor: 'rgba(75, 192, 192, 0.5)',
-          },
-          {
-            label: 'Wrong Answers',
-            data: Object.values(courseStats).map((s: CourseStats) => s.wrong),
-            backgroundColor: 'rgba(255, 99, 132, 0.5)',
-          }
-        ]
-      });
-      // Prepare data for Success Rate chart
-      const successRates = courses.map(course => {
-        const courseQuizzes = quizHistory.filter(q => q.courseId === course._id) || [];
-        if (courseQuizzes.length === 0) return { name: course.name, rate: 0 };
-        const totalCorrect = courseQuizzes.reduce((sum, q) => sum + (q.score || 0), 0);
-        const totalQuestions = courseQuizzes.reduce((sum, q) => sum + (q.totalQuestions || 0), 0);
+      const updatedHistory = quizHistory.map(quiz => {
+        const course = courses.find(c => c._id === quiz.courseId);
+        const successRate = (quiz.score && quiz.totalQuestions) ? Math.round((quiz.score / quiz.totalQuestions) * 100) : 0;
         return {
-          name: course.name.split(' ').slice(0, 3).join(' '),
-          rate: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0
+          ...quiz,
+          courseName: course?.name || quiz.courseName || 'Deleted Course',
+          successRate
         };
-      }).filter(rate => rate.rate > 0);
-
-      setSuccessRateData({
-        labels: successRates.map(r => r.name),
-        datasets: [{
-          label: 'Success Rate (%)',
-          data: successRates.map(r => r.rate),
-          backgroundColor: [
-            'rgba(54, 162, 235, 0.5)',
-            'rgba(255, 206, 86, 0.5)',
-            'rgba(75, 192, 192, 0.5)',
-            'rgba(153, 102, 255, 0.5)',
-            'rgba(255, 159, 64, 0.5)',
-          ],
-        }]
       });
-    } catch (error) {
-      console.error('Error preparing chart data:', error);
+      setFormattedQuizHistory(updatedHistory);
+    }
+  }, [courses, quizHistory]);
+  useEffect(() => {
+    if (quizHistory && courses && courses.length > 0) {
+      try {
+        // Prepare data for Correct vs Wrong Answers chart
+        const courseStats: { [key: string]: CourseStats } = courses.reduce((acc, course) => {
+          const courseQuizzes = quizHistory.filter(q => q.courseId === course._id) || [];
+          const correct = courseQuizzes.reduce((sum, q) => sum + (q.score || 0), 0);
+          const total = courseQuizzes.reduce((sum, q) => sum + (q.totalQuestions || 0), 0);
+          acc[course._id] = {
+            correct,
+            wrong: total - correct,
+            name: course.name.split(' ').slice(0, 3).join(' ')
+          };
+          return acc;
+        }, {});
+        setCorrectVsWrongData({
+          labels: Object.values(courseStats).map((s: CourseStats) => s.name),
+          datasets: [
+            {
+              label: 'Correct Answers',
+              data: Object.values(courseStats).map((s: CourseStats) => s.correct),
+              backgroundColor: 'rgba(75, 192, 192, 0.5)',
+            },
+            {
+              label: 'Wrong Answers',
+              data: Object.values(courseStats).map((s: CourseStats) => s.wrong),
+              backgroundColor: 'rgba(255, 99, 132, 0.5)',
+            }
+          ]
+        });
+        // Prepare data for Success Rate chart
+        const successRates = courses.map(course => {
+          const courseQuizzes = quizHistory.filter(q => q.courseId === course._id) || [];
+          if (courseQuizzes.length === 0) return { name: course.name, rate: 0 };
+          const totalCorrect = courseQuizzes.reduce((sum, q) => sum + (q.score || 0), 0);
+          const totalQuestions = courseQuizzes.reduce((sum, q) => sum + (q.totalQuestions || 0), 0);
+          return {
+            name: course.name.split(' ').slice(0, 3).join(' '),
+            rate: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0
+          };
+        }).filter(rate => rate.rate > 0);
+
+        setSuccessRateData({
+          labels: successRates.map(r => r.name),
+          datasets: [{
+            label: 'Success Rate (%)',
+            data: successRates.map(r => r.rate),
+            backgroundColor: [
+              'rgba(54, 162, 235, 0.5)',
+              'rgba(255, 206, 86, 0.5)',
+              'rgba(75, 192, 192, 0.5)',
+              'rgba(153, 102, 255, 0.5)',
+              'rgba(255, 159, 64, 0.5)',
+            ],
+          }]
+        });
+      } catch (error) {
+        console.error('Error preparing chart data:', error);
+      }
     }
   }, [quizHistory, courses]);
 
-  const calculateAverageScore = (history: any[]) => {
-    if (history.length === 0) return 0;
-    
-    const scores = history.map(quiz => 
-      (quiz.score / quiz.totalQuestions) * 100
-    );
-    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    return Math.round(average);
-  };
+const calculateAverageScore = (history: any[]) => {
+  if (history.length === 0) return 0;
+  
+  const scores = history.map(quiz => 
+    (quiz.score / quiz.totalQuestions) * 100
+  );
+  const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  return Math.round(average);
+};
 
   const calculateQuizStats = async () => {
-    try {
+  try {
       if (!formattedQuizHistory || formattedQuizHistory.length === 0) {
-        setQuizStats({
-          totalQuizzes: 0,
-          averageScore: 0,
-          latestScore: 0
-        });
-        return;
+      setQuizStats({
+        totalQuizzes: 0,
+        averageScore: 0,
+        latestScore: 0
+      });
+      return;
+    }
+
+    // Sort by date to get the latest quiz
+    const sortedHistory = [...formattedQuizHistory].sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    
+    const latestQuiz = sortedHistory[0];
+    const latestScore = latestQuiz ? Math.round((latestQuiz.score / latestQuiz.totalQuestions) * 100) : 0;
+    const averageScore = calculateAverageScore(formattedQuizHistory);
+
+    setQuizStats({
+      totalQuizzes: formattedQuizHistory.length,
+      averageScore: averageScore,
+      latestScore: latestScore
+    });
+
+  } catch (error) {
+    console.error('Error calculating quiz statistics:', error);
+  }
+};
+
+  // Add a new useEffect to calculate quiz stats locally after quiz history is loaded
+useEffect(() => {
+    if (formattedQuizHistory && formattedQuizHistory.length > 0) {
+      calculateQuizStats();
+  }
+  }, [formattedQuizHistory]);
+
+const generateQuiz = async () => {
+  if (!selectedCourse) {
+    toast.error('Please select a course first');
+    return;
+  }
+
+  if (!isAuthenticated) {
+    toast.error('Please log in to generate a quiz');
+    navigate('/login', { state: { from: '/quiz' } });
+    return;
+  }
+
+  setLoading(true);
+  let retryCount = 0;
+  const maxRetries = 3;
+
+  const attemptQuizGeneration = async (): Promise<any> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
       }
 
-      // Sort by date to get the latest quiz
-      const sortedHistory = [...formattedQuizHistory].sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      
-      const latestQuiz = sortedHistory[0];
-      const latestScore = latestQuiz ? Math.round((latestQuiz.score / latestQuiz.totalQuestions) * 100) : 0;
-      const averageScore = calculateAverageScore(formattedQuizHistory);
-
-      setQuizStats({
-        totalQuizzes: formattedQuizHistory.length,
-        averageScore: averageScore,
-        latestScore: latestScore
+      console.log('Sending quiz generation request with params:', {
+        courseId: selectedCourse,
+        numberOfQuestions: quizDetails.numberOfQuestions,
+        difficulty: quizDetails.difficulty,
+        timePerQuestion: quizDetails.timePerQuestion
       });
 
-    } catch (error) {
-      console.error('Error calculating quiz statistics:', error);
-    }
-  };
-
-  const generateQuiz = async () => {
-    if (!selectedCourse) {
-      toast.error('Please select a course first');
-      return;
-    }
-
-    if (!isAuthenticated) {
-      toast.error('Please log in to generate a quiz');
-      navigate('/login', { state: { from: '/quiz' } });
-      return;
-    }
-
-    setLoading(true);
-    let retryCount = 0;
-    const maxRetries = 3;
-
-    const attemptQuizGeneration = async (): Promise<any> => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('No authentication token found');
+      // Set timeout to 3 minutes
+      const response = await axiosInstance.post('/api/generate-quiz', {
+        courseId: selectedCourse,
+        numberOfQuestions: quizDetails.numberOfQuestions,
+        difficulty: quizDetails.difficulty,
+        timePerQuestion: quizDetails.timePerQuestion
+      }, {
+        timeout: 180000,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
+      });
 
-        console.log('Sending quiz generation request with params:', {
-          courseId: selectedCourse,
-          numberOfQuestions: quizDetails.numberOfQuestions,
-          difficulty: quizDetails.difficulty,
-          timePerQuestion: quizDetails.timePerQuestion
-        });
-
-        // Set timeout to 30 seconds
-        const response = await axiosInstance.post('/api/generate-quiz', {
-          courseId: selectedCourse,
-          numberOfQuestions: quizDetails.numberOfQuestions,
-          difficulty: quizDetails.difficulty,
-          timePerQuestion: quizDetails.timePerQuestion
-        }, {
-          timeout: 180000,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        console.log('Quiz generation API response status:', response.status);
-        return response;
-      } catch (error: any) {
-        console.error('Error in attemptQuizGeneration:', error);
-        
-        if (error.response) {
-          console.error('Response status:', error.response.status);
-          console.error('Response data:', error.response.data);
-        } else if (error.request) {
-          console.error('No response received:', error.request);
-        } else {
-          console.error('Error message:', error.message);
-        }
-        
-        if (error.response?.status === 500 && retryCount < maxRetries) {
-          retryCount++;
-          console.log(`Retry attempt ${retryCount} of ${maxRetries}`);
-          await new Promise(resolve => setTimeout(resolve, 2000 * retryCount)); // Exponential backoff
-          return attemptQuizGeneration();
-        }
-        throw error;
-      }
-    };
-
-    try {
-      const response = await attemptQuizGeneration();
-      
-      // Log the entire response to help with debugging
-      console.log('Quiz generation response:', response);
-      
-      // More detailed validation of the response
-      if (!response) {
-        throw new Error('No response received from server');
-      }
-      
-      if (!response.data) {
-        throw new Error('Response missing data object');
-      }
-
-      // Check if response.data is the questions array directly
-      let questionsArray;
-      if (Array.isArray(response.data)) {
-        console.log('Response data is directly an array of questions');
-        questionsArray = response.data;
-      } else if (response.data.questions && Array.isArray(response.data.questions)) {
-        console.log('Response data contains a questions property with an array');
-        questionsArray = response.data.questions;
-      } else {
-        console.error('Invalid response structure:', response.data);
-        throw new Error('Unable to find questions array in response');
-      }
-      
-      if (questionsArray.length === 0) {
-        console.error('Questions array is empty:', questionsArray);
-        throw new Error('Questions array must not be empty');
-      }
-
-      setQuestions(questionsArray);
-
-      const initialQuestionStates = questionsArray.map(() => ({
-        userAnswer: null,
-        timeExpired: false,
-        viewed: false,
-        timeLeft: quizDetails.timePerQuestion
-      }));
-
-      setQuestionStates(initialQuestionStates);
-      setCurrentQuestion(0);
-      setScore(0);
-      setQuizStarted(true);
-      setStartTime(new Date());
-      setLoading(false);
-
+      console.log('Quiz generation API response status:', response.status);
+      return response;
     } catch (error: any) {
-      console.error('Error generating quiz:', error);
+      console.error('Error in attemptQuizGeneration:', error);
       
-      // Log more details about the error
       if (error.response) {
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
-      }
-      
-      if (error.response?.status === 401) {
-        toast.error('Session expired. Please log in again');
-        navigate('/login', { state: { from: '/quiz' } });
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      } else if (error.request) {
+        console.error('No response received:', error.request);
       } else {
-        // Provide a more detailed error message to the user
-        const errorMessage = error.message || 'Failed to generate quiz';
-        toast.error(`${errorMessage}. Please try again later.`);
+        console.error('Error message:', error.message);
       }
       
-      setLoading(false);
+      // Handle 500 errors - server might be overloaded or Gemini API might be failing
+      if (error.response?.status === 500 && retryCount < maxRetries) {
+        retryCount++;
+        console.log(`Retry attempt ${retryCount} of ${maxRetries}`);
+        // Exponential backoff with jitter to prevent thundering herd
+        const delay = (2000 * retryCount) + (Math.random() * 1000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return attemptQuizGeneration();
+      }
+      
+      throw error;
     }
   };
+
+  try {
+    // First try to generate using the API
+    let response;
+    
+    try {
+      response = await attemptQuizGeneration();
+    } catch (apiError: any) {
+      // If all API retries fail, use fallback content
+      if (apiError.response?.status === 500) {
+        console.log('All API retries failed. Using fallback quiz content.');
+        
+        // Use fallback static quiz content
+        response = {
+          data: {
+            questions: generateFallbackQuestions(selectedCourse, quizDetails.difficulty, quizDetails.numberOfQuestions)
+          }
+        };
+      } else {
+        // For other errors, re-throw
+        throw apiError;
+      }
+    }
+
+    // Process the response
+    console.log('Quiz generation response:', response);
+    
+    if (!response) {
+      throw new Error('No response received from server');
+    }
+    
+    if (!response.data) {
+      throw new Error('Response missing data object');
+    }
+
+    // Check if response.data is the questions array directly
+    let questionsArray;
+    if (Array.isArray(response.data)) {
+      console.log('Response data is directly an array of questions');
+      questionsArray = response.data;
+    } else if (response.data.questions && Array.isArray(response.data.questions)) {
+      console.log('Response data contains a questions property with an array');
+      questionsArray = response.data.questions;
+    } else {
+      console.error('Invalid response structure:', response.data);
+      throw new Error('Unable to find questions array in response');
+    }
+    
+    if (questionsArray.length === 0) {
+      console.error('Questions array is empty:', questionsArray);
+      throw new Error('Questions array must not be empty');
+    }
+
+    setQuestions(questionsArray);
+
+    const initialQuestionStates = questionsArray.map(() => ({
+      userAnswer: null,
+      timeExpired: false,
+      viewed: false,
+      timeLeft: quizDetails.timePerQuestion
+    }));
+
+    setQuestionStates(initialQuestionStates);
+    setCurrentQuestion(0);
+    setScore(0);
+    setQuizStarted(true);
+    setStartTime(new Date());
+    setLoading(false);
+
+  } catch (error: any) {
+    console.error('Error generating quiz:', error);
+    
+    // Log more details about the error
+    if (error.response) {
+      console.error('Error response data:', error.response.data);
+      console.error('Error response status:', error.response.status);
+    }
+    
+    if (error.response?.status === 401) {
+      toast.error('Session expired. Please log in again');
+      navigate('/login', { state: { from: '/quiz' } });
+    } else {
+      // Provide a more detailed error message to the user
+      let errorMessage = 'Failed to generate quiz';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      toast.error(`${errorMessage}. Please try again later.`);
+    }
+    
+    setLoading(false);
+  }
+};
+
+// Fallback function to generate static questions if API fails
+const generateFallbackQuestions = (courseId: string, difficulty: string, numberOfQuestions: number): QuizQuestion[] => {
+  // Get the course name from the course ID
+  const course = courses.find((c: any) => c._id === courseId);
+  const courseName = course ? course.name : 'General Knowledge';
+  
+  // Create questions based on common categories
+  const fallbackQuestions: QuizQuestion[] = [];
+  
+  // Define contextual prefixes for different difficulties
+  const difficultyPrefix = {
+    Easy: 'Basic',
+    Medium: 'Intermediate',
+    Hard: 'Advanced'
+  };
+  
+  // Define subject matter based on the course name
+  let subjectMatter = 'concepts';
+  if (courseName.toLowerCase().includes('python')) {
+    subjectMatter = 'Python programming';
+  } else if (courseName.toLowerCase().includes('javascript') || courseName.toLowerCase().includes('js')) {
+    subjectMatter = 'JavaScript programming';
+  } else if (courseName.toLowerCase().includes('java')) {
+    subjectMatter = 'Java programming';
+  } else if (courseName.toLowerCase().includes('data')) {
+    subjectMatter = 'data analysis';
+  } else if (courseName.toLowerCase().includes('web')) {
+    subjectMatter = 'web development';
+  } else if (courseName.toLowerCase().includes('machine learning') || courseName.toLowerCase().includes('ml')) {
+    subjectMatter = 'machine learning';
+  }
+  
+  // Some generic question templates that work for most subjects
+  const questionTemplates = [
+    `Which of the following is a ${difficultyPrefix[difficulty as keyof typeof difficultyPrefix]} ${subjectMatter} principle?`,
+    `In ${subjectMatter}, what is the primary purpose of _____?`,
+    `Which statement about ${subjectMatter} is correct?`,
+    `What is the main advantage of using _____ in ${subjectMatter}?`,
+    `How would you implement _____ in ${subjectMatter}?`,
+    `What is the correct syntax for _____ in ${subjectMatter}?`,
+    `Which of these is NOT a feature of ${subjectMatter}?`,
+    `What is the best practice for _____ when working with ${subjectMatter}?`,
+    `Which tool is most commonly used for ${subjectMatter}?`,
+    `What problem does _____ solve in ${subjectMatter}?`
+  ];
+  
+  // Generate different questions based on templates
+  for (let i = 0; i < numberOfQuestions; i++) {
+    const templateIndex = i % questionTemplates.length;
+    const question = questionTemplates[templateIndex];
+    
+    let options = [
+      `${String.fromCharCode(65)}: Option 1 related to ${subjectMatter}`,
+      `${String.fromCharCode(66)}: Option 2 related to ${subjectMatter}`, 
+      `${String.fromCharCode(67)}: Option 3 related to ${subjectMatter}`,
+      `${String.fromCharCode(68)}: Option 4 related to ${subjectMatter}`
+    ];
+    
+    // Assign correct answer based on difficulty (make harder questions have less obvious answers)
+    let correctAnswer: string;
+    if (difficulty === 'Easy') {
+      correctAnswer = 'A'; // For easy questions, first option is often correct
+    } else if (difficulty === 'Medium') {
+      correctAnswer = i % 2 === 0 ? 'B' : 'C'; // Mix between B and C for medium
+    } else {
+      correctAnswer = String.fromCharCode(65 + (i % 4)); // Distribute evenly for hard
+    }
+    
+    fallbackQuestions.push({
+      question,
+      options: options.map(opt => opt.substring(3)), // Remove the A:, B: prefixes
+      correctAnswer
+    });
+  }
+  
+  return fallbackQuestions;
+};
 
   useEffect(() => {
     if (questions && questions.length > 0) {
@@ -737,14 +802,14 @@ const Quiz: React.FC = () => {
     
     // If a save function exists
     if (saveQuizResult) {
-      saveQuizResult(finalScore).then(() => {
+    saveQuizResult(finalScore).then(() => {
         console.log('Quiz saved successfully');
         setShowResult(true);
-      }).catch(error => {
+    }).catch(error => {
         console.error('Error saving quiz:', error);
         toast.error('Error saving quiz result');
         setShowResult(true);
-      });
+    });
     } else {
       setShowResult(true);
     }
@@ -759,9 +824,11 @@ const Quiz: React.FC = () => {
           text: opt,
           label: String.fromCharCode(65 + optIndex)
         })),
-        correctAnswer: q.correctAnswer,
-        userAnswer: questionStates[index]?.userAnswer || null,
-        isCorrect: questionStates[index]?.userAnswer === q.correctAnswer
+        score: score,
+        totalQuestions: questions.length,
+        courseName: courseObj?.name || 'Unknown Course',
+        difficulty: quizDetails.difficulty,
+        timestamp: new Date().toISOString()
       })),
       score: score,
       totalQuestions: questions.length,
@@ -785,9 +852,9 @@ const Quiz: React.FC = () => {
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer('');
-      setTimeLeft(quizDetails.timePerQuestion);
-      setTimerActive(true);
-    }
+        setTimeLeft(quizDetails.timePerQuestion);
+        setTimerActive(true);
+      }
   }, [currentQuestion, questions, quizDetails.timePerQuestion, setCurrentQuestion, setSelectedAnswer, setTimeLeft, setTimerActive]);
   const handlePreviousQuestion = React.useCallback(() => {
     if (isTransitioning.current) return;
@@ -1018,7 +1085,7 @@ const Quiz: React.FC = () => {
               ${currentQuestion === 0
                 ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105'
-              }`}
+            }`}
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Previous
@@ -1032,13 +1099,13 @@ const Quiz: React.FC = () => {
                 ${!currentState.viewed
                   ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105'
-                }`}
+              }`}
             >
               Next
               <ArrowRight className="w-5 h-5 ml-2" />
             </button>
           ) : (
-            <button
+        <button
               onClick={async () => {
                 setShowResult(true);
                 const finalScore = calculateFinalScore();
@@ -1096,7 +1163,7 @@ const Quiz: React.FC = () => {
             >
               Finish Quiz
               <CheckCircle className="w-5 h-5 ml-2" />
-            </button>
+        </button>
           )}
         </div>
       </div>
@@ -1207,10 +1274,10 @@ const Quiz: React.FC = () => {
   };
 };
 
-const [theme, setTheme] = useState('light');
-const toggleTheme = () => {
-  setTheme(theme === 'light' ? 'dark' : 'light');
-};
+  const [theme, setTheme] = useState('light');
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  };
 
 // Update the Quiz component to show history inline again
 const handleToggleHistory = () => {
@@ -1223,272 +1290,272 @@ const handleToggleHistory = () => {
   }
 };
 
-if (!quizStarted && !loading) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 1.5 }}
-      className={`min-h-screen bg-${themeConfig.colors.background.page.light} dark:bg-${themeConfig.colors.background.page.dark} py-4 backdrop-blur-md`}
-    >
-      <div className="container mx-auto px-2 mt-1">
-        {/* Charts Section */}
-        {!quizStarted && courses.length > 0 && quizHistory && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-            <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2`}>
-              <h2 className="text-lg font-semibold mb-1 text-center">Quizzes per Course</h2>
-              <div className="h-[350px]">
-                <Pie data={successRateData} options={pieOptions} />
+  if (!quizStarted && !loading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 1.5 }}
+        className={`min-h-screen bg-${themeConfig.colors.background.page.light} dark:bg-${themeConfig.colors.background.page.dark} py-4 backdrop-blur-md`}
+      >
+        <div className="container mx-auto px-2 mt-1">
+          {/* Charts Section */}
+          {!quizStarted && courses.length > 0 && quizHistory && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2`}>
+                <h2 className="text-lg font-semibold mb-1 text-center">Quizzes per Course</h2>
+                <div className="h-[350px]">
+                  <Pie data={successRateData} options={pieOptions} />
+                </div>
+              </div>
+              
+              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2`}>
+                <h2 className="text-lg font-semibold mb-1 text-center">Success Rate by Course</h2>
+                <div className="h-[350px]">
+                  <Pie data={successRateData} options={pieOptions} />
+                </div>
+              </div>
+              
+              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2 md:col-span-2`}>
+                <h2 className="text-lg font-semibold mb-1 text-center">Correct vs Wrong Answers</h2>
+                <div className="h-[300px]">
+                  <Bar data={correctVsWrongData} options={barOptions} />
+                </div>
               </div>
             </div>
-            
-            <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2`}>
-              <h2 className="text-lg font-semibold mb-1 text-center">Success Rate by Course</h2>
-              <div className="h-[350px]">
-                <Pie data={successRateData} options={pieOptions} />
+          )}
+          {/* Gemini AI Quote */}
+          <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6 mb-6`}>
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10.5c0-.28.22-.5.5-.5h7c.28 0 .5.22.5.5v3c0 .28-.22.5-.5.5h-7c-.28 0-.5-.22-.5-.5v-3z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.5v3M12 14.5v3" />
+                    <circle cx="12" cy="12" r="10" strokeWidth={2} />
+                  </svg>
+                </div>
               </div>
-            </div>
-            
-            <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2 md:col-span-2`}>
-              <h2 className="text-lg font-semibold mb-1 text-center">Correct vs Wrong Answers</h2>
-              <div className="h-[300px]">
-                <Bar data={correctVsWrongData} options={barOptions} />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">Gemini AI Says:</p>
+                <blockquote className="text-gray-700 dark:text-gray-300 italic">
+                  "Learning is not just about getting the right answers, but understanding why they're right. Each quiz is a step towards mastery, and every mistake is an opportunity to grow. Keep pushing your boundaries!"
+                </blockquote>
+                <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  - Generated by Gemini AI for your learning journey
+                </div>
               </div>
             </div>
           </div>
-        )}
-        {/* Gemini AI Quote */}
-        <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6 mb-6`}>
-          <div className="flex items-start space-x-4">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10.5c0-.28.22-.5.5-.5h7c.28 0 .5.22.5.5v3c0 .28-.22.5-.5.5h-7c-.28 0-.5-.22-.5-.5v-3z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.5v3M12 14.5v3" />
-                  <circle cx="12" cy="12" r="10" strokeWidth={2} />
-                </svg>
-              </div>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">Gemini AI Says:</p>
-              <blockquote className="text-gray-700 dark:text-gray-300 italic">
-                "Learning is not just about getting the right answers, but understanding why they're right. Each quiz is a step towards mastery, and every mistake is an opportunity to grow. Keep pushing your boundaries!"
-              </blockquote>
-              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                - Generated by Gemini AI for your learning journey
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Quiz Selection Section */}
-        <div className="max-w-4xl mx-auto">
-          <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6`}>
-            <h1 className="text-2xl font-bold mb-6 text-center">Select a Course for Quiz</h1>
-            <div className="flex items-center justify-center">
-              <select
-                value={selectedCourse}
-                onChange={(e) => setSelectedCourse(e.target.value)}
-                className="w-full md:w-1/2 p-1 rounded-md border dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-              >
-                <option value="" disabled>Select a course</option>
-                {courses.map((course) => (
-                  <option key={course._id} value={course._id}>{course.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Quiz Settings */}
-            <div className="space-y-4 mb-8">
-              {/* Number of Questions */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Number of Questions
-                </label>
+          {/* Quiz Selection Section */}
+          <div className="max-w-4xl mx-auto">
+            <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6`}>
+              <h1 className="text-2xl font-bold mb-6 text-center">Select a Course for Quiz</h1>
+              <div className="flex items-center justify-center">
                 <select
-                  value={quizDetails.numberOfQuestions}
-                  onChange={(e) => setQuizDetails(prev => ({
-                    ...prev,
-                    numberOfQuestions: parseInt(e.target.value)
-                  }))}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  value={selectedCourse}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  className="w-full md:w-1/2 p-1 rounded-md border dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                 >
-                  {[5, 10, 15, 20].map(num => (
-                    <option key={num} value={num}>{num} Questions</option>
+                  <option value="" disabled>Select a course</option>
+                  {courses.map((course) => (
+                    <option key={course._id} value={course._id}>{course.name}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Difficulty */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Difficulty Level
-                </label>
-                <select
-                  value={quizDetails.difficulty}
-                  onChange={(e) => setQuizDetails(prev => ({
-                    ...prev,
-                    difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard'
-                  }))}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  {['Easy', 'Medium', 'Hard'].map(level => (
-                    <option key={level} value={level}>{level}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Time per Question */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Time per Question (seconds)
-                </label>
-                <select
-                  value={quizDetails.timePerQuestion}
-                  onChange={(e) => setQuizDetails(prev => ({
-                    ...prev,
-                    timePerQuestion: parseInt(e.target.value)
-                  }))}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  {[15, 30, 45, 60].map(time => (
-                    <option key={time} value={time}>{time} seconds</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Generate Button and History Button */}
-            <div className="mt-8 space-y-4">
-              <button
-                onClick={generateQuiz}
-                disabled={loading || !selectedCourse}
-                className={`w-full py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 ${
-                  loading || !selectedCourse
-                    ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                }`}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Generating Quiz...
-                  </span>
-                ) : (
-                  <>
-                    <Target className="w-5 h-5" />
-                    <span>Generate Quiz</span>
-                  </>
-                )}
-              </button>
-
-              <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                      Quiz Performance History
-                    </h2>
-                    <p className="text-gray-600 dark:text-gray-400 mt-1">
-                      Track your progress and review past quiz attempts
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleToggleHistory}
-                    className="flex items-center space-x-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white px-4 py-2 rounded-lg transition-all"
+              {/* Quiz Settings */}
+              <div className="space-y-4 mb-8">
+                {/* Number of Questions */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Number of Questions
+                  </label>
+                  <select
+                    value={quizDetails.numberOfQuestions}
+                    onChange={(e) => setQuizDetails(prev => ({
+                      ...prev,
+                      numberOfQuestions: parseInt(e.target.value)
+                    }))}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
-                    <History className="w-5 h-5" />
-                    <span>{showHistory ? 'Hide History' : 'View History'}</span>
-                  </button>
+                    {[5, 10, 15, 20].map(num => (
+                      <option key={num} value={num}>{num} Questions</option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Expandable History Section */}
-                {showHistory && (
-                  <div className="mt-6">
-                    {/* Filter and Sort Controls */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Sort By
-                        </label>
-                        <select
-                          value={sortBy}
-                          onChange={(e) => setSortBy(e.target.value as 'date' | 'score' | 'difficulty')}
-                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          <option value="date">Date (Newest First)</option>
-                          <option value="score">Score (Highest First)</option>
-                          <option value="difficulty">Difficulty</option>
-                        </select>
-                      </div>
+                {/* Difficulty */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Difficulty Level
+                  </label>
+                  <select
+                    value={quizDetails.difficulty}
+                    onChange={(e) => setQuizDetails(prev => ({
+                      ...prev,
+                    difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard'
+                    }))}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {['Easy', 'Medium', 'Hard'].map(level => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
+                  </select>
+                </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Filter by Difficulty
-                        </label>
-                        <select
-                          value={filterDifficulty}
-                          onChange={(e) => setFilterDifficulty(e.target.value)}
-                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          <option value="all">All Difficulties</option>
-                          <option value="Easy">Easy</option>
-                          <option value="Medium">Medium</option>
-                          <option value="Hard">Hard</option>
-                        </select>
-                      </div>
+                {/* Time per Question */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Time per Question (seconds)
+                  </label>
+                  <select
+                    value={quizDetails.timePerQuestion}
+                    onChange={(e) => setQuizDetails(prev => ({
+                      ...prev,
+                      timePerQuestion: parseInt(e.target.value)
+                    }))}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {[15, 30, 45, 60].map(time => (
+                      <option key={time} value={time}>{time} seconds</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Filter by Course
-                        </label>
-                        <select
-                          value={filterCourse}
-                          onChange={(e) => setFilterCourse(e.target.value)}
-                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          <option value="all">All Courses</option>
-                          {uniqueCourses.map(course => (
-                            <option key={course} value={course}>{course}</option>
-                          ))}
-                        </select>
-                      </div>
+              {/* Generate Button and History Button */}
+              <div className="mt-8 space-y-4">
+                <button
+                  onClick={generateQuiz}
+                  disabled={loading || !selectedCourse}
+                  className={`w-full py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 ${
+                    loading || !selectedCourse
+                      ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  }`}
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Generating Quiz...
+                    </span>
+                  ) : (
+                    <>
+                      <Target className="w-5 h-5" />
+                      <span>Generate Quiz</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                        Quiz Performance History
+                      </h2>
+                      <p className="text-gray-600 dark:text-gray-400 mt-1">
+                        Track your progress and review past quiz attempts
+                      </p>
                     </div>
+                    <button
+                    onClick={handleToggleHistory}
+                    className="flex items-center space-x-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white px-4 py-2 rounded-lg transition-all"
+                    >
+                      <History className="w-5 h-5" />
+                      <span>{showHistory ? 'Hide History' : 'View History'}</span>
+                    </button>
+                  </div>
 
-                    {/* Quiz History List */}
-                    {isLoadingHistory ? (
-                      <div className="flex justify-center items-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
-                      </div>
-                    ) : filteredAndSortedHistory.length === 0 ? (
-                      <div className="text-center py-8">
-                        <div className="inline-block p-4 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
-                          <History className="w-8 h-8 text-gray-500 dark:text-gray-400" />
+                  {/* Expandable History Section */}
+                  {showHistory && (
+                    <div className="mt-6">
+                      {/* Filter and Sort Controls */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Sort By
+                          </label>
+                          <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as 'date' | 'score' | 'difficulty')}
+                            className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="date">Date (Newest First)</option>
+                            <option value="score">Score (Highest First)</option>
+                            <option value="difficulty">Difficulty</option>
+                          </select>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-300">
-                          No quiz attempts found yet.
-                        </p>
-                        <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
-                          Complete your first quiz to start building your history!
-                        </p>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Filter by Difficulty
+                          </label>
+                          <select
+                            value={filterDifficulty}
+                            onChange={(e) => setFilterDifficulty(e.target.value)}
+                            className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="all">All Difficulties</option>
+                            <option value="Easy">Easy</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Hard">Hard</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Filter by Course
+                          </label>
+                          <select
+                            value={filterCourse}
+                            onChange={(e) => setFilterCourse(e.target.value)}
+                            className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="all">All Courses</option>
+                            {uniqueCourses.map(course => (
+                              <option key={course} value={course}>{course}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {filteredAndSortedHistory.map((attempt) => (
+
+                      {/* Quiz History List */}
+                      {isLoadingHistory ? (
+                        <div className="flex justify-center items-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                        </div>
+                      ) : filteredAndSortedHistory.length === 0 ? (
+                        <div className="text-center py-8">
+                          <div className="inline-block p-4 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+                            <History className="w-8 h-8 text-gray-500 dark:text-gray-400" />
+                          </div>
+                          <p className="text-gray-600 dark:text-gray-300">
+                            No quiz attempts found yet.
+                          </p>
+                          <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+                            Complete your first quiz to start building your history!
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {filteredAndSortedHistory.map((attempt) => (
                           <div key={attempt.id}
                               className="bg-white dark:bg-gray-800 p-4 rounded-lg hover:shadow-md transition-shadow">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1524,43 +1591,43 @@ if (!quizStarted && !loading) {
                                 </div>
                               </div>
                             </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </motion.div>
-  );
-}
-if (quizStarted) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 1.5 }}
-      className={`container mx-auto px-4 py-8`}
-    >
-      <div className={`max-w-2xl mx-auto bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-xl shadow-lg p-8`}>
-        <h2 className="text-3xl font-bold text-center mb-6 text-gray-900 dark:text-white">
-          Multiple Choice Questions
-        </h2>
-        {renderQuestion()}
-      </div>
-    </motion.div>
-  );
-}
+      </motion.div>
+    );
+  }
+  if (quizStarted) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.5 }}
+        className={`container mx-auto px-4 py-8`}
+      >
+        <div className={`max-w-2xl mx-auto bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-xl shadow-lg p-8`}>
+          <h2 className="text-3xl font-bold text-center mb-6 text-gray-900 dark:text-white">
+            Multiple Choice Questions
+          </h2>
+          {renderQuestion()}
+        </div>
+      </motion.div>
+    );
+  }
 if (currentQuestion >= questions?.length && questions?.length > 0) {
-  const finalScore = calculateFinalScore();
+    const finalScore = calculateFinalScore();
   const scorePercentageValue = (finalScore / questions?.length) * 100;
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
       className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12"
     >
@@ -1574,48 +1641,48 @@ if (currentQuestion >= questions?.length && questions?.length > 0) {
             <p className="text-lg text-gray-600 dark:text-gray-300">
               {scorePercentageValue}% Correct
             </p>
-            
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg p-4`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Difficulty</p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
-                      {quizDetails.difficulty}
-                    </p>
-                  </div>
-                  <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
-                    <ClipboardList className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg p-4`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Difficulty</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
+                    {quizDetails.difficulty}
+                  </p>
+                </div>
+                <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
+                  <ClipboardList className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
               </div>
             </div>
+          </div>
 
-            {renderResultActions()}
+          {renderResultActions()}
           </div>
         </div>
-      </div>
-    </motion.div>
-  );
-}
-const formatTimeSpent = (timeInSeconds: number) => {
-  const minutes = Math.floor(timeInSeconds / 60);
-  const seconds = timeInSeconds % 60;
-  if (minutes === 0) {
-    return `${seconds} sec`;
+        </div>
+      </motion.div>
+    );
   }
-  return seconds === 0 ? `${minutes} min` : `${minutes} min ${seconds} sec`;
-};
-return (
+  const formatTimeSpent = (timeInSeconds: number) => {
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = timeInSeconds % 60;
+    if (minutes === 0) {
+      return `${seconds} sec`;
+    }
+    return seconds === 0 ? `${minutes} min` : `${minutes} min ${seconds} sec`;
+  };
+  return (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-16">
     {/* Add the loading overlay */}
     {renderGenerationOverlay(loading)}
     
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Rest of existing UI... */}
-    </div>
-  </div>
-);
+                </div>
+                    </div>
+  );
 };
 
 const calculateStats = (history: any[]) => {
