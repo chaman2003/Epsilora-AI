@@ -638,13 +638,13 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
   try {
     const { courseId, numberOfQuestions, difficulty, timePerQuestion } = req.body;
     
-    // Use a more generous question limit since it was working with 20 questions before
-    const maxQuestions = 20; // Increase from 5 to 20 as it worked before
+    // Allow larger question sets as requested (since user is willing to wait)
+    const maxQuestions = 30; // Support up to 30 questions since user is willing to wait
     const actualNumberOfQuestions = Math.min(numberOfQuestions, maxQuestions);
     
     // Log if we're limiting questions
     if (numberOfQuestions > maxQuestions) {
-      console.log(`Limiting questions from ${numberOfQuestions} to ${maxQuestions} to prevent timeout`);
+      console.log(`Limiting questions from ${numberOfQuestions} to ${maxQuestions}`);
     }
 
     // Short-circuit validation to respond faster
@@ -667,25 +667,14 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
         error: 'API key not configured'
       });
     }
-
-    // Setup timeout guard at the beginning - use a more generous timeout
-    const timeoutGuard = setTimeout(() => {
-      console.error(`Quiz generation timed out after ${Date.now() - startTime}ms`);
-      if (!res.headersSent) {
-        res.status(504).json({
-          message: 'Quiz generation timed out',
-          error: 'The server took too long to generate your quiz. Please try again or reduce the number of questions.',
-          timeoutAt: Date.now() - startTime,
-          maxQuestions: 10 // Suggest 10 as a safer value if 20 times out
-        });
-      }
-    }, 8500); // Just below Vercel's 10s limit
+    
+    // No timeout guard - let the request run to completion
+    // since the user has indicated they're willing to wait
     
     // Connect to MongoDB on-demand
     if (!mongoConnected) {
       const connected = await connectToMongoDB();
       if (!connected) {
-        clearTimeout(timeoutGuard);
         return res.status(503).json({ 
           message: 'Database service unavailable',
           error: 'Unable to connect to database'
@@ -695,20 +684,16 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
 
     const course = await Course.findById(courseId);
     if (!course) {
-      clearTimeout(timeoutGuard);
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    // Create an optimized but detailed prompt for Gemini
-    // Use more concise instructions for larger question counts
-    const promptText = actualNumberOfQuestions <= 10 
-      ? `Create ${actualNumberOfQuestions} multiple choice questions about "${course.name}" at ${difficulty} difficulty. Format: [{question,options:[A,B,C,D],correctAnswer}]. Be concise and efficient.`
-      : `Create ${actualNumberOfQuestions} very brief multiple choice questions about "${course.name}" at ${difficulty} difficulty. Format: [{question,options:[A,B,C,D],correctAnswer}]. Keep all content as concise as possible.`;
+    // Create an optimized prompt for Gemini
+    const promptText = `Create ${actualNumberOfQuestions} multiple choice questions about "${course.name}" at ${difficulty} difficulty. Format: [{question,options:[A,B,C,D],correctAnswer}]. Be concise.`;
 
     console.log(`Generating ${actualNumberOfQuestions} questions at ${difficulty} difficulty`);
     
     try {
-      // Optimize API call for faster response
+      // Use the API key as a query parameter with extended timeout
       const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-001:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
@@ -719,19 +704,15 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
             parts: [{ text: promptText }]
           }],
           generationConfig: {
-            // Adjust parameters based on question count
-            temperature: actualNumberOfQuestions > 10 ? 0.2 : 0.4,
-            maxOutputTokens: Math.min(1024 + (actualNumberOfQuestions * 50), 2048), // Scale with question count
-            topP: 0.7,
-            topK: 20
+            temperature: 0.4,
+            maxOutputTokens: 2048, // Maximum allowed tokens
+            topP: 0.9,
+            topK: 40
           }
         }),
-        // Set a slightly shorter timeout for the fetch itself
-        timeout: 8000
+        // Extended timeout - 30 seconds to allow for larger question sets
+        timeout: 30000
       });
-
-      // Clear the timeout guard since we got a response
-      clearTimeout(timeoutGuard);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -814,15 +795,11 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       return res.json(formattedQuestions);
       
     } catch (error) {
-      // Clear the timeout guard in case of error
-      clearTimeout(timeoutGuard);
-      
       console.error('Quiz Generation Error:', error);
       if (!res.headersSent) {
         res.status(500).json({
           message: 'Failed to generate quiz',
-          error: 'There was an error generating your quiz. Please try again or with fewer questions.',
-          maxQuestions: 10 // Suggest 10 as a safer fallback
+          error: error.message || 'An unexpected error occurred during quiz generation'
         });
       }
     }
@@ -831,7 +808,7 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({
         message: 'Error generating quiz',
-        error: 'An unexpected error occurred. Please try again or with fewer questions.'
+        error: error.message || 'An unexpected error occurred'
       });
     }
   }
