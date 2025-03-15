@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epsilora API Server</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fb;
+        }
+        h1 {
+            color: #4f46e5;
+            border-bottom: 2px solid #4f46e5;
+            padding-bottom: 10px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .endpoint {
+            background-color: #f0f4ff;
+            padding: 10px;
+            border-left: 4px solid #4f46e5;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .status.ok {
+            background-color: #d1fae5;
+            color: #047857;
+        }
+        .status.error {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        button {
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #4338ca;
+        }
+        #statusOutput {
+            margin-top: 10px;
+        }
+        footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <h1>Epsilora API Server</h1>
+    
+    <div class="card">
+        <h2>Server Status</h2>
+        <p>This is the backend API server for the Epsilora educational platform. If you're seeing this page, the server is online and responding to requests.</p>
+        <button onclick="checkAPIStatus()">Check API Status</button>
+        <div id="statusOutput"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Available Endpoints</h2>
+        <div class="endpoint">GET /health - Check server health</div>
+        <div class="endpoint">POST /api/auth/login - User login</div>
+        <div class="endpoint">POST /api/auth/signup - User registration</div>
+        <div class="endpoint">GET /api/courses - Get user courses</div>
+        <div class="endpoint">POST /api/generate-quiz - Generate a quiz</div>
+    </div>
+
+    <footer>
+        <p>Epsilora API Server - Deployed with Vercel</p>
+        <p>Server Time: <span id="serverTime"></span></p>
+    </footer>
+
+    <script>
+        // Update the server time
+        function updateServerTime() {
+            const now = new Date();
+            document.getElementById('serverTime').textContent = now.toLocaleString();
+        }
+        setInterval(updateServerTime, 1000);
+        updateServerTime();
+
+        // Check API status
+        async function checkAPIStatus() {
+            const statusOutput = document.getElementById('statusOutput');
+            statusOutput.innerHTML = '<p>Checking API status...</p>';
+            
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusOutput.innerHTML = `
+                        <p><span class="status ok">ONLINE</span> API server is running properly.</p>
+                        <p>Server timestamp: ${data.timestamp}</p>
+                        <p>Node version: ${data.node || 'Not available'}</p>
+                    `;
+                } else {
+                    statusOutput.innerHTML = `
+                        <p><span class="status error">ERROR</span> API responded with status: ${response.status}</p>
+                        <p>Error: ${data.message || 'Unknown error'}</p>
+                    `;
+                }
+            } catch (error) {
+                statusOutput.innerHTML = `
+                    <p><span class="status error">ERROR</span> Could not connect to API server</p>
+                    <p>Error: ${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html> 
