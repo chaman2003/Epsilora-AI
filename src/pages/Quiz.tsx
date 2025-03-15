@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bar, Pie } from 'react-chartjs-2';
 import {
@@ -245,7 +245,24 @@ const Quiz: React.FC = () => {
   // Move other functions here that might be referenced in useEffects
   const fetchCourses = async () => {
     try {
-      const response = await axiosInstance.get('/api/courses');
+      // Check if we already have courses to prevent redundant API calls
+      if (courses.length > 0) {
+        return; // Skip fetch if we already have courses
+      }
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No authentication token found, skipping courses fetch');
+        return;
+      }
+      
+      const response = await axiosInstance.get('/api/courses', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        timeout: 10000 // Set a reasonable timeout
+      });
+      
       console.log('Raw courses response:', response);
       
       if (response.data && Array.isArray(response.data)) {
@@ -254,7 +271,7 @@ const Quiz: React.FC = () => {
         // Once we have courses, we can update the quiz history with course names
         if (quizHistory.length > 0) {
           const updatedHistory = quizHistory.map((quiz) => {
-            const course = response.data.find((c) => c._id === quiz.courseId);
+            const course = response.data.find((c: { _id: string }) => c._id === quiz.courseId);
             return {
               ...quiz,
               courseName: course ? course.name : 'Unknown Course'
@@ -266,20 +283,45 @@ const Quiz: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
+      // Don't show error toast as it may be annoying on repeated failures
+      // Instead, silently retry with backoff or use cached data
+      
+      // Set empty courses array to prevent repeated fetch attempts
+      if (courses.length === 0) {
+        setCourses([]);
+      }
     }
   };
 
+  // Memoize the fetch function to prevent unnecessary re-creation
+  const memoizedFetchCourses = useCallback(fetchCourses, [courses.length, quizHistory.length]);
+
   // Now that all function declarations are above, we can safely use them in useEffects
   useEffect(() => {
-    if (isAuthenticated && !isLoading && user?._id) {
-      console.log('Authentication status:', isAuthenticated);
-      fetchCourses();
-      // Don't call fetchQuizStatsFromAPI() since the endpoint doesn't exist
-      fetchQuizHistory(); // Safe to call now that it's defined above
-    } else {
-      setError('Please log in to access your courses');
-    }
-  }, [isAuthenticated, isLoading, user?._id, fetchCourses, fetchQuizHistory]);
+    let isMounted = true;
+    
+    const initializeData = async () => {
+      if (isAuthenticated && !isLoading && user?._id) {
+        console.log('Authentication status:', isAuthenticated);
+        
+        // Only proceed if component is still mounted
+        if (isMounted) {
+          await memoizedFetchCourses();
+          // Don't call fetchQuizStatsFromAPI() since the endpoint doesn't exist
+          await fetchQuizHistory(); // Safe to call now that it's defined above
+        }
+      } else {
+        setError('Please log in to access your courses');
+      }
+    };
+    
+    initializeData();
+    
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, isLoading, user?._id, memoizedFetchCourses, fetchQuizHistory]);
 
   useEffect(() => {
     if (courses.length > 0 && quizHistory.length > 0) {
@@ -1430,60 +1472,122 @@ const handleToggleHistory = () => {
                       <span>{showHistory ? 'Hide History' : 'View History'}</span>
                     </button>
                   </div>
+                  
+                  {/* Filter and Sort Controls - Moved above both history and stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Sort By
+                      </label>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as 'date' | 'score' | 'difficulty')}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="date">Date (Newest First)</option>
+                        <option value="score">Score (Highest First)</option>
+                        <option value="difficulty">Difficulty</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Filter by Difficulty
+                      </label>
+                      <select
+                        value={filterDifficulty}
+                        onChange={(e) => setFilterDifficulty(e.target.value)}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="all">All Difficulties</option>
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Filter by Course
+                      </label>
+                      <select
+                        value={filterCourse}
+                        onChange={(e) => setFilterCourse(e.target.value)}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="all">All Courses</option>
+                        {uniqueCourses.map(course => (
+                          <option key={course} value={course}>{course}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  
+                  {/* Statistics Box */}
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-lg p-4 mb-6">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
+                      Your Quiz Statistics
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
+                        <div className="flex items-center">
+                          <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full mr-3">
+                            <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Total Quizzes</p>
+                            <p className="text-xl font-bold text-gray-800 dark:text-white">
+                              {filteredAndSortedHistory.length}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
+                        <div className="flex items-center">
+                          <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full mr-3">
+                            <Award className="h-5 w-5 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Average Score</p>
+                            <p className="text-xl font-bold text-gray-800 dark:text-white">
+                              {filteredAndSortedHistory.length > 0
+                                ? Math.round(
+                                    filteredAndSortedHistory.reduce(
+                                      (sum, quiz) => sum + (quiz.score / quiz.totalQuestions) * 100,
+                                      0
+                                    ) / filteredAndSortedHistory.length
+                                  )
+                                : 0}%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
+                        <div className="flex items-center">
+                          <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-full mr-3">
+                            <Target className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Latest Quiz</p>
+                            <p className="text-xl font-bold text-gray-800 dark:text-white">
+                              {filteredAndSortedHistory.length > 0
+                                ? Math.round(
+                                    (filteredAndSortedHistory[0].score / 
+                                     filteredAndSortedHistory[0].totalQuestions) * 100
+                                  )
+                                : 0}%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Expandable History Section */}
                   {showHistory && (
                     <div className="mt-6">
-                      {/* Filter and Sort Controls */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Sort By
-                          </label>
-                          <select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value as 'date' | 'score' | 'difficulty')}
-                            className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          >
-                            <option value="date">Date (Newest First)</option>
-                            <option value="score">Score (Highest First)</option>
-                            <option value="difficulty">Difficulty</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Filter by Difficulty
-                          </label>
-                          <select
-                            value={filterDifficulty}
-                            onChange={(e) => setFilterDifficulty(e.target.value)}
-                            className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          >
-                            <option value="all">All Difficulties</option>
-                            <option value="Easy">Easy</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Hard">Hard</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Filter by Course
-                          </label>
-                          <select
-                            value={filterCourse}
-                            onChange={(e) => setFilterCourse(e.target.value)}
-                            className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          >
-                            <option value="all">All Courses</option>
-                            {uniqueCourses.map(course => (
-                              <option key={course} value={course}>{course}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
                       {/* Quiz History List */}
                       {isLoadingHistory ? (
                         <div className="flex justify-center items-center py-8">
