@@ -8,6 +8,7 @@
   ],
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist",
+  "installCommand": "npm install",
   "routes": [
     {
       "src": "/api/(.*)",
