@@ -368,27 +368,26 @@ const AIAssist: React.FC = () => {
         
         // If no chat is active, check if we need to create a new one
         if (!currentChatId) {
+          // Check if we were explicitly directed here from a quiz
+          const cameFromQuiz = sessionStorage.getItem('cameFromQuiz') === 'true';
           const storedQuizData = localStorage.getItem('quizData');
           
-          if (storedQuizData) {
+          if (cameFromQuiz && storedQuizData) {
             try {
               const parsedQuizData = JSON.parse(storedQuizData);
               setQuizData(parsedQuizData);
               const summary = generateQuizSummary(parsedQuizData);
               setMessages([{ role: 'assistant', content: summary }]);
+              // Clear the flag
+              sessionStorage.removeItem('cameFromQuiz');
             } catch (error) {
               console.error('Error parsing quiz data:', error);
-              
-              // Create a new chat with welcome message if parsing fails
-              if (chatHistories.length === 0) {
-                const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
-                await createNewChat(initialMessages);
-              } else {
-                setMessages([{ role: 'assistant', content: WELCOME_MESSAGE }]);
-              }
+              // Show welcome message if parsing fails
+              const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
+              await createNewChat(initialMessages);
             }
           } else if (chatHistories.length === 0) {
-            // If there are no chats at all, create a new one
+            // If there are no chats at all, create a new one with welcome message
             const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
             await createNewChat(initialMessages);
           } else {

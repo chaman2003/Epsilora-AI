@@ -447,6 +447,16 @@ const Courses: React.FC = () => {
           .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') // Ensure property names are quoted
           .trim();
         
+        // Fix issues with quoted course names containing nested quotes
+        // Find the "name" property and handle its value specially
+        const nameMatch = cleanText.match(/"name"\s*:\s*"([^"]*(?:"[^"]*"[^"]*)*)"/);
+        if (nameMatch) {
+          // Fix the course name by escaping any internal quotes 
+          const originalName = nameMatch[1];
+          const fixedName = originalName.replace(/(?<!\\)"/g, '\\"');
+          cleanText = cleanText.replace(nameMatch[0], `"name":"${fixedName}"`);
+        }
+        
         console.log('Final cleaned text:', cleanText);
         
         // Try parsing the cleaned text
@@ -456,6 +466,14 @@ const Courses: React.FC = () => {
         } catch (parseError) {
           console.error('JSON parse error:', parseError);
           // If parsing fails, try a more aggressive approach
+          
+          // Handle nested quotes in strings more aggressively
+          cleanText = cleanText.replace(/"([^"]*)"(:)/g, function(match, p1, p2) {
+            // Replace any unescaped quotes inside the value with escaped quotes
+            return '"' + p1.replace(/"/g, '\\"') + '"' + p2;
+          });
+          
+          // Additional aggressive cleaning
           cleanText = cleanText
             .replace(/'/g, '"')         // Replace single quotes with double quotes
             .replace(/\\/g, '\\\\')     // Escape backslashes
@@ -463,7 +481,24 @@ const Courses: React.FC = () => {
             .replace(/\t/g, ' ');       // Replace tabs with spaces
           
           console.log('Aggressive cleaning, trying again with:', cleanText);
-          parsed = JSON.parse(cleanText);
+          
+          // Last resort: try to fix manually
+          try {
+            parsed = JSON.parse(cleanText);
+          } catch (finalError) {
+            // If all parsing attempts fail, create a basic course structure
+            console.error('Failed to parse JSON after all attempts:', finalError);
+            parsed = {
+              name: `Course from ${new Date().toLocaleDateString()}`,
+              provider: "Unknown Provider",
+              duration: "Unknown",
+              pace: `${hoursPerWeek} hours per week`,
+              objectives: ["Complete the course"],
+              milestones: [{ name: "Complete the course" }],
+              prerequisites: [],
+              mainSkills: []
+            };
+          }
         }
         
         console.log('Parsed cleaned text:', parsed);
