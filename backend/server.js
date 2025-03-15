@@ -180,19 +180,27 @@ app.post('/api/auth/login', async (req, res, next) => {
 
     // Validate input
     if (!email || !password) {
+      console.log('Login attempt failed: Missing email or password');
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
+      console.log(`Login attempt failed: No user found for email ${email}`);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
+      console.log(`Login attempt failed: Invalid password for email ${email}`);
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if JWT_SECRET is properly set
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET not found in environment variables, using fallback');
     }
 
     // Generate JWT token
@@ -202,6 +210,7 @@ app.post('/api/auth/login', async (req, res, next) => {
       { expiresIn: '24h' }
     );
 
+    console.log(`Login successful for user: ${email}`);
     res.json({
       token,
       user: {
@@ -211,6 +220,7 @@ app.post('/api/auth/login', async (req, res, next) => {
       }
     });
   } catch (error) {
+    console.error('Login error:', error);
     next(error);
   }
 });
@@ -1205,22 +1215,39 @@ app.get('/api/list-models', async (req, res) => {
 
 // Error Handler Middleware
 const errorHandler = (err, req, res, next) => {
-  console.error(err.stack);
-  
+  console.error('Error:', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    body: req.body
+  });
+
+  // Handle specific error types
   if (err.name === 'ValidationError') {
     return res.status(400).json({ 
-      message: Object.values(err.errors).map(error => error.message).join(', ')
+      message: 'Validation error',
+      details: err.message
     });
   }
-  
-  if (err.code === 11000) {
-    return res.status(400).json({ 
-      message: 'Email already exists'
+
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({ 
+      message: 'Invalid token',
+      details: err.message
+    });
+  }
+
+  if (err.name === 'MongoError' || err.name === 'MongoServerError') {
+    return res.status(503).json({ 
+      message: 'Database error',
+      details: 'There was an issue connecting to the database'
     });
   }
   
   res.status(500).json({ 
-    message: 'Something went wrong on the server'
+    message: 'Something went wrong on the server',
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 };
 

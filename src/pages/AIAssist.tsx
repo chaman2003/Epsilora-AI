@@ -85,7 +85,8 @@ const organizeMessages = (messages: Message[]): Message[] => {
   const seen = new Set();
   return messages
     .filter(msg => {
-      const key = `${msg.role}-${msg.content.trim()}`;
+      const contentPreview = msg.content.substring(0, 100);
+      const key = `${msg.role}-${contentPreview}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -126,6 +127,9 @@ const AIAssist: React.FC = () => {
     correctQuestions?: number[];
   } | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  
+  // Track deleted chat IDs to prevent them from reappearing
+  const deletedChatIdsRef = useRef<Set<string>>(new Set());
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -158,7 +162,14 @@ const AIAssist: React.FC = () => {
           q.options.forEach(opt => {
             const isUserAnswer = opt.label === q.userAnswer;
             const isCorrectAnswer = opt.label === q.correctAnswer;
-            summary += `${isUserAnswer ? '👉 ' : ''}**${opt.label}.** ${opt.text} ${isCorrectAnswer ? '✅' : ''}\n\n`;
+            
+            // Clean option text by removing any leading letter labels like "A)" or "B)" 
+            let cleanedText = opt.text;
+            if (typeof cleanedText === 'string') {
+              cleanedText = cleanedText.replace(/^[a-dA-D]\)[\s]*/g, '');
+            }
+            
+            summary += `${isUserAnswer ? '👉 ' : ''}**${opt.label}.** ${cleanedText} ${isCorrectAnswer ? '✅' : ''}\n\n`;
           });
         }
         
@@ -193,6 +204,7 @@ const AIAssist: React.FC = () => {
         return null;
       }
 
+      // Create the chat on the server
       const response = await axiosInstance.post('/api/chat-history', {
         messages: initialMessages,
         ...(options?.type && { type: options.type }),
@@ -201,12 +213,27 @@ const AIAssist: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setChatHistories(prev => [response.data, ...prev]);
-      setCurrentChatId(response.data._id);
-      setMessages(initialMessages);
-      localStorage.setItem('lastActiveChatId', response.data._id);
+      // Make sure we have a valid response
+      if (!response.data || !response.data._id) {
+        console.error('Invalid response when creating new chat', response);
+        toast.error('Failed to create new chat: Invalid server response');
+        return null;
+      }
 
-      return response.data;
+      const newChat = response.data;
+
+      // Update state in a way that avoids race conditions
+      setChatHistories(prev => {
+        // Make sure we're not duplicating chats
+        const withoutDuplicates = prev.filter(chat => chat._id !== newChat._id);
+        return [newChat, ...withoutDuplicates];
+      });
+      
+      setCurrentChatId(newChat._id);
+      setMessages(initialMessages);
+      localStorage.setItem('lastActiveChatId', newChat._id);
+
+      return newChat;
     } catch (error) {
       console.error('Error creating new chat:', error);
       toast.error('Failed to create new chat');
@@ -250,24 +277,54 @@ const AIAssist: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      const sortedHistories = response.data.sort((a: ChatHistory, b: ChatHistory) => 
+      // Ensure we're working with valid data
+      const validHistories = Array.isArray(response.data) ? response.data : [];
+      
+      // Filter out any chats that are in our deleted chats tracking set
+      const filteredHistories = validHistories.filter(chat => 
+        !deletedChatIdsRef.current.has(chat._id)
+      );
+      
+      if (filteredHistories.length < validHistories.length) {
+        console.log(`Filtered out ${validHistories.length - filteredHistories.length} deleted chats`);
+      }
+      
+      const sortedHistories = filteredHistories.sort((a: ChatHistory, b: ChatHistory) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
       setChatHistories(sortedHistories);
 
+      // Check if we have any chats at all
+      if (sortedHistories.length === 0) {
+        // If no chats exist, clear any current chat state and display welcome message
+        setMessages([{ role: 'assistant', content: WELCOME_MESSAGE }]);
+        setCurrentChatId(null);
+        localStorage.removeItem('lastActiveChatId');
+        return;
+      }
+
       // Restore last active chat if available
       const lastActiveChatId = localStorage.getItem('lastActiveChatId');
       if (lastActiveChatId) {
-        const lastChat = sortedHistories.find(chat => chat._id === lastActiveChatId);
-        if (lastChat) {
-          setCurrentChatId(lastActiveChatId);
-          setMessages(lastChat.messages);
-          return;
+        // Check if the lastActiveChatId is in our deleted chats set
+        if (deletedChatIdsRef.current.has(lastActiveChatId)) {
+          console.log('Last active chat is in deleted set, removing from localStorage');
+          localStorage.removeItem('lastActiveChatId');
+        } else {
+          const lastChat = sortedHistories.find(chat => chat._id === lastActiveChatId);
+          if (lastChat) {
+            setCurrentChatId(lastActiveChatId);
+            setMessages(lastChat.messages);
+            return;
+          } else {
+            // If the last active chat is not found (was deleted), remove it from localStorage
+            localStorage.removeItem('lastActiveChatId');
+          }
         }
       }
 
-      // If no last active chat or quiz data, show welcome message
+      // If no active chat was restored, show welcome message
       if (!quizData) {
         setMessages([{ role: 'assistant', content: WELCOME_MESSAGE }]);
       }
@@ -291,23 +348,53 @@ const AIAssist: React.FC = () => {
     if (initRef.current) return;
     initRef.current = true;
 
+    // Load deleted chat IDs from localStorage
+    try {
+      const deletedChatsJson = localStorage.getItem('deletedChatIds');
+      if (deletedChatsJson) {
+        const deletedChats = JSON.parse(deletedChatsJson);
+        if (Array.isArray(deletedChats)) {
+          deletedChatIdsRef.current = new Set(deletedChats);
+          console.log(`Loaded ${deletedChats.length} deleted chat IDs from localStorage`);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load deleted chat IDs from localStorage:', e);
+    }
+
     const initializeAIAssist = async () => {
       try {
         await loadChatHistories();
-        const storedQuizData = localStorage.getItem('quizData');
         
-        if (storedQuizData && !currentChatId) {
-          try {
-            const parsedQuizData = JSON.parse(storedQuizData);
-            setQuizData(parsedQuizData);
-            const summary = generateQuizSummary(parsedQuizData);
-            setMessages([{ role: 'assistant', content: summary }]);
-          } catch (error) {
-            console.error('Error parsing quiz data:', error);
+        // If no chat is active, check if we need to create a new one
+        if (!currentChatId) {
+          const storedQuizData = localStorage.getItem('quizData');
+          
+          if (storedQuizData) {
+            try {
+              const parsedQuizData = JSON.parse(storedQuizData);
+              setQuizData(parsedQuizData);
+              const summary = generateQuizSummary(parsedQuizData);
+              setMessages([{ role: 'assistant', content: summary }]);
+            } catch (error) {
+              console.error('Error parsing quiz data:', error);
+              
+              // Create a new chat with welcome message if parsing fails
+              if (chatHistories.length === 0) {
+                const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
+                await createNewChat(initialMessages);
+              } else {
+                setMessages([{ role: 'assistant', content: WELCOME_MESSAGE }]);
+              }
+            }
+          } else if (chatHistories.length === 0) {
+            // If there are no chats at all, create a new one
+            const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
+            await createNewChat(initialMessages);
+          } else {
+            // Otherwise just show the welcome message
             setMessages([{ role: 'assistant', content: WELCOME_MESSAGE }]);
           }
-        } else if (!currentChatId) {
-          setMessages([{ role: 'assistant', content: WELCOME_MESSAGE }]);
         }
       } finally {
         setIsInitialized(true);
@@ -315,7 +402,7 @@ const AIAssist: React.FC = () => {
     };
 
     initializeAIAssist();
-  }, [isAuthenticated, navigate, loadChatHistories, generateQuizSummary, setQuizData, currentChatId]);
+  }, [isAuthenticated, navigate, loadChatHistories, generateQuizSummary, setQuizData, currentChatId, chatHistories, createNewChat]);
 
   useEffect(() => {
     if (!isInitialized || !quizData || currentChatId) return;
@@ -352,91 +439,118 @@ const AIAssist: React.FC = () => {
       return;
     }
 
+    // Add user message to UI immediately
     const newMessages = organizeMessages([...messages, userMessage]);
     setMessages(newMessages);
     setLoading(true);
 
     try {
       let chatId = currentChatId;
-      let saveAttempts = 0;
-      const maxAttempts = 3;
-
-      // Create or get chat ID
+      
+      // Create a new chat if we don't have one
       if (!chatId) {
         try {
-          const response = await axiosInstance.post('/api/chat-history', {
-            messages: newMessages,
-            message: userMessage
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          chatId = response.data._id;
-          setCurrentChatId(chatId);
+          console.log('Creating new chat with initial messages:', newMessages);
+          const newChat = await createNewChat(newMessages);
+          if (newChat && newChat._id) {
+            chatId = newChat._id;
+            setCurrentChatId(chatId);
+            console.log('Created new chat with ID:', chatId);
+          } else {
+            throw new Error('Failed to create chat properly');
+          }
         } catch (e) {
           console.error('Failed to create chat:', e);
-          // Fallback: try creating with just the message
-          const response = await axiosInstance.post('/api/chat-history', {
-            message: userMessage
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          chatId = response.data._id;
-          setCurrentChatId(chatId);
+          // Fallback: create a simpler chat
+          try {
+            console.log('Trying fallback chat creation');
+            const response = await axiosInstance.post('/api/chat-history', {
+              messages: [{ role: 'user' as const, content: userMessage.content }]
+            }, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            if (response.data && response.data._id) {
+              chatId = response.data._id;
+              setCurrentChatId(chatId);
+              console.log('Created fallback chat with ID:', chatId);
+            } else {
+              throw new Error('Invalid response from chat creation');
+            }
+          } catch (fallbackError) {
+            console.error('Fallback chat creation also failed:', fallbackError);
+            toast.error('Failed to create new chat. Please try again.');
+            setLoading(false);
+            return;
+          }
+        }
+      } else {
+        // If we already have a chat ID, save the user message
+        console.log('Using existing chat ID:', chatId);
+        const saveResult = await saveMessagesToChat(chatId, newMessages);
+        if (!saveResult) {
+          console.warn('Failed to save user message to existing chat');
         }
       }
 
-      // Save user message
-      while (saveAttempts < maxAttempts && chatId) {
-        const saved = await saveMessagesToChat(chatId, newMessages);
-        if (saved) break;
-        saveAttempts++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      // Get current chat context
-      const currentChat = chatHistories.find(ch => ch._id === chatId);
-      const contextMessage = currentChat?.messages[0]?.content || '';
-      const isQuizReview = contextMessage.includes('Quiz Review');
-
-      // Get AI response with context
-      const response = await axiosInstance.post('/api/super-simple-ai', {
+      // Get AI response
+      console.log('Getting AI response for chat:', chatId);
+      const aiResponse = await axiosInstance.post('/api/super-simple-ai', {
         messages: newMessages,
-        quizContext: null,
         chatContext: { 
-          isQuizReview,
           chatId,
-          firstMessage: contextMessage,
+          firstMessage: messages[0]?.content || '',
           quizData: currentQuizData
         }
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      if (!aiResponse.data || !aiResponse.data.message) {
+        throw new Error('Invalid AI response');
+      }
+
+      // Process AI response
       const assistantMessage = {
         role: 'assistant' as const,
-        content: response.data.message
+        content: aiResponse.data.message
       };
 
+      // Add AI response to state to update UI
       const finalMessages = [...newMessages, assistantMessage];
       setMessages(finalMessages);
       
-      // Save final messages with AI response
-      saveAttempts = 0;
-      while (saveAttempts < maxAttempts && chatId) {
-        const saved = await saveMessagesToChat(chatId!, finalMessages);
-        if (saved) break;
-        saveAttempts++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Save the complete conversation with AI response
+      console.log('Saving complete conversation');
+      let saveSuccessful = false;
+      
+      // Try to save up to 3 times
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) {
+          console.log(`Retry attempt ${attempt + 1} to save messages`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        if (chatId) {  // Add null check for chatId
+          saveSuccessful = await saveMessagesToChat(chatId, finalMessages);
+          if (saveSuccessful) {
+            console.log('Messages saved successfully');
+            break;
+          }
+        }
       }
 
-      await loadChatHistories();
-      const savedChat = chatHistories.find(ch => ch._id === chatId);
-      if (!savedChat || savedChat.messages.length !== finalMessages.length) {
-        await saveMessagesToChat(chatId!, finalMessages);
-        await loadChatHistories();
+      if (!saveSuccessful) {
+        console.warn('Failed to save complete conversation after multiple attempts');
+        toast.error('Your message was sent, but there was an issue saving the conversation history.');
       }
+
+      // Refresh the chat list to show the updated conversation
+      await loadChatHistories();
+      
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error in chat flow:', error);
+      
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
           navigate('/login');
@@ -450,44 +564,46 @@ const AIAssist: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, messages, currentChatId, currentQuizData, chatHistories, navigate]);
+  }, [input, loading, messages, currentChatId, currentQuizData, navigate, createNewChat, loadChatHistories]);
 
-  const saveMessagesToChat = async (chatId: string, messages: Message[]) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return false;
-    }
-
+  const saveMessagesToChat = async (chatId: string, messagesToSave: Message[]): Promise<boolean> => {
     try {
-      await axiosInstance.put(`/api/chat-history/${chatId}`, {
-        messages
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No auth token found');
+        return false;
+      }
+
+      // Deep clone the messages to avoid reference issues
+      const messagesToSend = JSON.parse(JSON.stringify(messagesToSave));
+      
+      // Make sure messages are organized and unique
+      const uniqueMessages = organizeMessages(messagesToSend);
+      
+      if (uniqueMessages.length === 0) {
+        console.error('No messages to save');
+        return false;
+      }
+
+      // Use a more explicit approach with logging
+      console.log(`Saving ${uniqueMessages.length} messages to chat ${chatId}`);
+      
+      const response = await axiosInstance.put(`/api/chat-history/${chatId}`, {
+        messages: uniqueMessages
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      return true;
-    } catch (error) {
-      console.error('Error saving messages:', error);
-      
-      // If it's a 404 error, the chat might have been deleted or doesn't exist
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        // Create a new chat instead of retrying
-        try {
-          const newChatResponse = await axiosInstance.post('/api/chat-history', {
-            messages,
-            title: messages[0]?.content.substring(0, 30) + '...' || 'New Chat'
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          // Update the chat ID
-          setCurrentChatId(newChatResponse.data._id);
-          return true;
-        } catch (createError) {
-          console.error('Error creating new chat:', createError);
-          return false;
-        }
+
+      // Check response status
+      if (response.status >= 200 && response.status < 300) {
+        console.log('Messages saved successfully');
+        return true;
+      } else {
+        console.error('Unexpected response status:', response.status);
+        return false;
       }
-      
+    } catch (error) {
+      console.error('Error saving messages to chat:', error);
       return false;
     }
   };
@@ -524,17 +640,63 @@ const AIAssist: React.FC = () => {
         return;
       }
 
+      // Add to deleted chats tracking
+      deletedChatIdsRef.current.add(chatId);
+      console.log(`Added ${chatId} to deleted chats tracking`);
+      
+      // Save deleted chat IDs to localStorage for persistence across sessions
+      try {
+        const deletedChats = Array.from(deletedChatIdsRef.current);
+        localStorage.setItem('deletedChatIds', JSON.stringify(deletedChats));
+      } catch (e) {
+        console.error('Failed to save deleted chat IDs to localStorage:', e);
+      }
+
+      // First, update local state to immediately reflect the deletion
+      // Store a copy of the remaining chats for later use
+      const updatedChatHistories = chatHistories.filter(chat => chat._id !== chatId);
+      setChatHistories(updatedChatHistories);
+
+      // If we're deleting the current chat, reset the UI state
+      const isDeletingCurrentChat = currentChatId === chatId;
+      if (isDeletingCurrentChat) {
+        setCurrentChatId(null);
+        setMessages([{ role: 'assistant' as const, content: WELCOME_MESSAGE }]);
+        localStorage.removeItem('lastActiveChatId');
+      }
+
+      // Now delete from the server
       await axiosInstance.delete(`/api/chat-history/${chatId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (currentChatId === chatId) {
-        setMessages([]);
-        setCurrentChatId(null);
+
+      // If this was the last chat, create a new one with welcome message
+      if (updatedChatHistories.length === 0) {
+        const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
+        const newChat = await createNewChat(initialMessages);
+        
+        if (newChat) {
+          // Don't call loadChatHistories to avoid race conditions
+          // Just update the state directly
+          setChatHistories([newChat]);
+          setCurrentChatId(newChat._id);
+          setMessages(initialMessages);
+          localStorage.setItem('lastActiveChatId', newChat._id);
+        }
+      } else if (isDeletingCurrentChat && updatedChatHistories.length > 0) {
+        // If we deleted the current chat but have other chats, select the most recent one
+        const mostRecentChat = updatedChatHistories[0]; // Already sorted by date
+        setCurrentChatId(mostRecentChat._id);
+        setMessages(mostRecentChat.messages);
+        localStorage.setItem('lastActiveChatId', mostRecentChat._id);
       }
-      await loadChatHistories();
+
       toast.success('Chat deleted successfully');
     } catch (error) {
       console.error('Error deleting chat:', error);
+      
+      // Revert local changes if server deletion failed
+      loadChatHistories(); // Reload from server to ensure consistency
       toast.error('Failed to delete chat');
     }
   };
@@ -589,10 +751,28 @@ const AIAssist: React.FC = () => {
                 </div>
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={() => {
-                      setMessages([]);
-                      setCurrentChatId(null);
-                      localStorage.removeItem('lastActiveChatId');
+                    onClick={async () => {
+                      // First save the current chat if it exists
+                      if (messages.length > 1 && currentChatId) {  
+                        // Save current chat to ensure it's persisted
+                        await saveMessagesToChat(currentChatId, messages);
+                      }
+                      
+                      // Create a new chat with welcome message
+                      const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
+                      const newChat = await createNewChat(initialMessages);
+                      
+                      if (newChat) {
+                        setMessages(initialMessages);
+                        setCurrentChatId(newChat._id);
+                        localStorage.setItem('lastActiveChatId', newChat._id);
+                      } else {
+                        // Fallback if API call fails
+                        setMessages(initialMessages);
+                        setCurrentChatId(null);
+                        localStorage.removeItem('lastActiveChatId');
+                      }
+                      
                       setIsSidebarOpen(false);
                       toast.success('Started a new chat');
                     }}
@@ -700,10 +880,29 @@ const AIAssist: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-4">
                   <button
-                    onClick={() => {
-                      setMessages([]);
-                      setCurrentChatId(null);
-                      localStorage.removeItem('lastActiveChatId');
+                    onClick={async () => {
+                      // First save the current chat if it exists
+                      if (messages.length > 1 && currentChatId) {  
+                        // Save current chat to ensure it's persisted
+                        await saveMessagesToChat(currentChatId, messages);
+                      }
+                      
+                      // Create a new chat with welcome message
+                      const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
+                      const newChat = await createNewChat(initialMessages);
+                      
+                      if (newChat) {
+                        setMessages(initialMessages);
+                        setCurrentChatId(newChat._id);
+                        localStorage.setItem('lastActiveChatId', newChat._id);
+                      } else {
+                        // Fallback if API call fails
+                        setMessages(initialMessages);
+                        setCurrentChatId(null);
+                        localStorage.removeItem('lastActiveChatId');
+                      }
+                      
+                      setIsSidebarOpen(false);
                       toast.success('Started a new chat');
                     }}
                     className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"

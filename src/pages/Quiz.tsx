@@ -428,14 +428,14 @@ const generateQuiz = async () => {
         throw new Error('No authentication token found');
       }
 
-      console.log('Sending quiz generation request with params:', {
-        courseId: selectedCourse,
-        numberOfQuestions: quizDetails.numberOfQuestions,
-        difficulty: quizDetails.difficulty,
-        timePerQuestion: quizDetails.timePerQuestion
-      });
+        console.log('Sending quiz generation request with params:', {
+          courseId: selectedCourse,
+          numberOfQuestions: quizDetails.numberOfQuestions,
+          difficulty: quizDetails.difficulty,
+          timePerQuestion: quizDetails.timePerQuestion
+        });
 
-      // Set timeout to 3 minutes
+      // Set timeout to 30 seconds
       const response = await axiosInstance.post('/api/generate-quiz', {
         courseId: selectedCourse,
         numberOfQuestions: quizDetails.numberOfQuestions,
@@ -449,209 +449,99 @@ const generateQuiz = async () => {
         }
       });
 
-      console.log('Quiz generation API response status:', response.status);
+        console.log('Quiz generation API response status:', response.status);
       return response;
     } catch (error: any) {
-      console.error('Error in attemptQuizGeneration:', error);
-      
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-      } else {
-        console.error('Error message:', error.message);
-      }
-      
-      // Handle 500 errors - server might be overloaded or Gemini API might be failing
+        console.error('Error in attemptQuizGeneration:', error);
+        
+        if (error.response) {
+          console.error('Response status:', error.response.status);
+          console.error('Response data:', error.response.data);
+        } else if (error.request) {
+          console.error('No response received:', error.request);
+        } else {
+          console.error('Error message:', error.message);
+        }
+        
       if (error.response?.status === 500 && retryCount < maxRetries) {
         retryCount++;
         console.log(`Retry attempt ${retryCount} of ${maxRetries}`);
-        // Exponential backoff with jitter to prevent thundering herd
-        const delay = (2000 * retryCount) + (Math.random() * 1000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise(resolve => setTimeout(resolve, 2000 * retryCount)); // Exponential backoff
         return attemptQuizGeneration();
       }
-      
       throw error;
     }
   };
 
   try {
-    // First try to generate using the API
-    let response;
-    
-    try {
-      response = await attemptQuizGeneration();
-    } catch (apiError: any) {
-      // If all API retries fail, use fallback content
-      if (apiError.response?.status === 500) {
-        console.log('All API retries failed. Using fallback quiz content.');
-        
-        // Use fallback static quiz content
-        response = {
-          data: {
-            questions: generateFallbackQuestions(selectedCourse, quizDetails.difficulty, quizDetails.numberOfQuestions)
-          }
-        };
-      } else {
-        // For other errors, re-throw
-        throw apiError;
+    const response = await attemptQuizGeneration();
+
+      // Log the entire response to help with debugging
+      console.log('Quiz generation response:', response);
+      
+      // More detailed validation of the response
+      if (!response) {
+        throw new Error('No response received from server');
       }
-    }
+      
+      if (!response.data) {
+        throw new Error('Response missing data object');
+      }
 
-    // Process the response
-    console.log('Quiz generation response:', response);
-    
-    if (!response) {
-      throw new Error('No response received from server');
-    }
-    
-    if (!response.data) {
-      throw new Error('Response missing data object');
-    }
+      // Check if response.data is the questions array directly
+      let questionsArray;
+      if (Array.isArray(response.data)) {
+        console.log('Response data is directly an array of questions');
+        questionsArray = response.data;
+      } else if (response.data.questions && Array.isArray(response.data.questions)) {
+        console.log('Response data contains a questions property with an array');
+        questionsArray = response.data.questions;
+      } else {
+        console.error('Invalid response structure:', response.data);
+        throw new Error('Unable to find questions array in response');
+      }
+      
+      if (questionsArray.length === 0) {
+        console.error('Questions array is empty:', questionsArray);
+        throw new Error('Questions array must not be empty');
+      }
 
-    // Check if response.data is the questions array directly
-    let questionsArray;
-    if (Array.isArray(response.data)) {
-      console.log('Response data is directly an array of questions');
-      questionsArray = response.data;
-    } else if (response.data.questions && Array.isArray(response.data.questions)) {
-      console.log('Response data contains a questions property with an array');
-      questionsArray = response.data.questions;
-    } else {
-      console.error('Invalid response structure:', response.data);
-      throw new Error('Unable to find questions array in response');
-    }
-    
-    if (questionsArray.length === 0) {
-      console.error('Questions array is empty:', questionsArray);
-      throw new Error('Questions array must not be empty');
-    }
+      setQuestions(questionsArray);
 
-    setQuestions(questionsArray);
+      const initialQuestionStates = questionsArray.map(() => ({
+        userAnswer: null,
+        timeExpired: false,
+        viewed: false,
+        timeLeft: quizDetails.timePerQuestion
+      }));
 
-    const initialQuestionStates = questionsArray.map(() => ({
-      userAnswer: null,
-      timeExpired: false,
-      viewed: false,
-      timeLeft: quizDetails.timePerQuestion
-    }));
-
-    setQuestionStates(initialQuestionStates);
+      setQuestionStates(initialQuestionStates);
     setCurrentQuestion(0);
     setScore(0);
-    setQuizStarted(true);
+      setQuizStarted(true);
     setStartTime(new Date());
-    setLoading(false);
+      setLoading(false);
 
   } catch (error: any) {
     console.error('Error generating quiz:', error);
-    
-    // Log more details about the error
-    if (error.response) {
-      console.error('Error response data:', error.response.data);
-      console.error('Error response status:', error.response.status);
-    }
-    
-    if (error.response?.status === 401) {
-      toast.error('Session expired. Please log in again');
-      navigate('/login', { state: { from: '/quiz' } });
-    } else {
-      // Provide a more detailed error message to the user
-      let errorMessage = 'Failed to generate quiz';
       
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
+      // Log more details about the error
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
       }
       
-      toast.error(`${errorMessage}. Please try again later.`);
-    }
-    
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again');
+      navigate('/login', { state: { from: '/quiz' } });
+      } else {
+        // Provide a more detailed error message to the user
+        const errorMessage = error.message || 'Failed to generate quiz';
+        toast.error(`${errorMessage}. Please try again later.`);
+      }
+      
     setLoading(false);
   }
-};
-
-// Fallback function to generate static questions if API fails
-const generateFallbackQuestions = (courseId: string, difficulty: string, numberOfQuestions: number): QuizQuestion[] => {
-  // Get the course name from the course ID
-  const course = courses.find((c: any) => c._id === courseId);
-  const courseName = course ? course.name : 'General Knowledge';
-  
-  // Create questions based on common categories
-  const fallbackQuestions: QuizQuestion[] = [];
-  
-  // Define contextual prefixes for different difficulties
-  const difficultyPrefix = {
-    Easy: 'Basic',
-    Medium: 'Intermediate',
-    Hard: 'Advanced'
-  };
-  
-  // Define subject matter based on the course name
-  let subjectMatter = 'concepts';
-  if (courseName.toLowerCase().includes('python')) {
-    subjectMatter = 'Python programming';
-  } else if (courseName.toLowerCase().includes('javascript') || courseName.toLowerCase().includes('js')) {
-    subjectMatter = 'JavaScript programming';
-  } else if (courseName.toLowerCase().includes('java')) {
-    subjectMatter = 'Java programming';
-  } else if (courseName.toLowerCase().includes('data')) {
-    subjectMatter = 'data analysis';
-  } else if (courseName.toLowerCase().includes('web')) {
-    subjectMatter = 'web development';
-  } else if (courseName.toLowerCase().includes('machine learning') || courseName.toLowerCase().includes('ml')) {
-    subjectMatter = 'machine learning';
-  }
-  
-  // Some generic question templates that work for most subjects
-  const questionTemplates = [
-    `Which of the following is a ${difficultyPrefix[difficulty as keyof typeof difficultyPrefix]} ${subjectMatter} principle?`,
-    `In ${subjectMatter}, what is the primary purpose of _____?`,
-    `Which statement about ${subjectMatter} is correct?`,
-    `What is the main advantage of using _____ in ${subjectMatter}?`,
-    `How would you implement _____ in ${subjectMatter}?`,
-    `What is the correct syntax for _____ in ${subjectMatter}?`,
-    `Which of these is NOT a feature of ${subjectMatter}?`,
-    `What is the best practice for _____ when working with ${subjectMatter}?`,
-    `Which tool is most commonly used for ${subjectMatter}?`,
-    `What problem does _____ solve in ${subjectMatter}?`
-  ];
-  
-  // Generate different questions based on templates
-  for (let i = 0; i < numberOfQuestions; i++) {
-    const templateIndex = i % questionTemplates.length;
-    const question = questionTemplates[templateIndex];
-    
-    let options = [
-      `${String.fromCharCode(65)}: Option 1 related to ${subjectMatter}`,
-      `${String.fromCharCode(66)}: Option 2 related to ${subjectMatter}`, 
-      `${String.fromCharCode(67)}: Option 3 related to ${subjectMatter}`,
-      `${String.fromCharCode(68)}: Option 4 related to ${subjectMatter}`
-    ];
-    
-    // Assign correct answer based on difficulty (make harder questions have less obvious answers)
-    let correctAnswer: string;
-    if (difficulty === 'Easy') {
-      correctAnswer = 'A'; // For easy questions, first option is often correct
-    } else if (difficulty === 'Medium') {
-      correctAnswer = i % 2 === 0 ? 'B' : 'C'; // Mix between B and C for medium
-    } else {
-      correctAnswer = String.fromCharCode(65 + (i % 4)); // Distribute evenly for hard
-    }
-    
-    fallbackQuestions.push({
-      question,
-      options: options.map(opt => opt.substring(3)), // Remove the A:, B: prefixes
-      correctAnswer
-    });
-  }
-  
-  return fallbackQuestions;
 };
 
   useEffect(() => {
@@ -767,16 +657,30 @@ const generateFallbackQuestions = (courseId: string, difficulty: string, numberO
       const quizData = {
         userId: user?._id,
         courseId: selectedCourse,
-        questions: questions.map((q, index) => ({
-          question: q.question,
-          options: q.options.map((opt, i) => ({
-            text: opt,
-            label: String.fromCharCode(65 + i) // 'A', 'B', 'C', etc.
-          })),
-          userAnswer: questionStates[index]?.userAnswer || null,
-          correctAnswer: q.correctAnswer,
-          isCorrect: questionStates[index]?.userAnswer === q.correctAnswer
-        })),
+        questions: questions.map((q, index) => {
+          // Get option text and clean it if it's a string
+          const cleanedOptions = q.options.map((opt, i) => {
+            let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
+              ? (opt as {text: string}).text 
+              : String(opt);
+            
+            // Remove any existing letter prefixes like "a)", "b)", etc.
+            optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
+            
+            return {
+              text: optionText,
+              label: String.fromCharCode(65 + i) // 'A', 'B', 'C', etc.
+            };
+          });
+          
+          return {
+            question: q.question,
+            options: cleanedOptions,
+            userAnswer: questionStates[index]?.userAnswer || null,
+            correctAnswer: q.correctAnswer,
+            isCorrect: questionStates[index]?.userAnswer === q.correctAnswer
+          };
+        }),
         score: finalScore,
         totalQuestions: questions.length,
         courseName: courseObj.name,
@@ -820,15 +724,23 @@ const generateFallbackQuestions = (courseId: string, difficulty: string, numberO
     const quizData = {
       questions: questions.map((q, index) => ({
         question: q.question,
-        options: q.options.map((opt, optIndex) => ({
-          text: opt,
-          label: String.fromCharCode(65 + optIndex)
-        })),
-        score: score,
-        totalQuestions: questions.length,
-        courseName: courseObj?.name || 'Unknown Course',
-        difficulty: quizDetails.difficulty,
-        timestamp: new Date().toISOString()
+        options: q.options.map((opt, optIndex) => {
+          // Get option text and clean it if it's a string
+          let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
+            ? (opt as {text: string}).text 
+            : String(opt);
+          
+          // Remove any existing letter prefixes like "a)", "b)", etc.
+          optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
+          
+          return {
+            text: optionText,
+            label: String.fromCharCode(65 + optIndex)
+          };
+        }),
+        correctAnswer: q.correctAnswer,
+        userAnswer: questionStates[index]?.userAnswer || null,
+        isCorrect: questionStates[index]?.userAnswer === q.correctAnswer
       })),
       score: score,
       totalQuestions: questions.length,
@@ -874,10 +786,21 @@ const generateFallbackQuestions = (courseId: string, difficulty: string, numberO
     // Prepare quiz data with complete question details
     const quizData = {
       questions: questions.map((q, index) => {
-        const questionOptions = q.options.map((opt, optIndex) => ({
-          text: opt,
-          label: String.fromCharCode(65 + optIndex)
-        }));
+        const questionOptions = q.options.map((opt, optIndex) => {
+          // Get option text and clean it if it's a string
+          let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
+            ? (opt as {text: string}).text 
+            : String(opt);
+          
+          // Remove any existing letter prefixes like "a)", "b)", etc.
+          optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
+          
+          return {
+            text: optionText,
+            label: String.fromCharCode(65 + optIndex)
+          };
+        });
+        
         return {
           question: q.question,
           options: questionOptions,
@@ -925,10 +848,20 @@ const generateFallbackQuestions = (courseId: string, difficulty: string, numberO
           difficulty: quizDetails.difficulty,
           questions: questions.map((q, index) => {
             // Create options array with proper label and text format
-            const optionsWithLabels = q.options.map((opt, i) => ({
-              text: opt,
-              label: String.fromCharCode(65 + i) // 'A', 'B', 'C', etc.
-            }));
+            const optionsWithLabels = q.options.map((opt, i) => {
+              // Get option text and clean it if it's a string
+              let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
+                ? (opt as {text: string}).text 
+                : String(opt);
+              
+              // Remove any existing letter prefixes like "a)", "b)", etc.
+              optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
+              
+              return {
+                text: optionText,
+                label: String.fromCharCode(65 + i)
+              };
+            });
             
             const userAnswer = questionStates[index]?.userAnswer;
             const isCorrect = userAnswer === q.correctAnswer;
@@ -1034,12 +967,19 @@ const generateFallbackQuestions = (courseId: string, difficulty: string, numberO
           {/* Options with enhanced styling */}
           <div className="space-y-4">
             {questions[currentQuestion]?.options?.map((option, index) => {
-              // Consistently use letters for option labels
               const letterOption = String.fromCharCode(65 + index); // A, B, C, D...
               const isSelected = currentState.userAnswer === letterOption;
               const isCorrect = letterOption === questions[currentQuestion]?.correctAnswer;
               const showCorrect = currentState.viewed && isCorrect;
               const showIncorrect = currentState.viewed && isSelected && !isCorrect;
+
+              // Check if option is an object with text property or just a string
+              const optionText = typeof option === 'object' && option !== null && 'text' in option 
+                ? (option as {text: string}).text 
+                : String(option);
+              
+              // Remove any leading option labels like "a)", "b)", etc.
+              const cleanedOptionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
 
               return (
                 <button
@@ -1067,7 +1007,7 @@ const generateFallbackQuestions = (courseId: string, difficulty: string, numberO
                     }`}>
                     {letterOption}
                   </span>
-                  <span className="flex-grow font-medium">{option}</span>
+                  <span className="flex-grow font-medium">{cleanedOptionText}</span>
                   {showCorrect && <CheckCircle className="w-5 h-5 text-green-600 ml-2" />}
                   {showIncorrect && <XCircle className="w-5 h-5 text-red-600 ml-2" />}
                 </button>
@@ -1127,10 +1067,20 @@ const generateFallbackQuestions = (courseId: string, difficulty: string, numberO
                     difficulty: quizDetails.difficulty,
                     questions: questions.map((q, index) => {
                       // Create options array with proper label and text format
-                      const optionsWithLabels = q.options.map((opt, i) => ({
-                        text: opt,
-                        label: String.fromCharCode(65 + i) // 'A', 'B', 'C', etc.
-                      }));
+                      const optionsWithLabels = q.options.map((opt, i) => {
+                        // Get option text and clean it if it's a string
+                        let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
+                          ? (opt as {text: string}).text 
+                          : String(opt);
+                        
+                        // Remove any existing letter prefixes like "a)", "b)", etc.
+                        optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
+                        
+                        return {
+                          text: optionText,
+                          label: String.fromCharCode(65 + i)
+                        };
+                      });
                       
                       const userAnswer = questionStates[index]?.userAnswer;
                       const isCorrect = userAnswer === q.correctAnswer;
@@ -1331,9 +1281,7 @@ const handleToggleHistory = () => {
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10.5c0-.28.22-.5.5-.5h7c.28 0 .5.22.5.5v3c0 .28-.22.5-.5.5h-7c-.28 0-.5-.22-.5-.5v-3z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.5v3M12 14.5v3" />
-                    <circle cx="12" cy="12" r="10" strokeWidth={2} />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4v2m0 4v2m0 4v2M8 10h8v4H8z" />
                   </svg>
                 </div>
               </div>
