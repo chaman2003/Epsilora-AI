@@ -1,31 +1,18 @@
 {
   "version": 2,
-  "functions": {
-    "vercel.js": {
-      "memory": 1024,
-      "maxDuration": 10,
-      "runtime": "@vercel/node@latest"
-    }
-  },
-  "routes": [
+  "builds": [
     {
-      "src": "/api/(.*)",
-      "dest": "/vercel.js",
-      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      "headers": {
-        "Access-Control-Allow-Origin": "https://epsilora.vercel.app",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept, Authorization",
-        "Access-Control-Allow-Credentials": "true"
-      }
-    },
+      "src": "vercel.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
     {
       "src": "/(.*)",
       "dest": "/vercel.js"
     }
   ],
   "env": {
-    "NODE_ENV": "production",
-    "VERCEL_DEPLOYMENT": "true"
+    "NODE_ENV": "production"
   }
 }

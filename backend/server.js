@@ -771,35 +771,17 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       const formattedQuestions = questions
         .slice(0, actualNumberOfQuestions) // Ensure we don't exceed the requested number
         .map((q, index) => {
-          // Extra cleaning for JSON parsing issues
-          let questionText = q.question?.trim() || `Question ${index + 1}`;
-          
           // Validate and normalize the question format
-          let options = [];
-          if (Array.isArray(q.options)) {
-            options = q.options.map(opt => {
-              // Ensure the option is a string
-              let optStr = typeof opt === 'string' ? opt : JSON.stringify(opt);
-              
-              // Remove any formatting with A. B. C. D. prefixes
-              optStr = optStr.replace(/^[A-D][\.\)]\s*/i, '').trim();
-              
-              // Remove any quotes around the option that might have come from JSON parsing issues
-              optStr = optStr.replace(/^["'](.*)["']$/g, '$1');
-              
-              return optStr;
-            });
-          } else {
-            // Default options if missing or invalid
-            options = ["Option A", "Option B", "Option C", "Option D"];
-          }
+          const options = Array.isArray(q.options) ? 
+            q.options.map(opt => opt.trim()) : 
+            ["Option A", "Option B", "Option C", "Option D"]; // Default if missing
             
           const correctAnswer = q.correctAnswer ? 
-            q.correctAnswer.trim().toUpperCase().replace(/[^A-D]/g, '') : "A"; // Default if missing or invalid
+            q.correctAnswer.trim().toUpperCase() : "A"; // Default if missing
             
           return {
             id: index + 1,
-            question: questionText,
+            question: q.question?.trim() || `Question ${index + 1}`,
             options: options.slice(0, 4), // Ensure exactly 4 options
             correctAnswer: correctAnswer,
             timePerQuestion
