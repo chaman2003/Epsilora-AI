@@ -23,11 +23,11 @@ const QuizLimitNotice: React.FC<QuizLimitNoticeProps> = ({
         </div>
         <div className="ml-3">
           <p className="text-sm text-yellow-700">
-            <strong>Note:</strong> You've selected {selectedQuestionCount} questions, but due to technical limitations, 
-            only the first {maxQuestionCount} questions will be generated.
+            <strong>Note:</strong> You've selected {selectedQuestionCount} questions. While our system 
+            can sometimes handle larger quizzes, response times may vary based on server load.
           </p>
           <p className="text-xs text-yellow-600 mt-1">
-            This limitation is necessary to ensure the quiz loads quickly.
+            If you experience a timeout, try reducing to {maxQuestionCount} questions for more reliable generation.
           </p>
         </div>
       </div>

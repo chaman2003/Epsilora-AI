@@ -32,11 +32,12 @@ const QuizGenerationError: React.FC<QuizGenerationErrorProps> = ({
             
             {isTimeoutError && (
               <div className="mt-2 text-sm">
-                <p className="font-semibold">Why does this happen?</p>
+                <p className="font-semibold">Why did this happen?</p>
                 <ul className="list-disc pl-5 space-y-1 mt-1">
                   <li>Our quiz generation has a time limit of 10 seconds.</li>
-                  <li>Generating many questions can exceed this limit.</li>
-                  <li>To ensure reliable quiz generation, please reduce the number of questions to {maxQuestions} or fewer.</li>
+                  <li>Sometimes the server can handle more questions, but response times may vary based on server load.</li>
+                  <li>Today, the server might be experiencing higher load or limited resources.</li>
+                  <li>For now, try with {maxQuestions} or fewer questions for more reliable results.</li>
                 </ul>
               </div>
             )}
