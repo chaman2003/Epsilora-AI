@@ -5,6 +5,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'https://epsilora-backend.verce
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 180000, // 3 minutes
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   }
