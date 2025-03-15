@@ -63,23 +63,23 @@ const QuizResults: React.FC = () => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 py-12 px-4"
+      className="min-h-screen bg-gradient-to-b from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 py-8 px-4"
     >
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 relative overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8 relative overflow-hidden">
           {/* Background decoration */}
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5" />
           
           {/* Content */}
           <div className="relative">
-            <h1 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text">
+            <h1 className="text-3xl md:text-4xl font-bold text-center mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text">
               Quiz Results
             </h1>
 
-            {/* Score Display */}
-            <div className="flex justify-center mb-8">
+            {/* Score Display with improved sizing */}
+            <div className="flex justify-center mb-6">
               <div className="relative">
-                <svg className="w-32 h-32">
+                <svg className="w-28 h-28 md:w-36 md:h-36">
                   <circle
                     className="text-gray-200 dark:text-gray-700"
                     strokeWidth="8"
@@ -90,7 +90,7 @@ const QuizResults: React.FC = () => {
                     cy="64"
                   />
                   <circle
-                    className={`text-indigo-600 dark:text-indigo-400 ${getScoreColor(percentage)}`}
+                    className={`${getScoreColor(percentage)}`}
                     strokeWidth="8"
                     strokeLinecap="round"
                     stroke="currentColor"
@@ -102,17 +102,26 @@ const QuizResults: React.FC = () => {
                     transform="rotate(-90 64 64)"
                   />
                 </svg>
-                <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-bold">
+                <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xl md:text-2xl font-bold">
                   {formatScore(percentage)}
                 </span>
               </div>
             </div>
 
-            {/* Details Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+            {/* Message moved up for better flow */}
+            <div className="text-center mb-6">
+              <p className="text-lg md:text-xl font-medium text-gray-700 dark:text-gray-300">
+                {getMessage()}
+              </p>
+            </div>
+
+            {/* Details Grid with improved responsiveness */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 shadow-sm">
                 <div className="flex items-center space-x-3">
-                  <Award className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                  <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
+                    <Award className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Score</p>
                     <p className="text-lg font-semibold">{formatScore(percentage)}</p>
@@ -120,19 +129,25 @@ const QuizResults: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 shadow-sm">
                 <div className="flex items-center space-x-3">
-                  <Book className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
+                    <Book className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  </div>
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Course</p>
-                    <p className="text-lg font-semibold">{courseName || 'General Quiz'}</p>
+                    <p className="text-lg font-semibold truncate" title={courseName || 'General Quiz'}>
+                      {courseName || 'General Quiz'}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 shadow-sm">
                 <div className="flex items-center space-x-3">
-                  <Clock className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                  <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-lg">
+                    <Clock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                  </div>
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Difficulty</p>
                     <p className="text-lg font-semibold">{difficulty}</p>
@@ -141,30 +156,23 @@ const QuizResults: React.FC = () => {
               </div>
             </div>
 
-            {/* Message */}
-            <div className="text-center mb-8">
-              <p className="text-xl font-medium text-gray-700 dark:text-gray-300">
-                {getMessage()}
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
+            {/* Action Buttons with improved responsiveness */}
+            <div className="flex flex-col sm:flex-row justify-center items-center space-y-3 sm:space-y-0 sm:space-x-4">
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={handleTryAgain}
-                className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200"
+                className="w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <ArrowLeft className="w-5 h-5 mr-2" />
                 Try Another Quiz
               </motion.button>
               
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={handleGetAIHelp}
-                className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200"
+                className="w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <MessageSquare className="w-5 h-5 mr-2" />
                 Get AI Help

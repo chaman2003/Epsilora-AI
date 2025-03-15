@@ -5,10 +5,13 @@ interface QuizLimitNoticeProps {
   maxQuestionCount: number;
 }
 
-const QuizLimitNotice: React.FC<QuizLimitNoticeProps> = ({ 
-  selectedQuestionCount, 
-  maxQuestionCount 
-}) => {
+// We're not using the props anymore since the component always returns null
+const QuizLimitNotice: React.FC<QuizLimitNoticeProps> = () => {
+  // Always return null to hide the component completely, as requested by the user
+  return null;
+
+  // The previous implementation that's now disabled:
+  /*
   if (selectedQuestionCount <= maxQuestionCount) {
     return null;
   }
@@ -32,6 +35,7 @@ const QuizLimitNotice: React.FC<QuizLimitNoticeProps> = ({
       </div>
     </div>
   );
+  */
 };
 
 export default QuizLimitNotice; 
