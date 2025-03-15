@@ -30,13 +30,24 @@ const app = express();
 
 // CORS configuration
 const corsOptions = {
-  origin: [
-    'https://epsilora.vercel.app',
-    'https://epsilora-chaman-ss-projects.vercel.app',
-    'https://epsilora-8f6lvf0o2-chaman-ss-projects.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:5173'
-  ],
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'https://epsilora.vercel.app',
+      'https://epsilora-chaman-ss-projects.vercel.app',
+      'https://epsilora-8f6lvf0o2-chaman-ss-projects.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3002',
+      'http://localhost:5173'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.includes(origin) || 
+        /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin)) {
+      callback(null, origin);
+    } else {
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -45,6 +56,20 @@ const corsOptions = {
 
 // Apply CORS middleware
 app.use(cors(corsOptions));
+
+// Add additional headers for CORS
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (
+      corsOptions.origin === '*' || 
+      (typeof corsOptions.origin === 'function' && 
+       corsOptions.origin(origin, () => true, true))
+  )) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
 
 // Middleware to handle requests and responses
 app.use(express.json());
@@ -1142,9 +1167,27 @@ app.post('/api/super-simple-ai', authenticateToken, async (req, res) => {
 app.get('/api/list-models', async (req, res) => {
   console.log('Attempting to list available models...');
   
-  // Enable CORS for testing
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET');
+  // Get origin from the request
+  const origin = req.headers.origin;
+  
+  // Only set CORS headers if origin is valid
+  if (origin) {
+    const allowedOrigins = [
+      'https://epsilora.vercel.app',
+      'https://epsilora-chaman-ss-projects.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3002',
+      'http://localhost:5173'
+    ];
+    
+    // Check if origin is allowed or matches pattern
+    if (allowedOrigins.includes(origin) || 
+        /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Methods', 'GET');
+      res.header('Access-Control-Allow-Credentials', 'true');
+    }
+  }
   
   try {
     const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
