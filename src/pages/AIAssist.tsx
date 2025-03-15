@@ -345,55 +345,26 @@ const AIAssist: React.FC = () => {
       return;
     }
 
-    if (initRef.current) return;
-    initRef.current = true;
-
-    // Load deleted chat IDs from localStorage
-    try {
-      const deletedChatsJson = localStorage.getItem('deletedChatIds');
-      if (deletedChatsJson) {
-        const deletedChats = JSON.parse(deletedChatsJson);
-        if (Array.isArray(deletedChats)) {
-          deletedChatIdsRef.current = new Set(deletedChats);
-          console.log(`Loaded ${deletedChats.length} deleted chat IDs from localStorage`);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load deleted chat IDs from localStorage:', e);
+    // Load chat history first
+    if (!initRef.current) {
+      initRef.current = true;
+      loadChatHistories();
     }
 
     const initializeAIAssist = async () => {
       try {
-        await loadChatHistories();
-        
-        // If no chat is active, check if we need to create a new one
-        if (!currentChatId) {
-          // Check if we were explicitly directed here from a quiz
-          const cameFromQuiz = sessionStorage.getItem('cameFromQuiz') === 'true';
-          const storedQuizData = localStorage.getItem('quizData');
-          
-          if (cameFromQuiz && storedQuizData) {
-            try {
-              const parsedQuizData = JSON.parse(storedQuizData);
-              setQuizData(parsedQuizData);
-              const summary = generateQuizSummary(parsedQuizData);
-              setMessages([{ role: 'assistant', content: summary }]);
-              // Clear the flag
-              sessionStorage.removeItem('cameFromQuiz');
-            } catch (error) {
-              console.error('Error parsing quiz data:', error);
-              // Show welcome message if parsing fails
-              const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
-              await createNewChat(initialMessages);
-            }
-          } else if (chatHistories.length === 0) {
-            // If there are no chats at all, create a new one with welcome message
-            const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
-            await createNewChat(initialMessages);
-          } else {
-            // Otherwise just show the welcome message
-            setMessages([{ role: 'assistant', content: WELCOME_MESSAGE }]);
-          }
+        // If we are loading a specific chat or there's a last active chat, don't try to use quiz data
+        if (currentChatId || localStorage.getItem('lastActiveChatId')) {
+          return;
+        }
+
+        // Always show welcome message instead of quiz data
+        setMessages([{ role: 'assistant', content: WELCOME_MESSAGE }]);
+
+        // Only create a new chat if there are no existing chats
+        if (chatHistories.length === 0) {
+          const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
+          await createNewChat(initialMessages);
         }
       } finally {
         setIsInitialized(true);
@@ -401,12 +372,13 @@ const AIAssist: React.FC = () => {
     };
 
     initializeAIAssist();
-  }, [isAuthenticated, navigate, loadChatHistories, generateQuizSummary, setQuizData, currentChatId, chatHistories, createNewChat]);
+  }, [isAuthenticated, navigate, loadChatHistories, currentChatId, chatHistories, createNewChat]);
 
+  // Remove quiz data processing since we want to always show welcome message
   useEffect(() => {
-    if (!isInitialized || !quizData || currentChatId) return;
-    processQuizData();
-  }, [isInitialized, quizData, currentChatId, processQuizData]);
+    // Clear any stored quiz data to prevent it from showing in future sessions
+    localStorage.removeItem('quizData');
+  }, []);
 
   useEffect(() => {
     return () => {

@@ -438,7 +438,7 @@ const Courses: React.FC = () => {
         // Remove markdown code blocks
         cleanText = cleanText.replace(/```json|```/g, '');
         
-        // Fix common JSON formatting issues
+        // Fix common JSON formatting issues and handle escaped quotes
         cleanText = cleanText
           .replace(/\\n/g, ' ')         // Remove newlines
           .replace(/\\s+/g, ' ')        // Remove extra whitespace
@@ -446,85 +446,94 @@ const Courses: React.FC = () => {
           .replace(/,\s*]/g, ']')       // Fix trailing commas in arrays
           .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') // Ensure property names are quoted
           .trim();
-        
-        // Fix issues with quoted course names containing nested quotes
-        // Find the "name" property and handle its value specially
-        const nameMatch = cleanText.match(/"name"\s*:\s*"([^"]*(?:"[^"]*"[^"]*)*)"/);
-        if (nameMatch) {
-          // Fix the course name by escaping any internal quotes 
-          const originalName = nameMatch[1];
-          const fixedName = originalName.replace(/(?<!\\)"/g, '\\"');
-          cleanText = cleanText.replace(nameMatch[0], `"name":"${fixedName}"`);
-        }
-        
-        console.log('Final cleaned text:', cleanText);
-        
-        // Try parsing the cleaned text
-        let parsed;
+          
+        // Handle special case of quotes in JSON values
         try {
-          parsed = JSON.parse(cleanText);
-        } catch (parseError) {
-          console.error('JSON parse error:', parseError);
-          // If parsing fails, try a more aggressive approach
-          
-          // Handle nested quotes in strings more aggressively
-          cleanText = cleanText.replace(/"([^"]*)"(:)/g, function(match, p1, p2) {
-            // Replace any unescaped quotes inside the value with escaped quotes
-            return '"' + p1.replace(/"/g, '\\"') + '"' + p2;
-          });
-          
-          // Additional aggressive cleaning
-          cleanText = cleanText
-            .replace(/'/g, '"')         // Replace single quotes with double quotes
-            .replace(/\\/g, '\\\\')     // Escape backslashes
-            .replace(/\r?\n|\r/g, '')   // Remove all line breaks
-            .replace(/\t/g, ' ');       // Replace tabs with spaces
-          
-          console.log('Aggressive cleaning, trying again with:', cleanText);
-          
-          // Last resort: try to fix manually
+          // First try normal parsing
+          console.log('First attempt at parsing cleaned text:', cleanText);
+          let parsed;
           try {
             parsed = JSON.parse(cleanText);
-          } catch (finalError) {
-            // If all parsing attempts fail, create a basic course structure
-            console.error('Failed to parse JSON after all attempts:', finalError);
-            parsed = {
-              name: `Course from ${new Date().toLocaleDateString()}`,
-              provider: "Unknown Provider",
-              duration: "Unknown",
-              pace: `${hoursPerWeek} hours per week`,
-              objectives: ["Complete the course"],
-              milestones: [{ name: "Complete the course" }],
-              prerequisites: [],
-              mainSkills: []
+          } catch (quoteError) {
+            console.log('Error parsing with potential quote issues:', quoteError);
+            
+            // Special handling for quotes in course names - more aggressive quote escaping
+            // Replace unescaped quotes inside string values with escaped quotes
+            cleanText = cleanText.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, function(match) {
+              // Replace unescaped quotes within the string with escaped quotes
+              return match.replace(/([^\\])"/g, '$1\\"').replace(/^"/, '"').replace(/"$/, '"');
+            });
+            
+            console.log('After quote escaping:', cleanText);
+            parsed = JSON.parse(cleanText);
+          }
+          
+          console.log('Parsed cleaned text:', parsed);
+          
+          // Fill in any missing fields with defaults
+          const filledParsed = {
+            name: parsed.name || "Untitled Course",
+            provider: parsed.provider || "Unknown Provider",
+            duration: parsed.duration || "12 weeks",
+            pace: parsed.pace || `${hoursPerWeek} hours per week`,
+            objectives: Array.isArray(parsed.objectives) ? parsed.objectives : ["Complete the course"],
+            milestones: Array.isArray(parsed.milestones) && parsed.milestones.length > 0 
+                      ? parsed.milestones.map((m: any) => ({ name: m.name || "Complete milestone" }))
+                      : [{ name: "Complete the course" }],
+            prerequisites: Array.isArray(parsed.prerequisites) ? parsed.prerequisites : [],
+            mainSkills: Array.isArray(parsed.mainSkills) ? parsed.mainSkills : []
+          };
+          
+          console.log('Filled parsed object:', filledParsed);
+          
+          if (!validateCourseInfo(filledParsed)) {
+            throw new Error('Missing required fields in course info');
+          }
+          
+          return filledParsed;
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError);
+          
+          // Most aggressive approach as a last resort
+          try {
+            // Replace problematic quotes completely
+            cleanText = cleanText
+              .replace(/'/g, '"')         // Replace single quotes with double quotes
+              .replace(/\\/g, '\\\\')     // Escape backslashes
+              .replace(/\r?\n|\r/g, '')   // Remove all line breaks
+              .replace(/\t/g, ' ');       // Replace tabs with spaces
+            
+            // Fix double quotes in property values
+            cleanText = cleanText.replace(/"name"\s*:\s*"([^"]*)"([^,}]*)"([^"]*)"/g, '"name":"$1$2$3"');
+            
+            console.log('Aggressive cleaning, trying again with:', cleanText);
+            const parsed = JSON.parse(cleanText);
+            
+            // Fill in missing fields with defaults like before
+            const filledParsed = {
+              name: parsed.name || "Untitled Course",
+              provider: parsed.provider || "Unknown Provider",
+              duration: parsed.duration || "12 weeks",
+              pace: parsed.pace || `${hoursPerWeek} hours per week`,
+              objectives: Array.isArray(parsed.objectives) ? parsed.objectives : ["Complete the course"],
+              milestones: Array.isArray(parsed.milestones) && parsed.milestones.length > 0 
+                        ? parsed.milestones.map((m: any) => ({ name: m.name || "Complete milestone" }))
+                        : [{ name: "Complete the course" }],
+              prerequisites: Array.isArray(parsed.prerequisites) ? parsed.prerequisites : [],
+              mainSkills: Array.isArray(parsed.mainSkills) ? parsed.mainSkills : []
             };
+            
+            if (!validateCourseInfo(filledParsed)) {
+              throw new Error('Missing required fields in course info');
+            }
+            
+            return filledParsed;
+          } catch (e3) {
+            console.error('Failed to parse JSON after aggressive cleaning:', e3);
+            throw new Error('Failed to parse course information. Please check the format and try again.');
           }
         }
-        
-        console.log('Parsed cleaned text:', parsed);
-        
-        // Fill in any missing fields with defaults
-        const filledParsed = {
-          name: parsed.name || "Untitled Course",
-          provider: parsed.provider || "Unknown Provider",
-          duration: parsed.duration || "12 weeks",
-          pace: parsed.pace || `${hoursPerWeek} hours per week`,
-          objectives: Array.isArray(parsed.objectives) ? parsed.objectives : ["Complete the course"],
-          milestones: Array.isArray(parsed.milestones) && parsed.milestones.length > 0 
-                    ? parsed.milestones.map((m: any) => ({ name: m.name || "Complete milestone" }))
-                    : [{ name: "Complete the course" }],
-          prerequisites: Array.isArray(parsed.prerequisites) ? parsed.prerequisites : [],
-          mainSkills: Array.isArray(parsed.mainSkills) ? parsed.mainSkills : []
-        };
-        
-        console.log('Filled parsed object:', filledParsed);
-        
-        if (!validateCourseInfo(filledParsed)) {
-          throw new Error('Missing required fields in course info');
-        }
-        
-        return filledParsed;
-      } catch (e2: any) {
+      } catch (e2) {
         console.error('Failed to parse JSON after cleaning:', e2);
         if (e2.message && e2.message.includes('Invalid API response format')) {
           throw new Error('The AI response did not contain a valid JSON object. Please try again.');
