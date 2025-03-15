@@ -34,17 +34,22 @@ const corsOptions = {
     const allowedOrigins = [
       'https://epsilora.vercel.app',
       'https://epsilora-chaman-ss-projects.vercel.app',
+      'https://epsilora-git-master-chaman-ss-projects.vercel.app',
       'https://epsilora-8f6lvf0o2-chaman-ss-projects.vercel.app',
       'http://localhost:3000',
       'http://localhost:3002',
       'http://localhost:5173'
     ];
     
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.includes(origin) || 
-        /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin)) {
+    // Allow requests with no origin (like mobile apps or curl requests) 
+    // or any Vercel deployment URL
+    if (!origin || 
+        allowedOrigins.includes(origin) || 
+        /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin) ||
+        /^https:\/\/epsilora.*\.vercel\.app$/.test(origin)) {
       callback(null, origin);
     } else {
+      console.log(`CORS blocked origin: ${origin}`);
       callback(new Error(`Origin ${origin} not allowed by CORS`));
     }
   },
@@ -68,6 +73,14 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', origin);
   }
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   next();
 });
 
