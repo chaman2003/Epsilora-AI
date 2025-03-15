@@ -2,29 +2,17 @@
   "version": 2,
   "builds": [
     {
-      "src": "server.js",
+      "src": "vercel.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/health",
-      "dest": "/vercel-init.js"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/server.js"
+      "dest": "/vercel.js"
     }
   ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "https://epsilora.vercel.app" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,DELETE,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Origin" },
-        { "key": "Access-Control-Allow-Credentials", "value": "true" }
-      ]
-    }
-  ]
+  "env": {
+    "NODE_ENV": "production"
+  }
 }

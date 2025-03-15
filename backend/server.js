@@ -118,26 +118,21 @@ const connectToMongoDB = async () => {
   try {
     console.log('Attempting to connect to MongoDB...');
     
-    // Simplified connection options
+    // Simplified connection options optimized for serverless
     const mongoOptions = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000,
+      // These options are important for serverless environments
+      bufferCommands: false, // Don't buffer commands when not connected
+      autoCreate: false, // Don't create indexes automatically
+      // Set max pool size low to avoid connection issues
+      maxPoolSize: 5
     };
     
     await mongoose.connect(process.env.MONGODB_URI, mongoOptions);
     console.log('Connected to MongoDB successfully');
     mongoConnected = true;
-    
-    mongoose.connection.on('error', (err) => {
-      console.error('MongoDB connection error:', err);
-      mongoConnected = false;
-    });
-    
-    mongoose.connection.on('disconnected', () => {
-      console.log('MongoDB disconnected');
-      mongoConnected = false;
-    });
     
     return true;
   } catch (error) {
@@ -1361,10 +1356,15 @@ app.use(errorHandler);
 
 app.use('/api/progress', progressRoutes);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Start server only in local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// Export the Express app for Vercel serverless deployment
+export default app;
 
 // Update error handling to use new retry mechanism
 async function generateQuizWithRetry() {
