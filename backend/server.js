@@ -107,10 +107,59 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize MongoDB connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Initialize MongoDB connection with improved error handling and retry logic
+const connectToMongoDB = async (retryCount = 0, maxRetries = 5) => {
+  try {
+    console.log(`Attempting to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+    
+    // Set proper connection options
+    const mongoOptions = {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 10000, // 10 seconds timeout for server selection
+      socketTimeoutMS: 45000, // 45 seconds timeout on socket operations
+      connectTimeoutMS: 10000, // 10 seconds to establish initial connection
+      maxPoolSize: 10, // Maintain up to 10 socket connections
+      minPoolSize: 5, // Maintain at least 5 socket connections
+    };
+    
+    await mongoose.connect(process.env.MONGODB_URI, mongoOptions);
+    console.log('Connected to MongoDB successfully');
+    
+    // Set up mongoose connection error handlers
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB disconnected! Attempting to reconnect...');
+    });
+    
+    return true;
+  } catch (error) {
+    console.error(`MongoDB connection error (attempt ${retryCount + 1}):`, error);
+    
+    if (retryCount < maxRetries) {
+      // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+      const delay = Math.pow(2, retryCount) * 1000;
+      console.log(`Retrying connection in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return connectToMongoDB(retryCount + 1, maxRetries);
+    } else {
+      console.error('Failed to connect to MongoDB after multiple attempts');
+      return false;
+    }
+  }
+};
+
+// Run the connection function
+connectToMongoDB()
+  .then(isConnected => {
+    if (!isConnected) {
+      console.warn('Server starting without established MongoDB connection');
+    }
+  })
+  .catch(err => console.error('Error in MongoDB connection process:', err));
 
 // Initialize Gemini AI
 let genAI = null;
@@ -213,26 +262,73 @@ app.post('/api/auth/signup', async (req, res, next) => {
 });
 
 app.post('/api/auth/login', async (req, res, next) => {
+  // Add response timeout handling
+  const timeoutDuration = 25000; // 25 seconds
+  const timeoutId = setTimeout(() => {
+    console.error(`Login request timed out after ${timeoutDuration}ms`);
+    res.status(503).json({ 
+      message: 'Request processing timed out',
+      error: 'The server took too long to respond. Please try again.'
+    });
+  }, timeoutDuration);
+
   try {
+    console.log('Login request received:', new Date().toISOString());
     const { email, password } = req.body;
 
     // Validate input
     if (!email || !password) {
       console.log('Login attempt failed: Missing email or password');
+      clearTimeout(timeoutId);
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Find user
-    const user = await User.findOne({ email });
+    // Find user - with timeout handling
+    console.log(`Attempting to find user with email: ${email}`);
+    let user;
+    try {
+      user = await Promise.race([
+        User.findOne({ email }).lean(), // Use lean() for faster queries
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database query timeout')), 10000)
+        )
+      ]);
+    } catch (dbError) {
+      console.error('Database error during login:', dbError);
+      clearTimeout(timeoutId);
+      return res.status(503).json({ 
+        message: 'Database service unavailable',
+        error: 'Unable to verify credentials at this time. Please try again later.'
+      });
+    }
+
     if (!user) {
       console.log(`Login attempt failed: No user found for email ${email}`);
+      clearTimeout(timeoutId);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    // Verify password with timeout handling
+    let isValidPassword;
+    try {
+      isValidPassword = await Promise.race([
+        bcrypt.compare(password, user.password),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Password verification timeout')), 5000)
+        )
+      ]);
+    } catch (passwordError) {
+      console.error('Password verification error:', passwordError);
+      clearTimeout(timeoutId);
+      return res.status(503).json({ 
+        message: 'Authentication service unavailable',
+        error: 'Unable to verify password at this time. Please try again later.'
+      });
+    }
+
     if (!isValidPassword) {
       console.log(`Login attempt failed: Invalid password for email ${email}`);
+      clearTimeout(timeoutId);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -249,6 +345,7 @@ app.post('/api/auth/login', async (req, res, next) => {
     );
 
     console.log(`Login successful for user: ${email}`);
+    clearTimeout(timeoutId); // Clear the timeout
     res.json({
       token,
       user: {
@@ -259,6 +356,7 @@ app.post('/api/auth/login', async (req, res, next) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    clearTimeout(timeoutId); // Clear the timeout
     next(error);
   }
 });
