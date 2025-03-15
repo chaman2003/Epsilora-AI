@@ -4,7 +4,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'https://epsilora-backend.verce
 
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 180000, // 3 minutes
+  timeout: 30000, // 30 seconds is more reasonable for API requests
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -21,39 +21,37 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('Request error:', error);
     return Promise.reject(error);
   }
 );
 
-// Add response interceptor
+// Add response interceptor with better error handling
 axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // If error is 401 and we haven't tried to refresh token yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        // Try to refresh token
-        const response = await axios.post(`${BASE_URL}/api/auth/refresh-token`, {
-          refreshToken: localStorage.getItem('refreshToken')
-        });
-
-        if (response.data.token) {
-          localStorage.setItem('token', response.data.token);
-          originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
-          return axiosInstance(originalRequest);
-        }
-      } catch (refreshError) {
-        // If refresh fails, redirect to login
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Handle different types of errors
+    if (error.code === 'ECONNABORTED') {
+      console.error('Request timeout:', error);
+      return Promise.reject(new Error('Request timed out. Please try again later.'));
     }
-
-    return Promise.reject(error);
+    
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('Response error:', error.response.status, error.response.data);
+      return Promise.reject(error.response.data || error);
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('No response received:', error.request);
+      return Promise.reject(new Error('No response from server. Please check your connection.'));
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('Request setup error:', error.message);
+      return Promise.reject(error);
+    }
   }
 );
 
