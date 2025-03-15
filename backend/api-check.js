@@ -1,6 +1,9 @@
-import fetch from 'node-fetch';
+// API Check Tool for Vercel Deployment
+// Tests MongoDB and Gemini API connections
+
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import fetch from 'node-fetch';
 
 // Load environment variables
 dotenv.config();

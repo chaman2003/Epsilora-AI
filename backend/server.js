@@ -107,39 +107,50 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize MongoDB connection with simplified approach for deployment
+// Lazy initialization for non-critical components
+let genAI = null;
+let mongoConnected = false;
+
+// MongoDB connection as a separate function that can be called on-demand
 const connectToMongoDB = async () => {
+  if (mongoConnected) return true; // Skip if already connected
+  
   try {
     console.log('Attempting to connect to MongoDB...');
     
-    // Simplified connection options that work well with Vercel
+    // Simplified connection options
     const mongoOptions = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000, // 5 seconds timeout for server selection
+      serverSelectionTimeoutMS: 5000,
     };
     
     await mongoose.connect(process.env.MONGODB_URI, mongoOptions);
     console.log('Connected to MongoDB successfully');
+    mongoConnected = true;
     
     mongoose.connection.on('error', (err) => {
       console.error('MongoDB connection error:', err);
+      mongoConnected = false;
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB disconnected');
+      mongoConnected = false;
     });
     
     return true;
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    console.warn('Server starting without established MongoDB connection');
+    mongoConnected = false;
     return false;
   }
 };
 
-// Run the connection function
-connectToMongoDB()
-  .catch(err => console.error('Error in MongoDB connection process:', err));
-
-// Initialize Gemini AI with safer initialization
-const initializeGeminiAI = async () => {
+// Lazy-loaded Gemini initialization that only happens when needed
+const getGeminiAI = async () => {
+  if (genAI) return genAI; // Return existing instance if available
+  
   if (!GEMINI_API_KEY) {
     console.warn('GEMINI_API_KEY not found in environment variables');
     return null;
@@ -147,20 +158,16 @@ const initializeGeminiAI = async () => {
 
   try {
     console.log('Initializing Gemini AI...');
-    const ai = new GoogleGenerativeAI(GEMINI_API_KEY);
-    return ai;
+    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    return genAI;
   } catch (error) {
     console.error('Error initializing Gemini AI:', error);
     return null;
   }
 };
 
-// Initialize Gemini AI safely without awaiting the test request
-let genAI = await initializeGeminiAI();
-console.log('Gemini AI initialization status:', genAI ? 'Success' : 'Failed');
-
-// Authentication middleware
-const authenticateToken = (req, res, next) => {
+// Authentication middleware with on-demand MongoDB connection
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -169,6 +176,14 @@ const authenticateToken = (req, res, next) => {
   }
 
   try {
+    // Connect to MongoDB first if needed
+    if (!mongoConnected) {
+      const connected = await connectToMongoDB();
+      if (!connected) {
+        return res.status(503).json({ message: 'Database unavailable' });
+      }
+    }
+
     const user = jwt.verify(token, JWT_SECRET);
     req.user = user;
     next();
@@ -227,17 +242,25 @@ app.post('/api/auth/signup', async (req, res, next) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res, next) => {
-  let timeoutId = null;
-  
+// Modified login endpoint with on-demand MongoDB connection and optimized flow
+app.post('/api/auth/login', async (req, res) => {
   try {
     console.log('Login request received:', new Date().toISOString());
     const { email, password } = req.body;
 
-    // Validate input
+    // Validate input immediately before any DB operations
     if (!email || !password) {
       console.log('Login attempt failed: Missing email or password');
       return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    // Connect to MongoDB only when needed and for each request
+    const connected = await connectToMongoDB();
+    if (!connected) {
+      return res.status(503).json({ 
+        message: 'Database service unavailable',
+        error: 'Unable to connect to database'
+      });
     }
 
     // Find user
@@ -286,10 +309,6 @@ app.post('/api/auth/login', async (req, res, next) => {
       message: 'Login failed',
       error: error.message 
     });
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
   }
 });
 

@@ -5,8 +5,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "vercel-build": "echo 'Building backend for Vercel'",
-    "check": "node api-check.js"
+    "vercel-build": "echo 'Optimized for Vercel deployment'",
+    "check": "node api-check.js",
+    "prestart": "node api-check.js"
   },
   "engines": {
     "node": "20.x"
@@ -22,7 +23,7 @@
     "mongodb": "^5.9.2",
     "mongodb-connection-string-url": "^2.6.0",
     "mongoose": "^7.6.8",
-    "node-fetch": "^3.3.2",
+    "node-fetch": "^2.6.7",
     "react-hot-toast": "^2.4.1",
     "webidl-conversions": "^7.0.0",
     "whatwg-url": "^13.0.0"
@@ -34,5 +35,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "Backend API for Epsilora educational platform"
 }
