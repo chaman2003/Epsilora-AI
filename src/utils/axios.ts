@@ -7,9 +7,6 @@ const axiosInstance = axios.create({
   timeout: 180000, // 3 minutes
   headers: {
     'Content-Type': 'application/json',
-  },
-  params: {
-    key: import.meta.env.VITE_GEMINI_API_KEY
   }
 });
 
