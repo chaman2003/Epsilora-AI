@@ -627,26 +627,27 @@ Remember to:
 app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
   const startTime = Date.now();
   
-  // Set CORS headers directly for quiz generation endpoint
-  // This ensures headers are present even if a timeout occurs
+  // Set CORS headers immediately to ensure they're always sent even on timeout
   res.header('Access-Control-Allow-Origin', 'https://epsilora.vercel.app');
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   
   console.log('Quiz generation started:', new Date().toISOString());
   
   try {
     const { courseId, numberOfQuestions, difficulty, timePerQuestion } = req.body;
     
-    // Cap the number of questions to prevent timeouts
-    // Vercel has a 10-second timeout limit on serverless functions
-    const maxQuestions = 7; // Safe limit to ensure function completes within limits
+    // Cap the number of questions more conservatively
+    const maxQuestions = 5; // Even safer limit to prevent timeouts
     const actualNumberOfQuestions = Math.min(numberOfQuestions, maxQuestions);
     
+    // Log if we're limiting questions
     if (numberOfQuestions > maxQuestions) {
       console.log(`Limiting questions from ${numberOfQuestions} to ${maxQuestions} to prevent timeout`);
     }
 
-    // Validate input parameters
+    // Short-circuit validation to respond faster
     if (!courseId || !actualNumberOfQuestions || !difficulty) {
       return res.status(400).json({ 
         message: 'Missing required parameters',
@@ -667,10 +668,24 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       });
     }
 
+    // Setup timeout guard at the beginning - more aggressive timeout
+    const timeoutGuard = setTimeout(() => {
+      console.error(`Quiz generation timed out after ${Date.now() - startTime}ms`);
+      if (!res.headersSent) {
+        res.status(504).json({
+          message: 'Quiz generation timed out',
+          error: 'Please try with fewer questions (5 or fewer is recommended)',
+          timeoutAt: Date.now() - startTime,
+          maxQuestions: maxQuestions
+        });
+      }
+    }, 8000); // Set well below Vercel's 10s limit
+    
     // Connect to MongoDB on-demand
     if (!mongoConnected) {
       const connected = await connectToMongoDB();
       if (!connected) {
+        clearTimeout(timeoutGuard);
         return res.status(503).json({ 
           message: 'Database service unavailable',
           error: 'Unable to connect to database'
@@ -680,29 +695,17 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
 
     const course = await Course.findById(courseId);
     if (!course) {
+      clearTimeout(timeoutGuard);
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    // Create an optimized prompt for Gemini
-    const promptText = `Generate ${actualNumberOfQuestions} multiple choice questions about "${course.name}" at ${difficulty} difficulty level.
-Each with 4 options (A,B,C,D) and one correct answer.
-RESPOND ONLY WITH JSON ARRAY: [{question,options,correctAnswer}]`;
+    // Create a simpler, more concise prompt for Gemini
+    const promptText = `Create ${actualNumberOfQuestions} MCQs about "${course.name}" (${difficulty} level). Format: [{question,options:[A,B,C,D],correctAnswer}]`;
 
     console.log(`Generating ${actualNumberOfQuestions} questions at ${difficulty} difficulty`);
     
-    // Set a timeout guard to ensure Vercel doesn't kill the function without a response
-    const timeoutGuard = setTimeout(() => {
-      console.error(`Quiz generation timed out after ${Date.now() - startTime}ms`);
-      if (!res.headersSent) {
-        res.status(503).json({
-          message: 'Quiz generation timed out',
-          error: 'Please try with fewer questions'
-        });
-      }
-    }, 9000); // Set slightly below Vercel's 10s limit
-    
     try {
-      // Use the API key as a query parameter instead of Authorization header
+      // Use the API key as a query parameter 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-001:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
@@ -713,14 +716,14 @@ RESPOND ONLY WITH JSON ARRAY: [{question,options,correctAnswer}]`;
             parts: [{ text: promptText }]
           }],
           generationConfig: {
-            temperature: 0.2,  // Lower temperature for more deterministic output
-            maxOutputTokens: 2048,
-            topP: 0.8,
-            topK: 40
+            temperature: 0.1,  // Even lower for more deterministic, faster output
+            maxOutputTokens: 1024, // Lower to reduce processing time
+            topP: 0.7,
+            topK: 20
           }
         }),
         // Set a shorter timeout for the fetch itself
-        timeout: 8000
+        timeout: 7000
       });
 
       // Clear the timeout guard since we got a response
@@ -738,22 +741,55 @@ RESPOND ONLY WITH JSON ARRAY: [{question,options,correctAnswer}]`;
         throw new Error('No content generated from the API');
       }
 
-      // Clean and parse the response
-      const cleanedText = generatedText.replace(/```(json)?/g, '')
-                                     .replace(/[\n\r\t]/g, '')
-                                     .trim();
-
-      // Parse the JSON
-      let questions = JSON.parse(cleanedText);
+      // Clean and parse the response with better error handling
+      let cleanedText = generatedText
+        .replace(/```(json)?/g, '')
+        .replace(/[\n\r\t]/g, ' ')
+        .trim();
+        
+      // Handle JSON parsing errors more gracefully
+      let questions;
+      try {
+        // First try to extract JSON if enclosed in markdown
+        const jsonMatch = cleanedText.match(/\[(.*)\]/s);
+        if (jsonMatch) {
+          cleanedText = `[${jsonMatch[1]}]`;
+        }
+        
+        questions = JSON.parse(cleanedText);
+        
+        // Ensure we have the right structure
+        if (!Array.isArray(questions)) {
+          throw new Error('Not a valid array of questions');
+        }
+      } catch (parseError) {
+        console.error('JSON Parsing Error:', parseError);
+        return res.status(500).json({
+          message: 'Failed to parse generated quiz data',
+          error: 'Internal processing error'
+        });
+      }
       
-      // Format the questions
-      const formattedQuestions = questions.map((q, index) => ({
-        id: index + 1,
-        question: q.question.trim(),
-        options: q.options.map(opt => opt.trim()),
-        correctAnswer: q.correctAnswer.trim().toUpperCase(),
-        timePerQuestion
-      }));
+      // Format and validate each question
+      const formattedQuestions = questions
+        .slice(0, actualNumberOfQuestions) // Ensure we don't exceed the requested number
+        .map((q, index) => {
+          // Validate and normalize the question format
+          const options = Array.isArray(q.options) ? 
+            q.options.map(opt => opt.trim()) : 
+            ["Option A", "Option B", "Option C", "Option D"]; // Default if missing
+            
+          const correctAnswer = q.correctAnswer ? 
+            q.correctAnswer.trim().toUpperCase() : "A"; // Default if missing
+            
+          return {
+            id: index + 1,
+            question: q.question?.trim() || `Question ${index + 1}`,
+            options: options.slice(0, 4), // Ensure exactly 4 options
+            correctAnswer: correctAnswer,
+            timePerQuestion
+          };
+        });
 
       // Log completion and return the result
       console.log(`Quiz generation completed in ${Date.now() - startTime}ms`);
@@ -767,7 +803,8 @@ RESPOND ONLY WITH JSON ARRAY: [{question,options,correctAnswer}]`;
       if (!res.headersSent) {
         res.status(500).json({
           message: 'Failed to generate quiz',
-          error: error.message
+          error: 'There was an error generating your quiz. Please try with fewer questions.',
+          maxQuestions: maxQuestions
         });
       }
     }
@@ -776,7 +813,7 @@ RESPOND ONLY WITH JSON ARRAY: [{question,options,correctAnswer}]`;
     if (!res.headersSent) {
       res.status(500).json({
         message: 'Error generating quiz',
-        error: error.message
+        error: 'An unexpected error occurred. Please try with 5 or fewer questions.'
       });
     }
   }

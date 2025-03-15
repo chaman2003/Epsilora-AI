@@ -41,6 +41,8 @@ import toast from 'react-hot-toast';
 import QuizHistoryModal from '../components/quiz/QuizHistoryModal';
 import QuizGenerationOverlay from '../components/quiz/QuizGenerationOverlay';
 import { themeConfig } from '../config/theme';
+import QuizLimitNotice from '../components/QuizLimitNotice';
+import QuizGenerationError from '../components/QuizGenerationError';
 
 // Register ChartJS components
 ChartJS.register(
@@ -193,6 +195,11 @@ const Quiz: React.FC = () => {
   // Add state for modal control
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Add a new state for the maximum question count
+  const [maxQuestionCount, setMaxQuestionCount] = useState(5);
+  // Add state to track generation errors
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   // Move fetchQuizHistory declaration to the top of the component, before any useEffects
   const fetchQuizHistory = React.useCallback(async () => {
@@ -447,6 +454,16 @@ useEffect(() => {
   }
   }, [formattedQuizHistory]);
 
+// Add a retry function with fewer questions
+const retryWithFewerQuestions = () => {
+  setQuizDetails(prev => ({
+    ...prev,
+    numberOfQuestions: maxQuestionCount
+  }));
+  setGenerationError(null);
+  generateQuiz();
+};
+
 const generateQuiz = async () => {
   if (!selectedCourse) {
     toast.error('Please select a course first');
@@ -459,9 +476,11 @@ const generateQuiz = async () => {
     return;
   }
 
+  // Clear any previous generation errors
+  setGenerationError(null);
   setLoading(true);
   let retryCount = 0;
-  const maxRetries = 3;
+  const maxRetries = 2;
 
   const attemptQuizGeneration = async (): Promise<any> => {
     try {
@@ -470,42 +489,60 @@ const generateQuiz = async () => {
         throw new Error('No authentication token found');
       }
 
-        console.log('Sending quiz generation request with params:', {
-          courseId: selectedCourse,
-          numberOfQuestions: quizDetails.numberOfQuestions,
-          difficulty: quizDetails.difficulty,
-          timePerQuestion: quizDetails.timePerQuestion
-        });
+      console.log('Sending quiz generation request with params:', {
+        courseId: selectedCourse,
+        numberOfQuestions: quizDetails.numberOfQuestions,
+        difficulty: quizDetails.difficulty,
+        timePerQuestion: quizDetails.timePerQuestion
+      });
 
-      // Set timeout to 30 seconds
+      // Set timeout to 15 seconds (reduced from 180000)
       const response = await axiosInstance.post('/api/generate-quiz', {
         courseId: selectedCourse,
         numberOfQuestions: quizDetails.numberOfQuestions,
         difficulty: quizDetails.difficulty,
         timePerQuestion: quizDetails.timePerQuestion
       }, {
-        timeout: 180000,
+        timeout: 15000, // 15 seconds timeout
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
-        console.log('Quiz generation API response status:', response.status);
+      console.log('Quiz generation API response status:', response.status);
       return response;
     } catch (error: any) {
-        console.error('Error in attemptQuizGeneration:', error);
+      console.error('Error in attemptQuizGeneration:', error);
+      
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
         
-        if (error.response) {
-          console.error('Response status:', error.response.status);
-          console.error('Response data:', error.response.data);
-        } else if (error.request) {
-          console.error('No response received:', error.request);
-        } else {
-          console.error('Error message:', error.message);
+        // Handle timeout errors specifically
+        if (error.response.status === 504 || 
+            (error.response.status === 500 && 
+             error.response.data?.message === 'Quiz generation timed out')) {
+          
+          // Extract max questions count if available
+          if (error.response.data?.maxQuestions) {
+            setMaxQuestionCount(error.response.data.maxQuestions);
+          }
+          
+          // Create a more informative error message
+          const errorMsg = `Quiz generation timed out. Please try with ${maxQuestionCount} or fewer questions.`;
+          setGenerationError(errorMsg);
         }
-        
-      if (error.response?.status === 500 && retryCount < maxRetries) {
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+      } else {
+        console.error('Error message:', error.message);
+      }
+      
+      // Only retry for certain errors, not timeouts
+      if (error.response?.status === 500 && 
+          !error.response.data?.message?.includes('timed out') && 
+          retryCount < maxRetries) {
         retryCount++;
         console.log(`Retry attempt ${retryCount} of ${maxRetries}`);
         await new Promise(resolve => setTimeout(resolve, 2000 * retryCount)); // Exponential backoff
@@ -518,70 +555,74 @@ const generateQuiz = async () => {
   try {
     const response = await attemptQuizGeneration();
 
-      // Log the entire response to help with debugging
-      console.log('Quiz generation response:', response);
-      
-      // More detailed validation of the response
-      if (!response) {
-        throw new Error('No response received from server');
-      }
-      
-      if (!response.data) {
-        throw new Error('Response missing data object');
-      }
+    // Log the entire response to help with debugging
+    console.log('Quiz generation response:', response);
+    
+    // More detailed validation of the response
+    if (!response) {
+      throw new Error('No response received from server');
+    }
+    
+    if (!response.data) {
+      throw new Error('Response missing data object');
+    }
 
-      // Check if response.data is the questions array directly
-      let questionsArray;
-      if (Array.isArray(response.data)) {
-        console.log('Response data is directly an array of questions');
-        questionsArray = response.data;
-      } else if (response.data.questions && Array.isArray(response.data.questions)) {
-        console.log('Response data contains a questions property with an array');
-        questionsArray = response.data.questions;
-      } else {
-        console.error('Invalid response structure:', response.data);
-        throw new Error('Unable to find questions array in response');
-      }
-      
-      if (questionsArray.length === 0) {
-        console.error('Questions array is empty:', questionsArray);
-        throw new Error('Questions array must not be empty');
-      }
+    // Check if response.data is the questions array directly
+    let questionsArray;
+    if (Array.isArray(response.data)) {
+      console.log('Response data is directly an array of questions');
+      questionsArray = response.data;
+    } else if (response.data.questions && Array.isArray(response.data.questions)) {
+      console.log('Response data contains a questions property with an array');
+      questionsArray = response.data.questions;
+    } else {
+      console.error('Invalid response structure:', response.data);
+      throw new Error('Unable to find questions array in response');
+    }
+    
+    if (questionsArray.length === 0) {
+      console.error('Questions array is empty:', questionsArray);
+      throw new Error('Questions array must not be empty');
+    }
 
-      setQuestions(questionsArray);
+    setQuestions(questionsArray);
 
-      const initialQuestionStates = questionsArray.map(() => ({
-        userAnswer: null,
-        timeExpired: false,
-        viewed: false,
-        timeLeft: quizDetails.timePerQuestion
-      }));
+    const initialQuestionStates = questionsArray.map(() => ({
+      userAnswer: null,
+      timeExpired: false,
+      viewed: false,
+      timeLeft: quizDetails.timePerQuestion
+    }));
 
-      setQuestionStates(initialQuestionStates);
+    setQuestionStates(initialQuestionStates);
     setCurrentQuestion(0);
     setScore(0);
-      setQuizStarted(true);
+    setQuizStarted(true);
     setStartTime(new Date());
-      setLoading(false);
+    setLoading(false);
 
   } catch (error: any) {
     console.error('Error generating quiz:', error);
-      
-      // Log more details about the error
-      if (error.response) {
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
-      }
-      
-      if (error.response?.status === 401) {
-        toast.error('Session expired. Please log in again');
+    
+    // Log more details about the error
+    if (error.response) {
+      console.error('Error response data:', error.response.data);
+      console.error('Error response status:', error.response.status);
+    }
+    
+    if (error.response?.status === 401) {
+      toast.error('Session expired. Please log in again');
       navigate('/login', { state: { from: '/quiz' } });
-      } else {
-        // Provide a more detailed error message to the user
-        const errorMessage = error.message || 'Failed to generate quiz';
-        toast.error(`${errorMessage}. Please try again later.`);
-      }
-      
+    } else if (error.message?.includes('timed out')) {
+      // Set the error message for the error component instead of using toast
+      const errorMsg = `Quiz generation timed out. Please try with ${maxQuestionCount} or fewer questions.`;
+      setGenerationError(errorMsg);
+    } else {
+      // Set general error message
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to generate quiz';
+      setGenerationError(errorMessage);
+    }
+    
     setLoading(false);
   }
 };
@@ -1376,6 +1417,21 @@ const handleToggleHistory = () => {
                     ))}
                   </select>
                 </div>
+                
+                {/* Quiz Limit Notice */}
+                <QuizLimitNotice 
+                  selectedQuestionCount={quizDetails.numberOfQuestions} 
+                  maxQuestionCount={maxQuestionCount} 
+                />
+                
+                {/* Display generation error if there is one */}
+                {generationError && (
+                  <QuizGenerationError 
+                    error={generationError} 
+                    maxQuestions={maxQuestionCount} 
+                    onRetry={retryWithFewerQuestions} 
+                  />
+                )}
 
                 {/* Difficulty */}
                 <div>
