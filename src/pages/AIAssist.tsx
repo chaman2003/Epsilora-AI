@@ -358,7 +358,25 @@ const AIAssist: React.FC = () => {
           return;
         }
 
-        // Always show welcome message instead of quiz data
+        // Check if we're coming from quiz results by looking for quiz data
+        const storedQuizData = localStorage.getItem('quizData');
+        
+        if (storedQuizData) {
+          try {
+            const parsedQuizData = JSON.parse(storedQuizData);
+            setQuizData(parsedQuizData);
+            // Process the quiz data to show quiz review
+            await processQuizData();
+            // Clear quizData from localStorage to prevent showing it again on next visit
+            localStorage.removeItem('quizData');
+            return;
+          } catch (error) {
+            console.error('Error parsing quiz data:', error);
+            // Fall back to welcome message if parsing fails
+          }
+        }
+        
+        // If no quiz data or parsing failed, show welcome message
         setMessages([{ role: 'assistant', content: WELCOME_MESSAGE }]);
 
         // Only create a new chat if there are no existing chats
@@ -372,13 +390,7 @@ const AIAssist: React.FC = () => {
     };
 
     initializeAIAssist();
-  }, [isAuthenticated, navigate, loadChatHistories, currentChatId, chatHistories, createNewChat]);
-
-  // Remove quiz data processing since we want to always show welcome message
-  useEffect(() => {
-    // Clear any stored quiz data to prevent it from showing in future sessions
-    localStorage.removeItem('quizData');
-  }, []);
+  }, [isAuthenticated, navigate, loadChatHistories, currentChatId, chatHistories, createNewChat, setQuizData, processQuizData]);
 
   useEffect(() => {
     return () => {
