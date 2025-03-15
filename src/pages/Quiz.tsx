@@ -745,7 +745,7 @@ const generateQuiz = async () => {
           const cleanedOptions = q.options.map((opt, i) => {
             let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
               ? (opt as {text: string}).text 
-              : String(opt);
+              : String(opt));
             
             // Remove any existing letter prefixes like "a)", "b)", etc.
             optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
@@ -836,6 +836,9 @@ const generateQuiz = async () => {
     setQuizData(quizData);
     localStorage.setItem('quizData', JSON.stringify(quizData));
     localStorage.setItem('lastQuizData', JSON.stringify(quizData));
+    
+    // Set flag to indicate coming from quiz
+    sessionStorage.setItem('cameFromQuiz', 'true');
     
     // Navigate to AI assist
     navigate('/ai-assist', { replace: true });
@@ -978,226 +981,183 @@ const generateQuiz = async () => {
       return <div>Loading question...</div>;
     }
 
+    const courseObj = courses.find(course => course._id === selectedCourse);
+    const courseName = courseObj?.name || 'Unknown Course';
+
     return (
-      <div className="space-y-6">
-        {/* Question navigation list */}
-        <div className="flex justify-center mb-4 overflow-x-auto py-2">
-          <div className="flex space-x-2">
-            {questions.map((_, index) => {
-              const state = questionStates[index];
-              if (!state) return null;
-              
-              let bgColor = 'bg-gray-200 dark:bg-gray-700';
-              let textColor = 'text-gray-700 dark:text-gray-300';
-              
-              if (state.viewed) {
-                if (state.userAnswer === questions[index]?.correctAnswer) {
-                  bgColor = 'bg-green-500';
-                  textColor = 'text-white';
-                } else {
-                  bgColor = 'bg-red-500';
-                  textColor = 'text-white';
-                }
-              } else if (currentQuestion === index) {
-                bgColor = 'bg-indigo-600';
-                textColor = 'text-white';
-              }
-              
-              return (
-                <button
-                  key={index}
-                  onClick={() => setCurrentQuestion(index)}
-                  className={`${bgColor} ${textColor} w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all hover:scale-110`}
-                >
-                  {index + 1}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Timer Display */}
-        <div className="flex justify-center items-center mb-4">
-          <div className={`text-2xl font-bold rounded-full w-16 h-16 flex items-center justify-center transition-colors duration-300
-            ${!currentState.viewed && timeLeft <= 5 ? 'text-red-600 animate-pulse bg-red-100 dark:bg-red-900' : 
-              !currentState.viewed && timeLeft <= 10 ? 'text-orange-600 bg-orange-100 dark:bg-orange-900' :
-              'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800'}`}
-          >
-            {timeLeft}s
-          </div>
-        </div>
-
-        {/* Question Content with enhanced styling */}
-        <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-          {/* Question Header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-indigo-100 dark:bg-indigo-900 px-3 py-1 rounded-full text-sm font-medium text-indigo-700 dark:text-indigo-300">
-              Question {currentQuestion + 1} of {questions?.length}
-            </div>
-            <div className={`px-3 py-1 rounded-full text-sm font-medium
-              ${quizDetails.difficulty === 'Easy' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 
-                quizDetails.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
-                'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}`}>
-              {quizDetails.difficulty}
+      <div className="flex flex-col lg:flex-row gap-6 h-full">
+        {/* Left side: Question content */}
+        <div className="flex-grow space-y-6">
+          {/* Course and Quiz Info Header */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <ClipboardList className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-2" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-white">{courseName}</h2>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className={`px-3 py-1 rounded-full text-sm font-medium
+                  ${quizDetails.difficulty === 'Easy' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 
+                    quizDetails.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
+                    'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}`}>
+                  {quizDetails.difficulty}
+                </div>
+                <div className="bg-indigo-100 dark:bg-indigo-900 px-3 py-1 rounded-full text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                  Question {currentQuestion + 1} of {questions?.length}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Question Text */}
-          <div className="text-xl font-semibold text-gray-800 dark:text-white mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-            {questions[currentQuestion]?.question || 'Loading question...'}
+          {/* Timer Display */}
+          <div className="flex justify-center items-center mb-4">
+            <div className={`text-2xl font-bold rounded-full w-16 h-16 flex items-center justify-center transition-colors duration-300
+              ${!currentState.viewed && timeLeft <= 5 ? 'text-red-600 animate-pulse bg-red-100 dark:bg-red-900' : 
+                !currentState.viewed && timeLeft <= 10 ? 'text-orange-600 bg-orange-100 dark:bg-orange-900' :
+                'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800'}`}
+            >
+              {timeLeft}s
+            </div>
           </div>
 
-          {/* Options with enhanced styling */}
-          <div className="space-y-4">
-            {questions[currentQuestion]?.options?.map((option, index) => {
-              const letterOption = String.fromCharCode(65 + index); // A, B, C, D...
-              const isSelected = currentState.userAnswer === letterOption;
-              const isCorrect = letterOption === questions[currentQuestion]?.correctAnswer;
-              const showCorrect = currentState.viewed && isCorrect;
-              const showIncorrect = currentState.viewed && isSelected && !isCorrect;
+          {/* Question Content with enhanced styling */}
+          <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+            {/* Question Text */}
+            <div className="text-xl font-semibold text-gray-800 dark:text-white mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+              {questions[currentQuestion]?.question || 'Loading question...'}
+            </div>
 
-              // Check if option is an object with text property or just a string
-              const optionText = typeof option === 'object' && option !== null && 'text' in option 
-                ? (option as {text: string}).text 
-                : String(option);
-              
-              // Remove any leading option labels like "a)", "b)", etc.
-              const cleanedOptionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
+            {/* Options with enhanced styling */}
+            <div className="space-y-4">
+              {questions[currentQuestion]?.options?.map((option, index) => {
+                const letterOption = String.fromCharCode(65 + index); // A, B, C, D...
+                const isSelected = currentState.userAnswer === letterOption;
+                const isCorrect = letterOption === questions[currentQuestion]?.correctAnswer;
+                const showCorrect = currentState.viewed && isCorrect;
+                const showIncorrect = currentState.viewed && isSelected && !isCorrect;
 
-              return (
-                <button
-                  key={index}
-                  onClick={() => handleAnswerSelect(letterOption)}
-                  disabled={currentState.viewed}
-                  className={`w-full p-4 rounded-xl text-left transition-all duration-200 flex items-center border
-                    ${showCorrect
-                      ? 'bg-green-50 text-green-800 dark:bg-green-900/50 dark:text-green-200 border-green-300 dark:border-green-700 shadow-md'
-                      : showIncorrect
-                      ? 'bg-red-50 text-red-800 dark:bg-red-900/50 dark:text-red-200 border-red-300 dark:border-red-700 shadow-md'
-                      : isSelected
-                      ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 border-indigo-300 dark:border-indigo-700 shadow-md'
-                      : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/70 hover:shadow-md'
-                    } ${currentState.viewed ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-[1.01] transform transition-transform'}`}
-                >
-                  <span className={`flex items-center justify-center h-8 w-8 rounded-full mr-3 
-                    ${showCorrect
-                      ? 'bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200' 
-                      : showIncorrect
-                      ? 'bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200'
-                      : isSelected
-                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-800 dark:text-indigo-200'
-                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                    }`}>
-                    {letterOption}
-                  </span>
-                  <span className="flex-grow font-medium">{cleanedOptionText}</span>
-                  {showCorrect && <CheckCircle className="w-5 h-5 text-green-600 ml-2" />}
-                  {showIncorrect && <XCircle className="w-5 h-5 text-red-600 ml-2" />}
-                </button>
-              );
-            })}
+                // Check if option is an object with text property or just a string
+                const optionText = typeof option === 'object' && option !== null && 'text' in option 
+                  ? (option as {text: string}).text 
+                  : String(option);
+                
+                // Remove any leading option labels like "a)", "b)", etc.
+                const cleanedOptionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
+
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleAnswerSelect(letterOption)}
+                    disabled={currentState.viewed}
+                    className={`w-full p-4 rounded-xl text-left transition-all duration-200 flex items-center border
+                      ${showCorrect
+                        ? 'bg-green-50 text-green-800 dark:bg-green-900/50 dark:text-green-200 border-green-300 dark:border-green-700 shadow-md'
+                        : showIncorrect
+                        ? 'bg-red-50 text-red-800 dark:bg-red-900/50 dark:text-red-200 border-red-300 dark:border-red-700 shadow-md'
+                        : isSelected
+                        ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 border-indigo-300 dark:border-indigo-700 shadow-md'
+                        : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/70 hover:shadow-md'
+                      } ${currentState.viewed ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-[1.01] transform transition-transform'}`}
+                  >
+                    <span className={`flex items-center justify-center h-8 w-8 rounded-full mr-3 
+                      ${showCorrect
+                        ? 'bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200' 
+                        : showIncorrect
+                        ? 'bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200'
+                        : isSelected
+                        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-800 dark:text-indigo-200'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                      {letterOption}
+                    </span>
+                    <span className="flex-grow font-medium">{cleanedOptionText}</span>
+                    {showCorrect && <CheckCircle className="w-5 h-5 text-green-600 ml-2" />}
+                    {showIncorrect && <XCircle className="w-5 h-5 text-red-600 ml-2" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        {/* Navigation Buttons with enhanced styling */}
-        <div className="flex justify-between items-center mt-8">
-          <button
-            onClick={handlePreviousQuestion}
-            disabled={currentQuestion === 0}
-            className={`px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-all duration-200 
-              ${currentQuestion === 0
-                ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105'
-            }`}
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Previous
-          </button>
-
-          {currentQuestion < questions?.length - 1 ? (
+          {/* Navigation Buttons with enhanced styling */}
+          <div className="flex justify-between items-center mt-8">
             <button
-              onClick={handleNextQuestion}
-              disabled={!currentState.viewed}
-              className={`px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-all duration-200
-                ${!currentState.viewed
+              onClick={handlePreviousQuestion}
+              disabled={currentQuestion === 0}
+              className={`px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-all duration-200 
+                ${currentQuestion === 0
                   ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105'
               }`}
             >
-              Next
-              <ArrowRight className="w-5 h-5 ml-2" />
+              <ArrowLeft className="w-5 h-5 mr-2" />
+              Previous
             </button>
-          ) : (
-        <button
-              onClick={async () => {
-                setShowResult(true);
-                const finalScore = calculateFinalScore();
-                try {
-                  // Try to save the result, but don't block navigation if it fails
-                  await saveQuizResult(finalScore);
-                } catch (error) {
-                  console.error('Error saving quiz result:', error);
-                  toast.error('There was an issue saving your results, but you can still view them.');
-                }
-                
-                // Prepare quizData for the results page
-                const courseObj = courses.find(c => c._id === selectedCourse);
-                if (courseObj) {
-                  const quizData = {
-                    score: finalScore,
-                    totalQuestions: questions.length,
-                    courseName: courseObj.name,
-                    difficulty: quizDetails.difficulty,
-                    questions: questions.map((q, index) => {
-                      // Create options array with proper label and text format
-                      const optionsWithLabels = q.options.map((opt, i) => {
-                        // Get option text and clean it if it's a string
-                        let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
-                          ? (opt as {text: string}).text 
-                          : String(opt);
-                        
-                        // Remove any existing letter prefixes like "a)", "b)", etc.
-                        optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
-                        
-                        return {
-                          text: optionText,
-                          label: String.fromCharCode(65 + i)
-                        };
-                      });
-                      
-                      const userAnswer = questionStates[index]?.userAnswer;
-                      const isCorrect = userAnswer === q.correctAnswer;
-                      
-                      return {
-                        question: q.question,
-                        options: optionsWithLabels,
-                        userAnswer: userAnswer,
-                        correctAnswer: q.correctAnswer,
-                        isCorrect: isCorrect
-                      };
-                    }),
-                    timestamp: new Date().toISOString()
-                  };
-                  
-                  // Always navigate to results page, even if saving failed
-                  setQuizData(quizData);
-                  navigate('/quiz-results', { 
-                    state: quizData,
-                    replace: true 
-                  });
-                }
-              }}
-              disabled={!currentState.viewed}
-              className={`px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-all duration-200
-                ${!currentState.viewed
-                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 text-white hover:bg-green-700 hover:scale-105'
+
+            {currentQuestion < questions?.length - 1 ? (
+              <button
+                onClick={handleNextQuestion}
+                disabled={!currentState.viewed}
+                className={`px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-all duration-200
+                  ${!currentState.viewed
+                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105'
                 }`}
-            >
-              Finish Quiz
-              <CheckCircle className="w-5 h-5 ml-2" />
-        </button>
-          )}
+              >
+                Next
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </button>
+            ) : (
+              <button
+                onClick={handleFinishQuiz}
+                disabled={!currentState.viewed}
+                className={`px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-all duration-200
+                  ${!currentState.viewed
+                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700 hover:scale-105'
+                  }`}
+              >
+                Finish Quiz
+                <CheckCircle className="w-5 h-5 ml-2" />
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* Right side: Question navigation */}
+        <div className="w-full lg:w-24 flex lg:flex-col gap-2 overflow-auto py-2 px-1">
+          {questions.map((_, index) => {
+            const state = questionStates[index];
+            if (!state) return null;
+            
+            let bgColor = 'bg-gray-200 dark:bg-gray-700';
+            let textColor = 'text-gray-700 dark:text-gray-300';
+            
+            if (state.viewed) {
+              if (state.userAnswer === questions[index]?.correctAnswer) {
+                bgColor = 'bg-green-500';
+                textColor = 'text-white';
+              } else {
+                bgColor = 'bg-red-500';
+                textColor = 'text-white';
+              }
+            } else if (currentQuestion === index) {
+              bgColor = 'bg-indigo-600';
+              textColor = 'text-white';
+            }
+            
+            return (
+              <button
+                key={index}
+                onClick={() => setCurrentQuestion(index)}
+                className={`${bgColor} ${textColor} w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all hover:scale-110`}
+              >
+                {index + 1}
+              </button>
+            );
+          })}
         </div>
       </div>
     );
@@ -1285,8 +1245,8 @@ const generateQuiz = async () => {
 
   // Calculate success rate
   const successRate = latestQuiz.totalQuestions > 0 
-    ? Math.round((latestQuiz.score / latestQuiz.totalQuestions) * 100) 
-    : 0;
+    ? Math.round((latestQuiz.score / latestQuiz.totalQuestions) * 100)
+  );
 
   return {
     courseName: latestQuiz.courseName,
