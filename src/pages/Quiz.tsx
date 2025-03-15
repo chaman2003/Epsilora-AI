@@ -652,10 +652,16 @@ const generateQuiz = async () => {
     
     setSelectedAnswer(answer);
     
-    const isCorrect = answer === questions[currentQuestion]?.correctAnswer;
+    // Fix the issue with comparing answer to correctAnswer
+    // Ensure both are compared as uppercase strings for consistency
+    const correctAnswer = questions[currentQuestion]?.correctAnswer;
+    const isCorrect = answer.toUpperCase() === correctAnswer?.toUpperCase();
+    
     if (isCorrect) {
       setScore(prev => prev + 1);
     }
+    
+    console.log('Selected answer:', answer, 'Correct answer:', correctAnswer, 'Is correct:', isCorrect);
     
     updateQuestionState(currentQuestion, {
       userAnswer: answer,
@@ -1000,12 +1006,12 @@ const generateQuiz = async () => {
         )}
 
         {/* Main Quiz Content - Landscape Layout */}
-        <div className="flex flex-col md:flex-row gap-6">
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6">
           {/* Left side - Questions and Options */}
-          <div className="w-full md:w-3/4 space-y-6">
+          <div className="w-full md:w-4/5 space-y-4 md:space-y-6">
             {/* Timer Display */}
-            <div className="flex justify-center items-center mb-4">
-              <div className={`text-2xl font-bold rounded-full w-16 h-16 flex items-center justify-center transition-colors duration-300
+            <div className="flex justify-center items-center mb-2 md:mb-4">
+              <div className={`text-xl md:text-2xl font-bold rounded-full w-12 h-12 md:w-16 md:h-16 flex items-center justify-center transition-colors duration-300
                 ${!currentState.viewed && timeLeft <= 5 ? 'text-red-600 animate-pulse bg-red-100 dark:bg-red-900' : 
                   !currentState.viewed && timeLeft <= 10 ? 'text-orange-600 bg-orange-100 dark:bg-orange-900' :
                   'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800'}`}
@@ -1015,9 +1021,9 @@ const generateQuiz = async () => {
             </div>
 
             {/* Question Content with enhanced styling */}
-            <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+            <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-4 md:p-6 shadow-lg border border-gray-100 dark:border-gray-700">
               {/* Question Header */}
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3 md:mb-4">
                 <div className="bg-indigo-100 dark:bg-indigo-900 px-3 py-1 rounded-full text-sm font-medium text-indigo-700 dark:text-indigo-300">
                   Question {currentQuestion + 1} of {questions?.length}
                 </div>
@@ -1030,12 +1036,12 @@ const generateQuiz = async () => {
               </div>
 
               {/* Question Text */}
-              <div className="text-xl font-semibold text-gray-800 dark:text-white mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+              <div className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white mb-6 p-3 md:p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
                 {questions[currentQuestion]?.question || 'Loading question...'}
               </div>
 
               {/* Options with enhanced styling */}
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {questions[currentQuestion]?.options?.map((option, index) => {
                   const letterOption = String.fromCharCode(65 + index); // A, B, C, D...
                   const isSelected = currentState.userAnswer === letterOption;
@@ -1090,10 +1096,10 @@ const generateQuiz = async () => {
           </div>
 
           {/* Right side - Question Navigation */}
-          <div className="w-full md:w-1/4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4 text-center">Question Navigator</h3>
+          <div className="w-full md:w-1/5 bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+            <h3 className="text-base md:text-lg font-medium text-gray-800 dark:text-white mb-3 md:mb-4 text-center">Navigation</h3>
             
-            <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-3 gap-1 md:gap-2 mb-4">
               {questions.map((_, index) => {
                 const state = questionStates[index];
                 if (!state) return null;

@@ -361,17 +361,32 @@ const AIAssist: React.FC = () => {
         // Check if we're coming from quiz results by looking for quiz data
         const storedQuizData = localStorage.getItem('quizData');
         
+        console.log('AIAssist init - Checking for stored quiz data:', !!storedQuizData);
+        
         if (storedQuizData) {
           try {
             const parsedQuizData = JSON.parse(storedQuizData);
+            console.log('AIAssist - Successfully parsed quiz data:', parsedQuizData.courseName);
+            
+            // Set the quiz data in context first
             setQuizData(parsedQuizData);
-            // Process the quiz data to show quiz review
-            await processQuizData();
+            
+            // Process the quiz data after ensuring it's in the context
+            // This needs to be forcefully executed with the new data
+            const quizMessage = { role: 'assistant' as const, content: generateQuizSummary(parsedQuizData) };
+            await createNewChat([quizMessage], {
+              type: 'quiz_review',
+              metadata: {
+                quizSummary: generateQuizSummary(parsedQuizData),
+                courseName: parsedQuizData.courseName
+              }
+            });
+            
             // Clear quizData from localStorage to prevent showing it again on next visit
             localStorage.removeItem('quizData');
             return;
           } catch (error) {
-            console.error('Error parsing quiz data:', error);
+            console.error('Error parsing or processing quiz data:', error);
             // Fall back to welcome message if parsing fails
           }
         }

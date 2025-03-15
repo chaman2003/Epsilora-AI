@@ -63,23 +63,23 @@ const QuizResults: React.FC = () => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen bg-gradient-to-b from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 py-8 px-4"
+      className="min-h-screen bg-gradient-to-b from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 py-6 px-3 sm:py-8 sm:px-4"
     >
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8 relative overflow-hidden">
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 md:p-8 relative overflow-hidden">
           {/* Background decoration */}
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5" />
           
           {/* Content */}
           <div className="relative">
-            <h1 className="text-3xl md:text-4xl font-bold text-center mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-4 sm:mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text">
               Quiz Results
             </h1>
 
             {/* Score Display with improved sizing */}
-            <div className="flex justify-center mb-6">
+            <div className="flex justify-center mb-4 sm:mb-6">
               <div className="relative">
-                <svg className="w-28 h-28 md:w-36 md:h-36">
+                <svg className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32">
                   <circle
                     className="text-gray-200 dark:text-gray-700"
                     strokeWidth="8"
@@ -102,69 +102,69 @@ const QuizResults: React.FC = () => {
                     transform="rotate(-90 64 64)"
                   />
                 </svg>
-                <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xl md:text-2xl font-bold">
+                <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-lg sm:text-xl md:text-2xl font-bold">
                   {formatScore(percentage)}
                 </span>
               </div>
             </div>
 
             {/* Message moved up for better flow */}
-            <div className="text-center mb-6">
-              <p className="text-lg md:text-xl font-medium text-gray-700 dark:text-gray-300">
+            <div className="text-center mb-4 sm:mb-6">
+              <p className="text-base sm:text-lg md:text-xl font-medium text-gray-700 dark:text-gray-300 px-2">
                 {getMessage()}
               </p>
             </div>
 
             {/* Details Grid with improved responsiveness */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center space-x-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 sm:p-4 shadow-sm">
+                <div className="flex items-center space-x-2 sm:space-x-3">
                   <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
-                    <Award className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <Award className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Score</p>
-                    <p className="text-lg font-semibold">{formatScore(percentage)}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Score</p>
+                    <p className="text-sm sm:text-lg font-semibold">{formatScore(percentage)}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center space-x-3">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 sm:p-4 shadow-sm">
+                <div className="flex items-center space-x-2 sm:space-x-3">
                   <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
-                    <Book className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    <Book className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Course</p>
-                    <p className="text-lg font-semibold truncate" title={courseName || 'General Quiz'}>
+                  <div className="w-full overflow-hidden">
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Course</p>
+                    <p className="text-sm sm:text-lg font-semibold truncate" title={courseName || 'General Quiz'}>
                       {courseName || 'General Quiz'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center space-x-3">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 sm:p-4 shadow-sm">
+                <div className="flex items-center space-x-2 sm:space-x-3">
                   <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-lg">
-                    <Clock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-teal-600 dark:text-teal-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Difficulty</p>
-                    <p className="text-lg font-semibold">{difficulty}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Difficulty</p>
+                    <p className="text-sm sm:text-lg font-semibold">{difficulty}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Action Buttons with improved responsiveness */}
-            <div className="flex flex-col sm:flex-row justify-center items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <div className="flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={handleTryAgain}
-                className="w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                className="w-full sm:w-auto flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm sm:text-base"
               >
-                <ArrowLeft className="w-5 h-5 mr-2" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 Try Another Quiz
               </motion.button>
               
@@ -172,9 +172,9 @@ const QuizResults: React.FC = () => {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={handleGetAIHelp}
-                className="w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                className="w-full sm:w-auto flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm sm:text-base"
               >
-                <MessageSquare className="w-5 h-5 mr-2" />
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 Get AI Help
               </motion.button>
             </div>
