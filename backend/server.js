@@ -510,7 +510,7 @@ async function retryOperation(operation, maxRetries = 3, initialDelay = 1000) {
   throw new Error('Max retries exceeded');
 }
 
-const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-001:generateContent";
+const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-002:generateContent";
 
 // Main AI Assist Endpoint
 app.post('/api/super-simple-ai', authenticateToken, async (req, res) => {
@@ -552,7 +552,7 @@ Remember to:
 `;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-001" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-002" });
       
       const result = await model.generateContent({
         contents: [{ parts: [{ text: enhancedPrompt }] }],
@@ -694,7 +694,7 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
     
     try {
       // Use the API key as a query parameter with extended timeout
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-001:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-002:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1197,7 +1197,7 @@ app.post('/api/super-simple-ai', authenticateToken, async (req, res) => {
     console.log('Processing user message:', lastMessage.content.substring(0, 30) + '...');
 
     // Hard-coded to use v1 API version with new model
-    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-001:generateContent?key=${apiKey}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-002:generateContent?key=${apiKey}`;
     console.log('Using API URL:', apiUrl.replace(apiKey, '[REDACTED]'));
     
     try {
