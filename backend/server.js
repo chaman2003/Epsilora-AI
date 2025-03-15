@@ -638,8 +638,8 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
   try {
     const { courseId, numberOfQuestions, difficulty, timePerQuestion } = req.body;
     
-    // Cap the number of questions more conservatively
-    const maxQuestions = 5; // Even safer limit to prevent timeouts
+    // Use a more generous question limit since it was working with 20 questions before
+    const maxQuestions = 20; // Increase from 5 to 20 as it worked before
     const actualNumberOfQuestions = Math.min(numberOfQuestions, maxQuestions);
     
     // Log if we're limiting questions
@@ -668,18 +668,18 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       });
     }
 
-    // Setup timeout guard at the beginning - more aggressive timeout
+    // Setup timeout guard at the beginning - use a more generous timeout
     const timeoutGuard = setTimeout(() => {
       console.error(`Quiz generation timed out after ${Date.now() - startTime}ms`);
       if (!res.headersSent) {
         res.status(504).json({
           message: 'Quiz generation timed out',
-          error: 'Please try with fewer questions (5 or fewer is recommended)',
+          error: 'The server took too long to generate your quiz. Please try again or reduce the number of questions.',
           timeoutAt: Date.now() - startTime,
-          maxQuestions: maxQuestions
+          maxQuestions: 10 // Suggest 10 as a safer value if 20 times out
         });
       }
-    }, 8000); // Set well below Vercel's 10s limit
+    }, 8500); // Just below Vercel's 10s limit
     
     // Connect to MongoDB on-demand
     if (!mongoConnected) {
@@ -699,13 +699,16 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    // Create a simpler, more concise prompt for Gemini
-    const promptText = `Create ${actualNumberOfQuestions} MCQs about "${course.name}" (${difficulty} level). Format: [{question,options:[A,B,C,D],correctAnswer}]`;
+    // Create an optimized but detailed prompt for Gemini
+    // Use more concise instructions for larger question counts
+    const promptText = actualNumberOfQuestions <= 10 
+      ? `Create ${actualNumberOfQuestions} multiple choice questions about "${course.name}" at ${difficulty} difficulty. Format: [{question,options:[A,B,C,D],correctAnswer}]. Be concise and efficient.`
+      : `Create ${actualNumberOfQuestions} very brief multiple choice questions about "${course.name}" at ${difficulty} difficulty. Format: [{question,options:[A,B,C,D],correctAnswer}]. Keep all content as concise as possible.`;
 
     console.log(`Generating ${actualNumberOfQuestions} questions at ${difficulty} difficulty`);
     
     try {
-      // Use the API key as a query parameter 
+      // Optimize API call for faster response
       const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-001:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
@@ -716,14 +719,15 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
             parts: [{ text: promptText }]
           }],
           generationConfig: {
-            temperature: 0.1,  // Even lower for more deterministic, faster output
-            maxOutputTokens: 1024, // Lower to reduce processing time
+            // Adjust parameters based on question count
+            temperature: actualNumberOfQuestions > 10 ? 0.2 : 0.4,
+            maxOutputTokens: Math.min(1024 + (actualNumberOfQuestions * 50), 2048), // Scale with question count
             topP: 0.7,
             topK: 20
           }
         }),
-        // Set a shorter timeout for the fetch itself
-        timeout: 7000
+        // Set a slightly shorter timeout for the fetch itself
+        timeout: 8000
       });
 
       // Clear the timeout guard since we got a response
@@ -764,10 +768,24 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
         }
       } catch (parseError) {
         console.error('JSON Parsing Error:', parseError);
-        return res.status(500).json({
-          message: 'Failed to parse generated quiz data',
-          error: 'Internal processing error'
-        });
+        // Try a more aggressive JSON extraction as a fallback
+        try {
+          const bracketMatch = cleanedText.match(/\[.*\]/s);
+          if (bracketMatch) {
+            questions = JSON.parse(bracketMatch[0]);
+            if (!Array.isArray(questions)) {
+              throw new Error('Extracted content is not an array');
+            }
+          } else {
+            throw new Error('No JSON array found in the response');
+          }
+        } catch (fallbackError) {
+          console.error('Fallback parsing failed:', fallbackError);
+          return res.status(500).json({
+            message: 'Failed to parse generated quiz data',
+            error: 'Internal processing error'
+          });
+        }
       }
       
       // Format and validate each question
@@ -803,8 +821,8 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
       if (!res.headersSent) {
         res.status(500).json({
           message: 'Failed to generate quiz',
-          error: 'There was an error generating your quiz. Please try with fewer questions.',
-          maxQuestions: maxQuestions
+          error: 'There was an error generating your quiz. Please try again or with fewer questions.',
+          maxQuestions: 10 // Suggest 10 as a safer fallback
         });
       }
     }
@@ -813,7 +831,7 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({
         message: 'Error generating quiz',
-        error: 'An unexpected error occurred. Please try with 5 or fewer questions.'
+        error: 'An unexpected error occurred. Please try again or with fewer questions.'
       });
     }
   }

@@ -25,7 +25,7 @@ app.options('*', (req, res) => {
 // Specific error handler for quiz generation that ensures proper CORS headers
 app.use('/api/generate-quiz', (req, res, next) => {
   // Set maximum request processing time for quiz generation
-  const QUIZ_TIMEOUT = 9000; // 9 seconds (just under Vercel's 10s limit)
+  const QUIZ_TIMEOUT = 9500; // 9.5 seconds (just under Vercel's 10s limit)
   
   // Set CORS headers immediately for this specific route
   res.header('Access-Control-Allow-Origin', 'https://epsilora.vercel.app');
@@ -39,8 +39,8 @@ app.use('/api/generate-quiz', (req, res, next) => {
       console.log('Quiz generation timeout triggered from vercel.js guardian');
       res.status(504).json({
         message: 'Quiz generation timed out',
-        error: 'Please try with 5 or fewer questions',
-        maxQuestions: 5,
+        error: 'The server took too long to generate your quiz. Please try again or with fewer questions.',
+        maxQuestions: 10, // Recommend 10 questions as a safer fallback
         timeoutAt: QUIZ_TIMEOUT
       });
     }
