@@ -43,20 +43,23 @@ const corsOptions = {
     
     // Allow requests with no origin (like mobile apps or curl requests) 
     // or any Vercel deployment URL
-    if (!origin || 
+    if (!origin) {
+      callback(null, true); // Allow requests with no origin
+    } else if (
         allowedOrigins.includes(origin) || 
         /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin) ||
         /^https:\/\/epsilora.*\.vercel\.app$/.test(origin)) {
-      callback(null, origin);
+      callback(null, origin); // Reflect the request origin in the response
     } else {
       console.log(`CORS blocked origin: ${origin}`);
       callback(new Error(`Origin ${origin} not allowed by CORS`));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With'],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // 24 hours
 };
 
 // Apply CORS middleware
@@ -65,11 +68,8 @@ app.use(cors(corsOptions));
 // Add additional headers for CORS
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && (
-      corsOptions.origin === '*' || 
-      (typeof corsOptions.origin === 'function' && 
-       corsOptions.origin(origin, () => true, true))
-  )) {
+  // Never use wildcard with credentials
+  if (origin) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   res.header('Access-Control-Allow-Credentials', 'true');
