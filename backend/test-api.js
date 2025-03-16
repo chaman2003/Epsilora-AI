@@ -2,8 +2,7 @@ const fetch = require('node-fetch');
 
 async function testDeleteAllChats() {
   try {
-    // Replace this with a valid token from your application
-    const token = 'YOUR_AUTH_TOKEN';
+    const token = '';
     
     console.log('Testing DELETE /api/chat-history/all endpoint...');
     
