@@ -1,11 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { QuizProvider } from './context/QuizContext';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Navbar from './components/common/Navbar';
+import Footer from './components/common/Footer';
 import PageTransition from './components/common/PageTransition';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -20,13 +21,13 @@ import { THEME_TRANSITION_DURATION } from './config/animations';
 
 // Separate AppContent component to use the theme context
 const AppContent = () => {
-  const { theme, toggleTheme } = useTheme();
-
+  // We don't need to use the theme context here since the theme transitions 
+  // are handled by Tailwind CSS and the Navbar component
   return (
     <AuthProvider>
-      <div className={`min-h-screen bg-white dark:bg-gray-900 transition-colors duration-[${THEME_TRANSITION_DURATION}ms]`}>
-        <Navbar theme={theme} toggleTheme={toggleTheme} />
-        <div className="pt-16">
+      <div className={`min-h-screen flex flex-col bg-white dark:bg-gray-900 transition-colors duration-[${THEME_TRANSITION_DURATION}ms]`}>
+        <Navbar />
+        <div className="pt-16 flex-grow pb-12">
           <PageTransition>
             <Routes>
               <Route path="/" element={<Home />} />
@@ -82,6 +83,7 @@ const AppContent = () => {
             </Routes>
           </PageTransition>
         </div>
+        <Footer />
         <Toaster position="top-right" />
       </div>
     </AuthProvider>
@@ -93,7 +95,9 @@ function App() {
     <QuizProvider>
       <Router>
         <ThemeProvider>
-          <AppContent />
+          <ErrorBoundary>
+            <AppContent />
+          </ErrorBoundary>
         </ThemeProvider>
       </Router>
     </QuizProvider>

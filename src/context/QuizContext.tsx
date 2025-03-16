@@ -33,8 +33,13 @@ const QuizContext = createContext<QuizContextProps | undefined>(undefined);
 export const QuizProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Initialize state with data from localStorage if available
   const [quizData, setQuizDataState] = useState<QuizData | null>(() => {
-    const savedData = localStorage.getItem(QUIZ_DATA_KEY);
-    return savedData ? JSON.parse(savedData) : null;
+    try {
+      const storedData = localStorage.getItem(QUIZ_DATA_KEY);
+      return storedData ? JSON.parse(storedData) : null;
+    } catch (error) {
+      console.error('Error parsing stored quiz data:', error);
+      return null;
+    }
   });
 
   // Clear quiz data when token is not present (user logged out)
@@ -47,11 +52,20 @@ export const QuizProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Wrapper function to update both state and localStorage
   const setQuizData = (data: QuizData | null) => {
+    console.log('Setting quiz data in context:', data ? 'data present' : 'null data');
     setQuizDataState(data);
-    if (data) {
-      localStorage.setItem(QUIZ_DATA_KEY, JSON.stringify(data));
-    } else {
-      localStorage.removeItem(QUIZ_DATA_KEY);
+    
+    try {
+      if (data) {
+        const serialized = JSON.stringify(data);
+        localStorage.setItem(QUIZ_DATA_KEY, serialized);
+        console.log('Quiz data saved to localStorage, first 100 chars:', serialized.substring(0, 100));
+      } else {
+        localStorage.removeItem(QUIZ_DATA_KEY);
+        console.log('Quiz data removed from localStorage');
+      }
+    } catch (error) {
+      console.error('Error saving quiz data to localStorage:', error);
     }
   };
 
