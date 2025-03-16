@@ -5,6 +5,7 @@ import { Award, Clock, Book, ArrowLeft, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuiz } from '../context/QuizContext';
 import type { QuizData } from '../context/QuizContext';
+import { toast } from 'react-hot-toast';
 
 const QuizResults: React.FC = () => {
   const location = useLocation();
@@ -53,10 +54,120 @@ const QuizResults: React.FC = () => {
   };
 
   const handleGetAIHelp = () => {
-    // Ensure quiz data is in context and localStorage
-    setQuizData(quizData);
-    localStorage.setItem('quizData', JSON.stringify(quizData));
-    navigate('/ai-assist', { replace: true });
+    console.log("handleGetAIHelp called in QuizResults - preparing quiz data for AI assist");
+    
+    // Try to get quiz data from multiple sources for reliability
+    let quizDataToUse = null;
+    
+    // First try context
+    if (quizData) {
+      console.log("Using quiz data from context");
+      quizDataToUse = quizData;
+    } 
+    // Then try location state
+    else if (location.state) {
+      console.log("Using quiz data from location state");
+      quizDataToUse = location.state;
+    }
+    // Then try localStorage
+    else {
+      try {
+        const storedData = localStorage.getItem('lastQuizData');
+        if (storedData) {
+          console.log("Using quiz data from localStorage (lastQuizData)");
+          quizDataToUse = JSON.parse(storedData);
+        }
+      } catch (error) {
+        console.error("Error parsing quiz data from localStorage:", error);
+      }
+    }
+    
+    // Final fallback check
+    if (!quizDataToUse) {
+      console.error("No quiz data available for AI help from any source");
+      toast.error("Error: No quiz data available. Please take a quiz first.");
+      return;
+    }
+    
+    // Create a deep copy of the quiz data to ensure we don't modify the original
+    const quizDataCopy = JSON.parse(JSON.stringify(quizDataToUse));
+    
+    // Generate a unique ID for this quiz data to prevent infinite processing loops
+    const quizDataId = `${quizDataCopy.courseName}-${quizDataCopy.score}-${quizDataCopy.totalQuestions}-${Date.now()}`;
+    quizDataCopy.id = quizDataId;
+    
+    // Check if this quiz has been processed already
+    const processedQuizzes = JSON.parse(localStorage.getItem('processedQuizzes') || '[]');
+    const isProcessed = processedQuizzes.some((id: string) => 
+      id.startsWith(`${quizDataCopy.courseName}-${quizDataCopy.score}-${quizDataCopy.totalQuestions}`)
+    );
+    
+    if (isProcessed) {
+      console.log("This quiz has already been processed, removing old data first");
+      // Clear all existing quiz data to prevent reprocessing
+      localStorage.removeItem('quizData');
+      localStorage.removeItem('lastQuizData');
+      sessionStorage.removeItem('quizData');
+      
+      // Small delay to ensure storage is cleared
+      setTimeout(() => {
+        storeAndNavigate(quizDataCopy, quizDataId, processedQuizzes);
+      }, 100);
+    } else {
+      storeAndNavigate(quizDataCopy, quizDataId, processedQuizzes);
+    }
+  };
+  
+  // Helper function to store quiz data and navigate
+  const storeAndNavigate = (
+    quizDataCopy: QuizData, 
+    quizDataId: string, 
+    processedQuizzes: string[]
+  ) => {
+    // Log the quiz data we're about to set
+    console.log('Setting quiz data in context and localStorage:', quizDataCopy);
+    
+    // Ensure the data is properly stored in both context and localStorage
+    setQuizData(quizDataCopy);
+    
+    try {
+      // Use more reliable JSON stringification
+      const jsonString = JSON.stringify(quizDataCopy);
+      
+      // Store in both 'quizData' and 'lastQuizData' for redundancy
+      localStorage.setItem('quizData', jsonString);
+      localStorage.setItem('lastQuizData', jsonString);
+      console.log('Quiz data saved to localStorage:', jsonString.substring(0, 100) + '...');
+      
+      // For even more reliability, also save to sessionStorage
+      sessionStorage.setItem('quizData', jsonString);
+      console.log('Quiz data also saved to sessionStorage for redundancy');
+      
+      // Mark this quiz as processed to prevent reprocessing
+      if (!processedQuizzes.includes(quizDataId)) {
+        processedQuizzes.push(quizDataId);
+        localStorage.setItem('processedQuizzes', JSON.stringify(processedQuizzes));
+      }
+    } catch (error) {
+      console.error('Error saving quiz data to storage:', error);
+      toast.error("Failed to save quiz data. Please try again.");
+      return;
+    }
+    
+    // Add a small delay to ensure the data is properly set before navigating
+    setTimeout(() => {
+      // Double-check that data was saved
+      const savedData = localStorage.getItem('quizData');
+      if (!savedData) {
+        console.error("Failed to save quiz data to localStorage");
+        toast.error("Error saving quiz data. Please try again.");
+        return;
+      }
+      
+      console.log("Quiz data successfully saved, navigating to AI assist");
+      // Navigate to AI assist
+      navigate('/ai-assist', { replace: true });
+    }, 300); // Increased timeout for reliability
   };
 
   return (

@@ -1,0 +1,10 @@
+{
+  "name": "test-api",
+  "version": "1.0.0",
+  "description": "Test script for API endpoints",
+  "type": "module",
+  "main": "test-api.js",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+} 

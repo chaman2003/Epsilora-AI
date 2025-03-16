@@ -68,7 +68,9 @@ export default {
         'nav-item': 'navItem 0.3s ease-out',
         'theme-toggle': 'themeToggle 0.5s ease-in-out',
         'menu-expand': 'menuExpand 0.3s ease-out',
-        'menu-collapse': 'menuCollapse 0.3s ease-in'
+        'menu-collapse': 'menuCollapse 0.3s ease-in',
+        'blob': 'blob 10s infinite ease-in-out',
+        'blob-spin': 'blob-spin 30s linear infinite'
       },
       keyframes: {
         fadeIn: {
@@ -107,6 +109,16 @@ export default {
         menuCollapse: {
           '0%': { opacity: '1', transform: 'scaleY(1)' },
           '100%': { opacity: '0', transform: 'scaleY(0.95)' }
+        },
+        blob: {
+          '0%': { transform: 'translate(0px, 0px) scale(1)' },
+          '33%': { transform: 'translate(30px, -30px) scale(1.1)' },
+          '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+          '100%': { transform: 'translate(0px, 0px) scale(1)' }
+        },
+        'blob-spin': {
+          '0%': { transform: 'translate(-50%, -50%) rotate(0deg)' },
+          '100%': { transform: 'translate(-50%, -50%) rotate(360deg)' }
         }
       },
     },

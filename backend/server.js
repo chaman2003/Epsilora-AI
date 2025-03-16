@@ -144,16 +144,20 @@ const connectToMongoDB = async () => {
 
 // Lazy-loaded Gemini initialization that only happens when needed
 const getGeminiAI = async () => {
-  if (genAI) return genAI; // Return existing instance if available
+  if (genAI) {
+    console.log('Using existing genAI instance');
+    return genAI; // Return existing instance if available
+  }
   
   if (!GEMINI_API_KEY) {
-    console.warn('GEMINI_API_KEY not found in environment variables');
+    console.error('GEMINI_API_KEY not found in environment variables');
     return null;
   }
 
   try {
-    console.log('Initializing Gemini AI...');
+    console.log('Initializing Gemini AI with key starting with:', GEMINI_API_KEY.substring(0, 5) + '...');
     genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    console.log('Gemini AI initialized successfully');
     return genAI;
   } catch (error) {
     console.error('Error initializing Gemini AI:', error);
@@ -443,6 +447,21 @@ app.put('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
   }
 });
 
+// Add endpoint to delete all chat histories for a user
+app.delete('/api/chat-history/all', authenticateToken, async (req, res) => {
+  try {
+    const result = await ChatHistory.deleteMany({ userId: req.user.id });
+    console.log(`Deleted ${result.deletedCount} chat histories for user ${req.user.id}`);
+    res.json({ 
+      message: 'All chat histories deleted successfully',
+      count: result.deletedCount
+    });
+  } catch (error) {
+    console.error('Error deleting all chat histories:', error);
+    res.status(500).json({ error: 'Failed to delete chat history' });
+  }
+});
+
 app.delete('/api/chat-history/:chatId', authenticateToken, async (req, res) => {
   try {
     await ChatHistory.findOneAndDelete({
@@ -510,123 +529,32 @@ async function retryOperation(operation, maxRetries = 3, initialDelay = 1000) {
   throw new Error('Max retries exceeded');
 }
 
-// Main AI Assist Endpoint
-app.post('/api/super-simple-ai', authenticateToken, async (req, res) => {
-  console.log('AI assist request received:', new Date().toISOString());
-  
-  try {
-    const { messages } = req.body;
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: 'Invalid request format' });
-    }
-
-    const apiKey = GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: 'API key not configured' });
-    }
-
-    const lastMessage = messages[messages.length - 1];
-    console.log('Processing message:', lastMessage.content.substring(0, 100));
-
-    // Enhanced prompt to encourage more interactive and colorful responses
-    const enhancedPrompt = `
-You are an engaging and helpful AI assistant. Please provide a response that is:
-1. Well-formatted with markdown
-2. Uses emojis where appropriate
-3. Includes colorful formatting (using markdown)
-4. Structures information in an easy-to-read way
-5. Uses bullet points, numbered lists, or tables when relevant
-6. Highlights important information with bold or italics
-7. Uses code blocks with syntax highlighting when showing code
-
-Here's the user's message: ${lastMessage.content}
-
-Remember to:
-- Use **bold** for emphasis
-- Add relevant emojis
-- Structure your response with clear headings
-- Use \`code\` formatting for technical terms
-- Include examples in \`\`\`language\n code blocks \`\`\` when relevant
-`;
-
-    try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      
-      const result = await model.generateContent({
-        contents: [{ parts: [{ text: enhancedPrompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
-      });
-
-      if (!result || !result.response) {
-        throw new Error('No response from AI model');
-      }
-
-      const text = result.response.text();
-      
-      // Process the response to ensure markdown is preserved
-      const processedResponse = text
-        .replace(/\\n/g, '\n')  // Preserve newlines
-        .replace(/\\`/g, '`')   // Preserve code blocks
-        .replace(/\\\*/g, '*')  // Preserve bold/italic
-        .trim();
-
-      console.log('Successfully generated interactive response');
-      return res.json({ 
-        message: processedResponse,
-        format: 'markdown'  // Indicate to frontend that response contains markdown
-      });
-
-    } catch (error) {
-      console.error('AI Generation Error:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
-
-      return res.status(500).json({
-        error: 'Failed to generate content',
-        details: error.message,
-        suggestion: 'Please try again in a moment'
-      });
-    }
-  } catch (error) {
-    console.error('General Error:', error);
-    return res.status(500).json({ 
-      error: 'Server error',
-      message: error.message
-    });
-  }
-});
-
 // Quiz Generation Route with Enhanced Error Handling
 app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
   const startTime = Date.now();
   
   // Set CORS headers immediately to ensure they're always sent even on timeout
-  res.header('Access-Control-Allow-Origin', 'https://epsilora.vercel.app');
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://epsilora.vercel.app',
+    'https://epsilora-chaman-ss-projects.vercel.app',
+    'https://epsilora-git-master-chaman-ss-projects.vercel.app',
+    'https://epsilora-8f6lvf0o2-chaman-ss-projects.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3002',
+    'http://localhost:5173'
+  ];
+  
+  // Set the appropriate CORS headers based on origin
+  if (origin && (allowedOrigins.includes(origin) || 
+      /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin) ||
+      /^https:\/\/epsilora.*\.vercel\.app$/.test(origin))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    // Fallback for development or unknown origins
+    res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
+  }
+  
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -1172,9 +1100,9 @@ app.get('/api/quiz/stats', async (req, res) => {
   }
 });
 
-// Super Simple AI Assist Endpoint - Last Resort Approach
+// Super Simple AI Assist Endpoint - Improved version
 app.post('/api/super-simple-ai', authenticateToken, async (req, res) => {
-  console.log('Simple AI assist endpoint called:', new Date().toISOString());
+  console.log('AI assist request received:', new Date().toISOString());
   
   try {
     const { messages } = req.body;
@@ -1182,82 +1110,92 @@ app.post('/api/super-simple-ai', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid request format' });
     }
 
-    // Extract API key
-    const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    console.log('API Key length:', apiKey ? apiKey.length : 0);
-    console.log('API Key prefix:', apiKey ? apiKey.substring(0, 7) : 'none');
-    
-    if (!apiKey) {
-      return res.status(500).json({ error: 'API key not configured' });
+    const lastMessage = messages[messages.length - 1];
+    console.log('Processing message:', lastMessage.content.substring(0, 100));
+
+    // Initialize Gemini AI if not already done
+    const genAIInstance = await getGeminiAI();
+    if (!genAIInstance) {
+      console.error('Failed to initialize Gemini AI');
+      return res.status(500).json({ 
+        error: 'Failed to initialize AI', 
+        details: 'Could not initialize Gemini AI client',
+        suggestion: 'Please check server configuration and API key'
+      });
     }
 
-    const lastMessage = messages[messages.length - 1];
-    console.log('Processing user message:', lastMessage.content.substring(0, 30) + '...');
+    // Enhanced prompt to encourage more interactive and colorful responses
+    const enhancedPrompt = `
+You are an engaging and helpful AI assistant for an educational platform. Please provide a response that is:
+1. Well-formatted with markdown
+2. Uses emojis where appropriate
+3. Includes colorful formatting (using markdown)
+4. Structures information in an easy-to-read way
+5. Uses bullet points, numbered lists, or tables when relevant
+6. Highlights important information with bold or italics
+7. Uses code blocks with syntax highlighting when showing code
 
-    // Use the updated model
-    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-    console.log('Using API URL:', apiUrl.replace(apiKey, '[REDACTED]'));
-    
+Here's the user's message: ${lastMessage.content}
+
+Remember to:
+- Use **bold** for emphasis
+- Add relevant emojis
+- Structure your response with clear headings
+- Use \`code\` formatting for technical terms
+- Include examples in \`\`\`language\n code blocks \`\`\` when relevant
+`;
+
     try {
-      // Simple, minimal request to the API
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: lastMessage.content }] }]
-        })
+      console.log('Getting generative model from genAI instance...');
+      const model = genAIInstance.getGenerativeModel({ model: "gemini-2.0-flash" });
+      console.log('Model retrieved successfully');
+      
+      console.log('Generating content...');
+      const result = await model.generateContent({
+        contents: [{ parts: [{ text: enhancedPrompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_ONLY_HIGH",
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_ONLY_HIGH",
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_ONLY_HIGH",
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_ONLY_HIGH",
+          },
+        ],
       });
       
-      console.log('Response status:', response.status, response.statusText);
+      console.log('Content generated successfully');
+      const response = result.response;
+      const text = response.text();
       
-      if (!response.ok) {
-        let errorMessage = `API error: ${response.status} ${response.statusText}`;
-        let responseBody = '';
-        
-        try {
-          const errorJson = await response.json();
-          responseBody = JSON.stringify(errorJson);
-          console.error('Error response:', errorJson);
-        } catch (e) {
-          responseBody = await response.text();
-          console.error('Error response text:', responseBody);
-        }
-        
-        return res.status(500).json({ 
-          error: 'Failed to generate content',
-          details: errorMessage,
-          responseBody,
-          suggestion: 'Please check your API key and make sure it has access to Gemini API'
-        });
-      }
-      
-      // Parse successful response
-      const data = await response.json();
-      console.log('Response received successfully');
-      
-      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-        console.error('Invalid response format:', JSON.stringify(data).substring(0, 200));
-        return res.status(500).json({
-          error: 'Invalid API response',
-          details: 'Response did not contain the expected content format'
-        });
-      }
-      
-      const generatedText = data.candidates[0].content.parts[0].text;
-      console.log('Successfully generated text, length:', generatedText.length);
-      
-      return res.json({ message: generatedText });
-    } catch (error) {
-      console.error('Error making API request:', error);
-      return res.status(500).json({
-        error: 'Request failed',
-        details: error.message,
-        stack: error.stack
+      console.log('Responding with text of length:', text.length);
+      res.json({ message: text });
+    } catch (aiError) {
+      console.error('Error generating content with Gemini:', aiError);
+      return res.status(500).json({ 
+        error: 'Failed to generate content', 
+        details: aiError.toString(),
+        suggestion: 'The AI service may be experiencing issues or the request format is invalid'
       });
     }
   } catch (error) {
-    console.error('General error:', error);
-    return res.status(500).json({ error: error.message });
+    console.error('Error in AI assist endpoint:', error);
+    res.status(500).json({ error: 'An error occurred processing your request' });
   }
 });
 

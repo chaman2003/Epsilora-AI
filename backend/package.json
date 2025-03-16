@@ -22,7 +22,7 @@
     "mongodb": "^5.9.2",
     "mongodb-connection-string-url": "^2.6.0",
     "mongoose": "^7.6.8",
-    "node-fetch": "^2.6.7",
+    "node-fetch": "^2.7.0",
     "react-hot-toast": "^2.4.1",
     "webidl-conversions": "^7.0.0",
     "whatwg-url": "^13.0.0"

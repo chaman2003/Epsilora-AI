@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart2, Brain, BookOpen, Bot, ArrowRight, Sparkles } from 'lucide-react';
 import { themeConfig } from '../config/theme';
-import Footer from '../components/common/Footer';
 
 const features = [
   {
@@ -204,8 +203,6 @@ const Home: React.FC = () => {
           </div>
         </div>
       </div>
-
-      <Footer />
     </motion.div>
   );
 };
