@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { processCodeBlocks } from '../utils/markdown';
 
 interface AIChatProps {
   isOpen: boolean;
@@ -15,12 +17,57 @@ const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
   const API_KEY = 'AIzaSyAMYWOTTvkxBC58He7gzrZV2qO3v7yqML8';
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   };
 
+  // Set up a MutationObserver to detect content changes
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    // Create the observer to watch for content changes
+    const messagesContainer = document.querySelector('.aichat-messages-container');
+    if (!messagesContainer) return;
+
+    const observer = new MutationObserver(() => {
+      scrollToBottom();
+    });
+
+    // Start observing the messages container for DOM changes
+    observer.observe(messagesContainer, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+
+    // Cleanup observer on unmount
+    return () => {
+      observer.disconnect();
+    };
+  }, [isOpen]);
+
+  // Scroll when new messages are added
+  useEffect(() => {
+    // Only scroll if close to the bottom
+    const isUserNearBottom = () => {
+      const container = document.querySelector('.aichat-messages-container');
+      if (!container) return true;
+      
+      const scrollPosition = container.scrollTop + container.clientHeight;
+      const threshold = container.scrollHeight - 100; // Within 100px of bottom
+      return scrollPosition >= threshold;
+    };
+
+    if (messages.length > 0 && isUserNearBottom()) {
+      // Scroll immediately and then again after a delay to ensure content is rendered
+      scrollToBottom();
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [messages.length]);
+
+  // Initial scroll when component mounts
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(scrollToBottom, 200);
+    }
+  }, [isOpen]);
 
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -84,7 +131,7 @@ const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
             </button>
           </div>
 
-          <div className="p-3 h-72 overflow-y-auto">
+          <div className="aichat-messages-container p-3 h-72 overflow-y-auto">
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -97,7 +144,7 @@ const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
                   }`}
                 >
-                  {message.text}
+                  {processCodeBlocks(message.text)}
                 </div>
               </div>
             ))}

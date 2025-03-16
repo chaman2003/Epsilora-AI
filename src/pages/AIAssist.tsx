@@ -8,6 +8,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '../context/QuizContext';
+import CodeBlock from '../components/CodeBlock';
+import { normalizeMarkdownText } from '../utils/markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -942,99 +944,99 @@ const AIAssist: React.FC = () => {
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      // Force layout recalculation before scrolling
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
     }
   };
 
-  // Don't auto-scroll on initial load, but scroll on new messages
+  // Set up a MutationObserver to detect content changes
   useEffect(() => {
-    if (messages.length > 0 && isInitialized) {
-      // Only scroll if it's a new message after initial load
-      if (messages.length > 1) {
-        scrollToBottom();
-      }
+    // Create the observer to watch for content changes
+    const messagesContainer = document.querySelector('.messages-container');
+    if (!messagesContainer) return;
+
+    const observer = new MutationObserver(() => {
+      scrollToBottom();
+    });
+
+    // Start observing the messages container for DOM changes
+    observer.observe(messagesContainer, {
+      childList: true,  // Watch for changes to child elements
+      subtree: true,    // Watch the entire subtree
+      characterData: true // Watch for text changes
+    });
+
+    // Cleanup observer on unmount
+    return () => {
+      observer.disconnect();
+    };
+  }, [isInitialized]);
+
+  // Scroll when new messages are added
+  useEffect(() => {
+    // Check if user is actively scrolling or viewing history
+    const isUserNearBottom = () => {
+      const container = document.querySelector('.messages-container');
+      if (!container) return true;
+      
+      const scrollPosition = container.scrollTop + container.clientHeight;
+      const threshold = container.scrollHeight - 100; // Within 100px of bottom
+      return scrollPosition >= threshold;
+    };
+
+    if (messages.length > 0 && isInitialized && isUserNearBottom()) {
+      // Scroll immediately and then again after a delay to ensure content is rendered
+      scrollToBottom();
+      setTimeout(scrollToBottom, 100);
     }
   }, [messages.length, isInitialized]);
 
-  // Modify the StyledMarkdown component
-  const StyledMarkdown = ({ content, isUserMessage }: { content: string, isUserMessage: boolean }) => (
-    <ReactMarkdown 
-      remarkPlugins={[remarkGfm]}
-      components={{
-        h1: ({children}) => (
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-6">
-            {children}
-          </h1>
-        ),
-        h2: ({children}) => (
-          <h2 className="text-xl md:text-2xl font-semibold text-indigo-600 dark:text-indigo-400 mb-4">
-            {children}
-          </h2>
-        ),
-        h3: ({children}) => (
-          <h3 className={`text-lg md:text-xl font-semibold mb-3 ${
-            String(children).includes('Questions to Review') || String(children).includes('❌')
-              ? 'text-rose-600 dark:text-rose-400'
-              : String(children).includes('Excellent') || String(children).includes('✅')
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-indigo-600 dark:text-indigo-400'
-          }`}>
-            {children}
-          </h3>
-        ),
-        h4: ({children}) => (
-          <h4 className="text-base md:text-lg font-medium text-amber-600 dark:text-amber-400 mb-3">
-            {children}
-          </h4>
-        ),
-        strong: ({children}) => (
-          <strong className={`font-semibold ${
-            String(children).includes('Your Answer') && !String(children).includes('Correct!')
-              ? 'text-rose-600 dark:text-rose-400'
-              : String(children).includes('Correct answer') || String(children).includes('Correct!')
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : ''
-          }`}>
-            {children}
-          </strong>
-        ),
-        em: ({children}) => (
-          <em className="text-emerald-600 dark:text-emerald-400 not-italic font-medium">
-            {children}
-          </em>
-        ),
-        hr: () => (
-          <hr className="my-6 border-gray-200 dark:border-gray-700" />
-        ),
-        br: () => (
-          <span className="block h-3 md:h-4" aria-hidden="true"></span>
-        ),
-        p: ({children}) => (
-          <p className="text-base leading-relaxed mb-4">
-            {children}
-          </p>
-        ),
-        ul: ({children}) => (
-          <ul className="my-4 space-y-2 list-disc list-inside">
-            {children}
-          </ul>
-        ),
-        ol: ({children}) => (
-          <ol className="my-4 space-y-2 list-decimal list-inside">
-            {children}
-          </ol>
-        ),
-        li: ({children}) => (
-          <li className="ml-2">{children}</li>
-        ),
-      }}
-      className={`max-w-none whitespace-pre-wrap break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 ${
-        isUserMessage ? 'text-white' : 'text-gray-800 dark:text-white'
-      }`}
-    >
-      {content}
-    </ReactMarkdown>
-  );
+  // Initial scroll when component mounts
+  useEffect(() => {
+    if (!initRef.current) {
+      setTimeout(() => {
+        scrollToBottom();
+        initRef.current = true;
+      }, 200);
+    }
+  }, []);
+
+  // Update the StyledMarkdown component
+  const StyledMarkdown = ({ content, isUserMessage }: { content: string, isUserMessage?: boolean }) => {
+    // Process content for markdown rendering
+    const processedContent = normalizeMarkdownText(content);
+
+    return (
+      <div className={`markdown-content ${isUserMessage ? 'text-white' : 'text-gray-800 dark:text-white'}`}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          className="prose dark:prose-invert prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 max-w-none"
+          components={{
+            code: ({className, children}) => {
+              const isInline = !className || !className.includes('language-');
+              
+              if (isInline) {
+                return (
+                  <code className="font-mono text-sm px-1 py-0.5 rounded">
+                    {children}
+                  </code>
+                );
+              }
+              
+              // Extract language from className
+              const language = className ? className.replace('language-', '') : undefined;
+              const code = String(children);
+              
+              // Use the CodeBlock component for code blocks
+              return <CodeBlock code={code} language={language} />;
+            }
+          }}
+        >
+          {processedContent}
+        </ReactMarkdown>
+      </div>
+    );
+  };
 
   return (
     <motion.div
@@ -1341,7 +1343,7 @@ const AIAssist: React.FC = () => {
               </div>
             </div>
             {/* Chat Messages */}
-            <div className="h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50">
+            <div className="messages-container h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50">
               <AnimatePresence>
                 {messages.map((message, index) => (
                   <motion.div
@@ -1372,7 +1374,7 @@ const AIAssist: React.FC = () => {
                     >
                       <StyledMarkdown 
                         content={message.content} 
-                        isUserMessage={message.role === 'user'} 
+                        isUserMessage={message.role === 'user'}
                       />
                     </div>
                   </motion.div>

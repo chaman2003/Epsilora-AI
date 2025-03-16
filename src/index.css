@@ -346,3 +346,263 @@ html {
 .animate-blob-spin {
   animation: blob-spin 30s linear infinite;
 }
+
+/* Markdown Content Styling */
+.markdown-content {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.markdown-content p {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  font-size: 0.9em;
+}
+
+.markdown-content pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.9em;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1em;
+  color: #6b7280;
+  margin: 1em 0;
+}
+
+.markdown-content hr {
+  margin: 1.5em 0;
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Dark mode adjustments */
+.dark .markdown-content code {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .markdown-content pre {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .markdown-content blockquote {
+  border-left-color: #4b5563;
+  color: #9ca3af;
+}
+
+.dark .markdown-content hr {
+  border-top-color: #4b5563;
+}
+
+/* Updated Code Block Styling */
+.code-block {
+  position: relative;
+  margin: 1rem 0;
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 1rem;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+.code-block code {
+  tab-size: 2;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9rem;
+  white-space: pre !important;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+}
+
+/* Style for languages - basic syntax highlighting */
+/* JavaScript/TypeScript */
+.language-js .keyword,
+.language-typescript .keyword,
+.language-jsx .keyword,
+.language-tsx .keyword {
+  color: #c678dd;
+}
+
+.language-js .string,
+.language-typescript .string,
+.language-jsx .string,
+.language-tsx .string {
+  color: #98c379;
+}
+
+.language-js .comment,
+.language-typescript .comment,
+.language-jsx .comment,
+.language-tsx .comment {
+  color: #7f848e;
+  font-style: italic;
+}
+
+.language-js .function,
+.language-typescript .function,
+.language-jsx .function,
+.language-tsx .function {
+  color: #61afef;
+}
+
+/* Python */
+.language-python .keyword,
+.language-py .keyword {
+  color: #c678dd;
+}
+
+.language-python .string,
+.language-py .string {
+  color: #98c379;
+}
+
+.language-python .comment,
+.language-py .comment {
+  color: #7f848e;
+  font-style: italic;
+}
+
+.language-python .function,
+.language-py .function {
+  color: #61afef;
+}
+
+/* HTML/XML */
+.language-html .tag,
+.language-xml .tag {
+  color: #e06c75;
+}
+
+.language-html .attr-name,
+.language-xml .attr-name {
+  color: #d19a66;
+}
+
+.language-html .attr-value,
+.language-xml .attr-value {
+  color: #98c379;
+}
+
+/* CSS */
+.language-css .selector {
+  color: #e06c75;
+}
+
+.language-css .property {
+  color: #d19a66;
+}
+
+.language-css .value {
+  color: #98c379;
+}
+
+/* SQL */
+.language-sql .keyword {
+  color: #c678dd;
+}
+
+.language-sql .string {
+  color: #98c379;
+}
+
+.language-sql .function {
+  color: #61afef;
+}
+
+/* Dark theme adjustments */
+.dark .language-js .keyword,
+.dark .language-typescript .keyword,
+.dark .language-jsx .keyword,
+.dark .language-tsx .keyword,
+.dark .language-python .keyword,
+.dark .language-py .keyword,
+.dark .language-sql .keyword {
+  color: #c678dd;
+}
+
+.dark .language-js .string,
+.dark .language-typescript .string,
+.dark .language-jsx .string,
+.dark .language-tsx .string,
+.dark .language-python .string,
+.dark .language-py .string,
+.dark .language-sql .string {
+  color: #98c379;
+}
+
+.dark .language-js .comment,
+.dark .language-typescript .comment,
+.dark .language-jsx .comment,
+.dark .language-tsx .comment,
+.dark .language-python .comment,
+.dark .language-py .comment {
+  color: #7f848e;
+}
+
+.dark .language-js .function,
+.dark .language-typescript .function,
+.dark .language-jsx .function,
+.dark .language-tsx .function,
+.dark .language-python .function,
+.dark .language-py .function,
+.dark .language-sql .function {
+  color: #61afef;
+}
+
+/* Improve code block scrollbar */
+.code-block pre::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.code-block pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.code-block pre::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 3px;
+}
+
+.code-block pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}
+
+.dark .code-block pre::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.4);
+}
+
+.dark .code-block pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.6);
+}
