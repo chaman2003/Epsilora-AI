@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../config/axios';
 import axios from 'axios';
-import { MessageSquare, Send, Bot, User, Sparkles, Loader2, History, Trash2, Plus, X } from 'lucide-react';
+import { MessageSquare, Send, Bot, Sparkles, Loader2, History, Trash2, Plus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -42,6 +42,15 @@ interface QuizData {
       text: string;
     }[];
   }[];
+}
+
+// Add TypeScript declaration at the top of the file
+declare global {
+  interface Window {
+    userHasInteracted?: boolean;
+    initialPageLoad?: boolean;
+    navbarNavigation?: boolean;
+  }
 }
 
 const formatTimestamp = (timestamp: string) => {
@@ -122,52 +131,104 @@ const AIAssist: React.FC = () => {
   const isAuthenticated = localStorage.getItem('token') !== null;
 
   // Memoized functions
-  const generateQuizSummary = useMemo(() => {
-    const cache = new Map<string, string>();
-    return (data: QuizData) => {
-      const cacheKey = `${data.courseName}-${data.score}-${data.totalQuestions}`;
-      if (cache.has(cacheKey)) return cache.get(cacheKey)!;
-      let summary = `# 🎓 Quiz Review\n\n`;
-      summary += `## 📘 Course: ${data.courseName} \n`;
-      summary += `**🧠 Difficulty:** ${data.difficulty} \n`;
-      summary += `**🏆 Score:** ${data.score}/${data.totalQuestions} \n\n`;
+  const quizSummariesCache = useRef<Record<string, string>>({});
 
-      summary += `## 🔍 Questions \n\n`;
-      data.questions.forEach((q, index) => {
-        summary += `### 📝 Question ${index + 1} ${q.isCorrect ? '✅' : '❌'} \n\n`;
-        summary += `**${q.question}** \n\n`;
+  const generateQuizSummary = useCallback((quizData: QuizData) => {
+    try {
+      // Create a cache key to avoid redundant processing
+      const cacheKey = `${quizData.courseName}-${quizData.score}-${quizData.totalQuestions}`;
+      
+      // Check if we already have this quiz summary cached
+      if (quizSummariesCache.current[cacheKey]) {
+        return quizSummariesCache.current[cacheKey];
+      }
+      
+      // Extract relevant data
+      const { courseName, score, totalQuestions, difficulty, questions } = quizData;
+      const date = new Date().toLocaleString();
+      const percentageScore = Math.round((score / totalQuestions) * 100);
+      
+      // Build a well-structured summary with improved spacing and formatting
+      let summary = `## Quiz Review: ${courseName}
+**Course:** ${courseName}
+**Score:** ${score}/${totalQuestions} (${percentageScore}%)
+**Date:** ${date}
+**Difficulty:** ${difficulty}
+
+---
+### Questions:
+`;
+
+      // Process each question with enhanced formatting and spacing
+      questions.forEach((q, index) => {
+        const questionNumber = index + 1;
         
-        summary += `**Options:** \n\n`;
-        if (Array.isArray(q.options)) {
-          q.options.forEach(opt => {
-            const isUserAnswer = opt.label === q.userAnswer;
-            const isCorrectAnswer = opt.label === q.correctAnswer;
-            
-            // Clean option text by removing any leading letter labels like "A)" or "B)" 
-            let cleanedText = opt.text;
-            if (typeof cleanedText === 'string') {
-              cleanedText = cleanedText.replace(/^[a-dA-D]\)[\s]*/g, '');
-            }
-            
-            summary += `${isUserAnswer ? '👉 ' : ''}**${opt.label}.** ${cleanedText} ${isCorrectAnswer ? '✅' : ''}\n\n`;
-          });
-        }
+        // Add question with proper markup and clear separation
+        summary += `#### ${questionNumber}. ${q.question}\n\n`;
         
-        summary += `\n**Your Answer:** ${q.userAnswer || 'Not answered'} `;
-        if (q.isCorrect) {
-          summary += `✅ Correct!\n\n`;
-        } else if (q.userAnswer) {
-          summary += `❌ Wrong\n\n`;
-          summary += `\n**_Correct answer was ${q.correctAnswer}_**\n\n`;
-        } else {
-          summary += `❓ Not attempted\n\n`;
-          summary += `\n**_Correct answer was ${q.correctAnswer}_**\n\n`;
-        }
+        // Process options ensuring only one correct answer is shown
+        const options = q.options;
+        const userAnswerLetter = q.userAnswer;
+        const correctAnswerLetter = q.correctAnswer;
+        
+        // Ensure we only mark one answer as correct
+        let correctOptionFound = false;
+        
+        // Display options with proper formatting and on separate lines
+        options.forEach((option, optIdx) => {
+          const optionLetter = String.fromCharCode(65 + optIdx); // A, B, C, D...
+          
+          // Get clean option text
+          let optionText;
+          if (typeof option === 'object' && option !== null) {
+            optionText = option.text || String(option);
+          } else {
+            optionText = String(option);
+          }
+          
+          // Clean option text (remove any existing letter prefixes)
+          const cleanedText = optionText
+            .replace(/^[a-dA-D][).]\s*/g, '')
+            .replace(/^[a-dA-D]\s+/g, '')
+            .trim();
+          
+          // Determine if this is the correct option based on letter match
+          // Only mark the first matching option as correct to avoid multiple correct answers
+          const isCorrectOption = optionLetter === correctAnswerLetter && !correctOptionFound;
+          if (isCorrectOption) {
+            correctOptionFound = true;
+          }
+          
+          const isUserSelection = optionLetter === userAnswerLetter;
+          
+          // Format each option on a separate line with appropriate indicators
+          if (isUserSelection && isCorrectOption) {
+            // User selected correctly
+            summary += `- ${optionLetter}. ${cleanedText} ✓ (Your answer - Correct)\n`;
+          } else if (isUserSelection) {
+            // User selected incorrectly
+            summary += `- ${optionLetter}. ${cleanedText} ❌ (Your answer - Incorrect)\n`;
+          } else if (isCorrectOption) {
+            // This is the correct answer but user didn't select it
+            summary += `- ${optionLetter}. ${cleanedText} ✓ (Correct answer)\n`;
+          } else {
+            // Normal option
+            summary += `- ${optionLetter}. ${cleanedText}\n`;
+          }
+        });
+        
+        // Add divider between questions
+        summary += `\n---\n\n`;
       });
-
-      cache.set(cacheKey, summary);
+      
+      // Cache the result for future use
+      quizSummariesCache.current[cacheKey] = summary;
+      
       return summary;
-    };
+    } catch (error) {
+      console.error("Error generating quiz summary:", error);
+      return "Error: Unable to generate quiz summary. Please try again.";
+    }
   }, []);
 
   const createNewChat = useCallback(async (
@@ -942,480 +1003,732 @@ const AIAssist: React.FC = () => {
     }
   };
 
+  // Completely disable the scrollToBottom function but keep it for references in the code
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      // Force layout recalculation before scrolling
-      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
-    }
+    // This function is intentionally disabled to prevent any automatic scrolling
+    return; // No-op - do nothing
   };
 
-  // Set up a MutationObserver to detect content changes
+  // Disable initial load scrolling
   useEffect(() => {
-    // Create the observer to watch for content changes
-    const messagesContainer = document.querySelector('.messages-container');
-    if (!messagesContainer) return;
-
-    const observer = new MutationObserver(() => {
-      scrollToBottom();
-    });
-
-    // Start observing the messages container for DOM changes
-    observer.observe(messagesContainer, {
-      childList: true,  // Watch for changes to child elements
-      subtree: true,    // Watch the entire subtree
-      characterData: true // Watch for text changes
-    });
-
-    // Cleanup observer on unmount
-    return () => {
-      observer.disconnect();
-    };
-  }, [isInitialized]);
-
-  // Scroll when new messages are added
-  useEffect(() => {
-    // Check if user is actively scrolling or viewing history
-    const isUserNearBottom = () => {
-      const container = document.querySelector('.messages-container');
-      if (!container) return true;
-      
-      const scrollPosition = container.scrollTop + container.clientHeight;
-      const threshold = container.scrollHeight - 100; // Within 100px of bottom
-      return scrollPosition >= threshold;
-    };
-
-    if (messages.length > 0 && isInitialized && isUserNearBottom()) {
-      // Scroll immediately and then again after a delay to ensure content is rendered
-      scrollToBottom();
-      setTimeout(scrollToBottom, 100);
-    }
-  }, [messages.length, isInitialized]);
-
-  // Initial scroll when component mounts
-  useEffect(() => {
+    // Only set initialization flag, never scroll
     if (!initRef.current) {
-      setTimeout(() => {
-        scrollToBottom();
-        initRef.current = true;
-      }, 200);
+      initRef.current = true;
     }
+    // No scroll timers or navigation flags needed
   }, []);
 
-  // Update the StyledMarkdown component
-  const StyledMarkdown = ({ content, isUserMessage }: { content: string, isUserMessage?: boolean }) => {
-    // Process content for markdown rendering
-    const processedContent = normalizeMarkdownText(content);
+  // Disable MutationObserver scrolling
+  useEffect(() => {
+    // No observer needed - we're disabling all automatic scrolling
+    return;
+  }, [isInitialized]);
+
+  // Disable message-based scrolling
+  useEffect(() => {
+    // No scrolling for new messages
+    return;
+  }, [messages.length, isInitialized, input]);
+
+  // Remove user interaction event listeners for scrolling
+  useEffect(() => {
+    // No need to track user interaction for scrolling purposes
+    return;
+  }, []);
+
+  // Enhanced StyledMarkdown component with improved styling for quizzes
+  interface StyledMarkdownProps {
+    content: string;
+    isQuiz?: boolean;
+  }
+
+  const StyledMarkdown: React.FC<StyledMarkdownProps> = ({ content, isQuiz = false }) => {
+    // Check if content contains tables for conditional styling
+    const hasTable = useMemo(() => {
+      return content.includes('|') && (content.includes('\n|') || content.includes('| --'));
+    }, [content]);
+
+    // Process content with improved normalizing logic
+    const normalizedContent = useMemo(() => {
+      return normalizeMarkdownText(content);
+    }, [content]);
 
     return (
-      <div className={`markdown-content ${isUserMessage ? 'text-white' : 'text-gray-800 dark:text-white'}`}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          className="prose dark:prose-invert prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 max-w-none"
-          components={{
-            code: ({className, children}) => {
-              const isInline = !className || !className.includes('language-');
-              
-              if (isInline) {
-                return (
-                  <code className="font-mono text-sm px-1 py-0.5 rounded">
-                    {children}
-                  </code>
-                );
+      <div className="markdown-body relative break-words">
+        {/* Apply conditional styling based on content */}
+        {(hasTable || isQuiz) && (
+          <style>
+            {/* Enhanced table styling for better data presentation and spacing */}
+            {hasTable && `
+              table {
+                border-collapse: collapse;
+                width: 100%;
+                margin: 0.75rem 0;
+                overflow-x: auto;
+                display: block;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                border-radius: 0.5rem;
               }
               
-              // Extract language from className
-              const language = className ? className.replace('language-', '') : undefined;
-              const code = String(children);
+              @media (min-width: 768px) {
+                table {
+                  display: table;
+                  width: 100%;
+                }
+              }
               
-              // Use the CodeBlock component for code blocks
-              return <CodeBlock code={code} language={language} />;
-            }
+              th, td {
+                border: 1px solid #e5e7eb;
+                padding: 0.5rem 0.75rem;
+                text-align: left;
+                vertical-align: top;
+              }
+              
+              th {
+                background-color: #f9fafb;
+                font-weight: 600;
+                text-transform: uppercase;
+                font-size: 0.875rem;
+                letter-spacing: 0.025em;
+              }
+              
+              tr:nth-child(even) {
+                background-color: #f3f4f6;
+              }
+              
+              tbody tr:hover {
+                background-color: rgba(99, 102, 241, 0.05);
+              }
+              
+              /* Dark mode support */
+              @media (prefers-color-scheme: dark) {
+                table {
+                  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                }
+                
+                th, td {
+                  border-color: #4b5563;
+                }
+                
+                th {
+                  background-color: #374151;
+                }
+                
+                tr:nth-child(even) {
+                  background-color: #1f2937;
+                }
+                
+                tbody tr:hover {
+                  background-color: rgba(99, 102, 241, 0.1);
+                }
+              }
+            `}
+            
+            {/* Quiz-specific styling for better organization and spacing */}
+            {isQuiz && `
+              .markdown-body {
+                line-height: 1.4;
+              }
+              
+              h2 {
+                font-size: 1.3rem;
+                font-weight: 700;
+                margin-top: 1.25rem;
+                margin-bottom: 0.75rem;
+                padding-bottom: 0.375rem;
+                border-bottom: 2px solid rgba(99, 102, 241, 0.2);
+                color: #4f46e5;
+              }
+              
+              h3 {
+                font-size: 1.15rem;
+                font-weight: 600;
+                margin-top: 1.25rem;
+                margin-bottom: 0.5rem;
+                color: #6366f1;
+              }
+              
+              h4 {
+                font-size: 1.05rem;
+                font-weight: 600;
+                margin-top: 1rem;
+                margin-bottom: 0.5rem;
+                padding: 0.5rem 0.625rem;
+                border-left: 4px solid #6366f1;
+                background-color: #f5f7ff;
+                border-radius: 0.375rem;
+                color: #4f46e5;
+              }
+              
+              p {
+                margin: 0.625rem 0;
+                line-height: 1.4;
+              }
+              
+              ul, ol {
+                margin: 0.625rem 0;
+                padding-left: 1.25rem;
+              }
+              
+              li {
+                margin-bottom: 0.375rem;
+                padding: 0.5rem 0.75rem;
+                border-radius: 0.375rem;
+                position: relative;
+                list-style-position: outside;
+                background-color: rgba(249, 250, 251, 0.7);
+              }
+              
+              li:has(svg.correct-icon) {
+                background-color: rgba(236, 253, 245, 0.7);
+                border-left: 3px solid #10b981;
+                padding-left: 0.75rem;
+              }
+              
+              li:has(svg.incorrect-icon) {
+                background-color: rgba(255, 241, 242, 0.7);
+                border-left: 3px solid #ef4444;
+                padding-left: 0.75rem;
+              }
+              
+              hr {
+                height: 1px;
+                background-color: rgba(209, 213, 219, 0.5);
+                border: none;
+                margin: 0.875rem 0;
+              }
+              
+              strong {
+                font-weight: 600;
+                color: #4f46e5;
+              }
+              
+              /* Styling for status indicators */
+              svg.correct-icon,
+              svg.incorrect-icon {
+                display: inline-block;
+                margin-left: 0.25rem;
+                margin-right: 0.25rem;
+                vertical-align: -0.125em;
+              }
+              
+              /* Dark mode support */
+              @media (prefers-color-scheme: dark) {
+                h2 {
+                  color: #a5b4fc;
+                  border-bottom-color: rgba(129, 140, 248, 0.2);
+                }
+                
+                h3 {
+                  color: #818cf8;
+                }
+                
+                h4 {
+                  border-left-color: #818cf8;
+                  background-color: rgba(67, 56, 202, 0.1);
+                  color: #a5b4fc;
+                }
+                
+                li {
+                  background-color: rgba(31, 41, 55, 0.5);
+                }
+                
+                li:has(svg.correct-icon) {
+                  background-color: rgba(6, 95, 70, 0.3);
+                  border-left-color: #34d399;
+                }
+                
+                li:has(svg.incorrect-icon) {
+                  background-color: rgba(127, 29, 29, 0.3);
+                  border-left-color: #f87171;
+                }
+                
+                hr {
+                  background-color: rgba(75, 85, 99, 0.5);
+                }
+                
+                strong {
+                  color: #a5b4fc;
+                }
+              }
+              
+              /* Landscape optimization for quiz content with reduced spacing */
+              @media (min-width: 768px) and (orientation: landscape) {
+                .quiz-content {
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 1rem;
+                }
+                
+                h2, h3, hr {
+                  grid-column: 1 / -1;
+                }
+                
+                h4 {
+                  margin-top: 1rem;
+                  margin-bottom: 0.5rem;
+                }
+                
+                ul, ol {
+                  margin: 0.5rem 0;
+                }
+              }
+            `}
+          </style>
+        )}
+        
+    <ReactMarkdown 
+      remarkPlugins={[remarkGfm]}
+      components={{
+            code: ({className, children, ...props}) => {
+              const match = /language-(\w+)/.exec(className || '');
+              return !match ? (
+                <code className={className} {...props}>
+            {children}
+                </code>
+              ) : (
+                <CodeBlock
+                  code={String(children).replace(/\n$/, '')}
+                  language={match[1]}
+                />
+              );
+            },
+            // Apply responsive table styling with reduced spacing
+            table: (props) => <table className="w-full overflow-x-auto rounded-lg" {...props} />,
+            th: (props) => <th className="bg-gray-100 dark:bg-gray-700 p-1.5 font-semibold border border-gray-300 dark:border-gray-600" {...props} />,
+            td: (props) => <td className="p-1.5 border border-gray-300 dark:border-gray-600" {...props} />,
+            
+            // Enhanced spacing for headings with reduced margins
+            h2: (props) => <h2 className="text-xl font-bold mt-4 mb-2" {...props} />,
+            h3: (props) => <h3 className="text-lg font-semibold mt-3 mb-1.5" {...props} />,
+            h4: (props) => <h4 className="text-md font-medium mt-3 mb-1.5 p-1.5 bg-gray-50 dark:bg-gray-800 rounded-lg" {...props} />,
+            
+            // Better spacing for paragraphs with reduced margins
+            p: (props) => <p className="my-2 leading-tight" {...props} />,
+            
+            // Improved list formatting with reduced spacing
+            ul: (props) => <ul className="my-2 pl-4 space-y-0.5" {...props} />,
+            ol: (props) => <ol className="my-2 pl-4 space-y-0.5" {...props} />,
+            
+            // Special styling for quiz content with reduced spacing
+            li: ({children, ...props}) => {
+              if (isQuiz && typeof children === 'string') {
+                const text = String(children);
+                
+                if (text.includes('✓') || text.includes('(Correct answer)') || text.includes('(Your answer - Correct)')) {
+                  return (
+                    <li {...props} className="py-1 px-2 my-1 rounded-md bg-green-50 dark:bg-green-900/20 border-l-3 border-green-500">
+                      {text.replace('✓', '').replace('(Correct answer)', '').replace('(Your answer - Correct)', '')} 
+                      <svg className="correct-icon inline-block w-3.5 h-3.5 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-green-700 dark:text-green-400 ml-1">
+                        {text.includes('(Your answer - Correct)') ? '(Your answer - Correct)' : '(Correct answer)'}
+                      </span>
+                    </li>
+                  );
+                } else if (text.includes('❌') || text.includes('(Incorrect)') || text.includes('(Your answer - Incorrect)')) {
+                  return (
+                    <li {...props} className="py-1 px-2 my-1 rounded-md bg-red-50 dark:bg-red-900/20 border-l-3 border-red-500">
+                      {text.replace('❌', '').replace('(Incorrect)', '').replace('(Your answer - Incorrect)', '')}
+                      <svg className="incorrect-icon inline-block w-3.5 h-3.5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-red-700 dark:text-red-400 ml-1">
+                        {text.includes('(Your answer - Incorrect)') ? '(Your answer - Incorrect)' : '(Incorrect)'}
+                      </span>
+                    </li>
+                  );
+                }
+              }
+              
+              return <li className="py-1" {...props}>{children}</li>;
+            },
+            
+            // Better spacing for horizontal rules
+            hr: (props) => <hr className="my-3 border-t border-gray-200 dark:border-gray-700" {...props} />
           }}
         >
-          {processedContent}
-        </ReactMarkdown>
+          {normalizedContent}
+    </ReactMarkdown>
       </div>
-    );
+  );
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-12"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex gap-6 relative">
-          {/* Chat History Sidebar */}
-          <AnimatePresence>
-            {isSidebarOpen && (
-              <motion.div
-                initial={{ x: -320, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -320, opacity: 0 }}
-                transition={{ type: "spring", damping: 20 }}
-                className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50 flex flex-col"
-              >
-                {/* Header */}
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-white/10 p-2 rounded-lg">
-                        <History className="w-5 h-5" />
-                      </div>
-                      <h3 className="font-semibold text-lg">Conversation History</h3>
-                    </div>
-                    <button
-                      onClick={() => setIsSidebarOpen(false)}
-                      className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
-                      aria-label="Close sidebar"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Action buttons */}
-                <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex space-x-2">
-                  <button
-                    onClick={async () => {
-                      // Create a new chat with welcome message
-                      const initialMessages: Message[] = [{ role: 'assistant', content: WELCOME_MESSAGE }];
-                      const newChat = await createNewChat(initialMessages);
-                      
-                      if (newChat) {
-                        setMessages(initialMessages);
-                        setCurrentChatId(newChat._id);
-                        localStorage.setItem('lastActiveChatId', newChat._id);
-                      }
-                      
-                      setIsSidebarOpen(false);
-                      toast.success('Started a new chat');
-                    }}
-                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-3 py-2 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 flex items-center justify-center"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Chat
-                  </button>
-                  
-                  <button
-                    onClick={deleteAllChats}
-                    className="bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 p-2 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/30 transition-colors flex items-center justify-center"
-                    title="Delete all conversations"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                
-                {/* Search (Optional) */}
-                <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search conversations..."
-                      className="w-full bg-gray-100 dark:bg-gray-700 border-0 rounded-lg py-2 pl-9 pr-3 text-sm placeholder-gray-500 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Chat list */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                  {chatHistories.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
-                      <div className="bg-indigo-100 dark:bg-indigo-900/30 p-3 rounded-full mb-3">
-                        <MessageSquare className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                      </div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">No conversations yet</h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Start a new chat to begin your learning journey</p>
-                    </div>
-                  ) : (
-                    chatHistories.map((chat) => {
-                      // Determine chat type and extract relevant info
-                      const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
-                      
-                      // Extract metadata
-                      let chatTitle = '';
-                      let chatPreview = '';
-                      let chatIcon = <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />;
-                      const badges: {text: string, color: string}[] = [];
-                      const timestamp = formatTimestamp(chat.createdAt);
-                      const messageCount = chat.messages.length;
-                      
-                      if (isQuizReview) {
-                        // Parse quiz review data
-                        const courseMatch = chat.messages[0]?.content.match(/Course: (.*?)\n/);
-                        const scoreMatch = chat.messages[0]?.content.match(/Score: (\d+)\/(\d+)/);
-                        const difficultyMatch = chat.messages[0]?.content.match(/Difficulty:\*\* (.*?) \n/);
-                        
-                        const courseName = courseMatch ? courseMatch[1].trim() : '';
-                        const score = scoreMatch ? `${scoreMatch[1]}/${scoreMatch[2]}` : '';
-                        const difficulty = difficultyMatch ? difficultyMatch[1] : '';
-                        
-                        chatTitle = `Quiz Review: ${courseName}`;
-                        chatPreview = `Performance: ${score} questions (${difficulty})`;
-                        chatIcon = <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />;
-                        
-                        if (score) {
-                          badges.push({ text: score, color: 'green' });
-                        }
-                        if (difficulty) {
-                          badges.push({ text: difficulty, color: 'blue' });
-                        }
-                      } else {
-                        // Handle regular chat - find first user message if exists
-                        const firstUserMessage = chat.messages.find(msg => msg.role === 'user');
-                        const firstMessage = firstUserMessage?.content || chat.messages[0]?.content || '';
-                        
-                        // Extract meaningful title
-                        chatTitle = firstMessage.split('\n')[0].slice(0, 30) + (firstMessage.length > 30 ? '...' : '');
-                        
-                        // For regular chats, we'll show the first few words of the conversation
-                        const contentPreview = firstMessage.replace(/[#*_]/g, '').slice(0, 40);
-                        chatPreview = contentPreview + (contentPreview.length > 40 ? '...' : '');
-                        
-                        // Add message count badge
-                        badges.push({ 
-                          text: `${messageCount} msg${messageCount !== 1 ? 's' : ''}`, 
-                          color: 'gray' 
-                        });
-                      }
-                      
-                      return (
-                        <div
-                          key={chat._id}
-                          onClick={() => {
-                            loadChat(chat._id);
-                            setIsSidebarOpen(false);
-                          }}
-                          className={`group cursor-pointer rounded-xl transition-all duration-200 ${
-                            currentChatId === chat._id
-                              ? 'bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-200 dark:border-indigo-800' 
-                              : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-700'
-                          }`}
-                        >
-                          <div className="p-3">
-                            <div className="flex items-start">
-                              <div className={`p-2 rounded-lg flex-shrink-0 ${
-                                isQuizReview
-                                  ? 'bg-purple-100 dark:bg-purple-900/50' 
-                                  : 'bg-indigo-100 dark:bg-indigo-900/50'
-                              }`}>
-                                {chatIcon}
-                              </div>
-                              
-                              <div className="ml-3 flex-1 min-w-0">
-                                <div className="flex justify-between items-start">
-                                  <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                    {chatTitle}
-                                  </h4>
-                                  <div className="flex items-center">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                                      {timestamp.split(' at ')[0]}
-                                    </span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteChat(chat._id);
-                                      }}
-                                      className="ml-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                                      title="Delete conversation"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-                                    </button>
-                                  </div>
-                                </div>
-                                
-                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
-                                  {chatPreview}
-                                </p>
-                                
-                                {/* Badges */}
-                                {badges.length > 0 && (
-                                  <div className="flex flex-wrap gap-1.5 mt-2">
-                                    {badges.map((badge, idx) => (
-                                      <span 
-                                        key={idx}
-                                        className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium
-                                          ${badge.color === 'green' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 
-                                            badge.color === 'blue' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                          }`
-                                      }
-                                    >
-                                      {badge.text}
-                                    </span>
-                                  ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-                
-                {/* Footer */}
-                <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center space-x-1">
-                      <Bot className="w-3.5 h-3.5" />
-                      <span>Powered by Gemini AI</span>
-                    </div>
-                    <span>{chatHistories.length} conversation{chatHistories.length !== 1 ? 's' : ''}</span>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          {/* Backdrop */}
-          <AnimatePresence>
-            {isSidebarOpen && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsSidebarOpen(false)}
-                className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm z-40"
-              />
-            )}
-          </AnimatePresence>
-          {/* Main Chat Area */}
-          <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-            {/* Chat Header */}
-            <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+    <div className="container mx-auto px-4">
+      {/* Chat History Sidebar */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ x: -320, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -320, opacity: 0 }}
+            transition={{ type: "spring", damping: 20 }}
+            className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50 flex flex-col"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
-                    <Bot className="w-7 h-7" />
+                <div className="flex items-center space-x-3">
+                  <div className="bg-white/10 p-2 rounded-lg">
+                    <History className="w-5 h-5" />
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-bold tracking-tight">AI Learning Assistant</h2>
-                    <p className="text-indigo-100 text-sm mt-1">Powered by advanced AI to help you learn</p>
-                  </div>
+                  <h3 className="font-semibold text-lg">Conversation History</h3>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={async () => {
-                      // First save the current chat if it exists
-                      if (messages.length > 1 && currentChatId) {  
-                        // Save current chat to ensure it's persisted
-                        await saveMessagesToChat(currentChatId, messages);
-                      }
-                      
-                      // Create a new chat with welcome message
-                      const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
-                      const newChat = await createNewChat(initialMessages);
-                      
-                      if (newChat) {
-                        setMessages(initialMessages);
-                        setCurrentChatId(newChat._id);
-                        localStorage.setItem('lastActiveChatId', newChat._id);
-                      } else {
-                        // Fallback if API call fails
-                        setMessages(initialMessages);
-                        setCurrentChatId(null);
-                        localStorage.removeItem('lastActiveChatId');
-                      }
-                      
-                      setIsSidebarOpen(false);
-                      toast.success('Started a new chat');
-                    }}
-                    className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
-                  >
-                    <Plus className="w-6 h-6" />
-                    <span className="text-sm font-medium">New Chat</span>
-                  </button>
-                  <button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
-                  >
-                    <History className="w-6 h-6" />
-                    <span className="text-sm font-medium">History</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-            {/* Chat Messages */}
-            <div className="messages-container h-[calc(100vh-20rem)] overflow-y-auto p-6 space-y-8 bg-gray-50/50 dark:bg-gray-900/50">
-              <AnimatePresence>
-                {messages.map((message, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} px-4`}
-                  >
-                    <div className={`flex-shrink-0 p-2.5 rounded-xl ${
-                      message.role === 'user'
-                        ? 'bg-indigo-100 dark:bg-indigo-900/50' 
-                        : 'bg-purple-100 dark:bg-purple-900/50'
-                    }`}>
-                      {message.role === 'user' ? (
-                        <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      ) : (
-                        <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      )}
-                    </div>
-                    <div
-                      className={`rounded-2xl p-4 md:p-6 shadow-md max-w-[85%] ${
-                        message.role === 'user'
-                          ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white ml-2'
-                          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white mr-2'
-                      }`}
-                    >
-                      <StyledMarkdown 
-                        content={message.content} 
-                        isUserMessage={message.role === 'user'}
-                      />
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              <div ref={messagesEndRef} className="h-4" />
-            </div>
-            {/* Input Area */}
-            <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-              <div className="flex items-center space-x-4">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                  placeholder="Ask about your quiz or any courses related topics..."
-                  className="flex-1 p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                />
                 <button
-                  onClick={handleSend}
-                  disabled={loading || !input.trim()}
-                  className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                  aria-label="Close sidebar"
                 >
-                  {loading ? (
-                    <div className="flex items-center space-x-2">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Sending...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <Send className="w-5 h-5" />
-                      <span>Send</span>
-                    </div>
-                  )}
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
+            
+            {/* Action buttons */}
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex space-x-2">
+              <button
+                onClick={async () => {
+                  // Create a new chat with welcome message
+                  const initialMessages: Message[] = [{ role: 'assistant', content: WELCOME_MESSAGE }];
+                  const newChat = await createNewChat(initialMessages);
+                  
+                  if (newChat) {
+                    setMessages(initialMessages);
+                    setCurrentChatId(newChat._id);
+                    localStorage.setItem('lastActiveChatId', newChat._id);
+                  }
+                  
+                  setIsSidebarOpen(false);
+                  toast.success('Started a new chat');
+                }}
+                className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-3 py-2 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 flex items-center justify-center"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Chat
+              </button>
+              
+              <button
+                onClick={deleteAllChats}
+                className="bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 p-2 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/30 transition-colors flex items-center justify-center"
+                title="Delete all conversations"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+            
+            {/* Chat list */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {chatHistories.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
+                  <div className="bg-indigo-100 dark:bg-indigo-900/30 p-3 rounded-full mb-3">
+                    <MessageSquare className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">No conversations yet</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Start a new chat to begin your learning journey</p>
+                </div>
+              ) : (
+                chatHistories.map((chat) => {
+                  // Determine chat type and extract relevant info
+                  const isQuizReview = chat.messages[0]?.content.includes('Quiz Review');
+                  
+                  // Extract metadata
+                  let chatTitle = '';
+                  let chatPreview = '';
+                  let chatIcon = <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />;
+                  const badges: {text: string, color: string}[] = [];
+                  const timestamp = formatTimestamp(chat.createdAt);
+                  const messageCount = chat.messages.length;
+                  
+                  if (isQuizReview) {
+                    // Parse quiz review data
+                    const courseMatch = chat.messages[0]?.content.match(/Quiz Review: (.*?)(?:\n|\*\*)/);
+                    const backupCourseMatch = chat.messages[0]?.content.match(/Course:\*\* (.*?)\n/);
+                    const scoreMatch = chat.messages[0]?.content.match(/Score: (\d+)\/(\d+)/);
+                    const difficultyMatch = chat.messages[0]?.content.match(/Difficulty:\*\* (.*?) \n/);
+                    
+                    // First try to get course name from title, then fallback to Course: field
+                    const courseName = courseMatch 
+                      ? courseMatch[1].trim() 
+                      : backupCourseMatch 
+                        ? backupCourseMatch[1].trim() 
+                        : 'Unknown Course';
+                    
+                    const score = scoreMatch ? `${scoreMatch[1]}/${scoreMatch[2]}` : '';
+                    const difficulty = difficultyMatch ? difficultyMatch[1] : '';
+                    
+                    chatTitle = `Quiz: ${courseName}`;
+                    chatPreview = `Performance: ${score} questions (${difficulty})`;
+                    chatIcon = <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />;
+                    
+                    if (score) {
+                      badges.push({ text: score, color: 'green' });
+                    }
+                    if (difficulty) {
+                      badges.push({ text: difficulty, color: 'blue' });
+                    }
+                    if (courseName) {
+                      badges.push({ text: courseName, color: 'purple' });
+                    }
+                  } else {
+                    // Handle regular chat - find first user message if exists
+                    const firstUserMessage = chat.messages.find(msg => msg.role === 'user');
+                    const firstMessage = firstUserMessage?.content || chat.messages[0]?.content || '';
+                    
+                    // Extract meaningful title
+                    chatTitle = firstMessage.split('\n')[0].slice(0, 30) + (firstMessage.length > 30 ? '...' : '');
+                    
+                    // For regular chats, we'll show the first few words of the conversation
+                    const contentPreview = firstMessage.replace(/[#*_]/g, '').slice(0, 40);
+                    chatPreview = contentPreview + (contentPreview.length > 40 ? '...' : '');
+                    
+                    // Add message count badge
+                    badges.push({ 
+                      text: `${messageCount} msg${messageCount !== 1 ? 's' : ''}`, 
+                      color: 'gray' 
+                    });
+                  }
+                  
+                  return (
+                    <div
+                      key={chat._id}
+                      onClick={() => {
+                        loadChat(chat._id);
+                        setIsSidebarOpen(false);
+                      }}
+                      className={`group cursor-pointer rounded-xl transition-all duration-200 ${
+                        currentChatId === chat._id
+                          ? 'bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-200 dark:border-indigo-800' 
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-700'
+                      }`}
+                    >
+                      <div className="p-3">
+                        <div className="flex items-start">
+                          <div className={`p-2 rounded-lg flex-shrink-0 ${
+                            isQuizReview
+                              ? 'bg-purple-100 dark:bg-purple-900/50' 
+                              : 'bg-indigo-100 dark:bg-indigo-900/50'
+                          }`}>
+                            {chatIcon}
+                          </div>
+                          
+                          <div className="ml-3 flex-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                              <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {chatTitle}
+                              </h4>
+                              <div className="flex items-center">
+                                <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                  {timestamp.split(' at ')[0]}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteChat(chat._id);
+                                  }}
+                                  className="ml-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                                  title="Delete conversation"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
+                              {chatPreview}
+                            </p>
+                            
+                            {/* Badges */}
+                            {badges.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {badges.map((badge, idx) => (
+                                  <span 
+                                    key={idx}
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium
+                                      ${badge.color === 'green' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 
+                                        badge.color === 'blue' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                      }`
+                                  }
+                                >
+                                  {badge.text}
+                                </span>
+                              ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Backdrop */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm z-40"
+          />
+        )}
+      </AnimatePresence>
+      
+      {/* Main Chat Area */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700 mx-auto my-6">
+        {/* Chat Header */}
+        <div className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
+                <Bot className="w-7 h-7" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">AI Learning Assistant</h2>
+                <p className="text-indigo-100 text-sm mt-1">Powered by advanced AI to help you learn</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={async () => {
+                  // First save the current chat if it exists
+                  if (messages.length > 1 && currentChatId) {  
+                    // Save current chat to ensure it's persisted
+                    await saveMessagesToChat(currentChatId, messages);
+                  }
+                  
+                  // Create a new chat with welcome message
+                  const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
+                  const newChat = await createNewChat(initialMessages);
+                  
+                  if (newChat) {
+                    setMessages(initialMessages);
+                    setCurrentChatId(newChat._id);
+                    localStorage.setItem('lastActiveChatId', newChat._id);
+                  } else {
+                    // Fallback if API call fails
+                    setMessages(initialMessages);
+                    setCurrentChatId(null);
+                    localStorage.removeItem('lastActiveChatId');
+                  }
+                  
+                  setIsSidebarOpen(false);
+                  toast.success('Started a new chat');
+                }}
+                className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
+              >
+                <Plus className="w-6 h-6" />
+                <span className="text-sm font-medium">New Chat</span>
+              </button>
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-3 hover:bg-white/10 rounded-xl transition-colors flex items-center space-x-2"
+              >
+                <History className="w-6 h-6" />
+                <span className="text-sm font-medium">History</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* Chat Messages */}
+        <div className="messages-container h-[450px] overflow-y-auto p-4 space-y-6 bg-gray-50/50 dark:bg-gray-900/50">
+          <AnimatePresence>
+            {messages.map((message, index) => {
+              // Enhanced check for quiz review or any quiz question
+              const isQuizReview = message.role === 'assistant' && 
+                (
+                  // Explicit quiz reviews
+                  message.content.includes('Quiz Review:') || 
+                  message.content.includes('## Quiz Review') ||
+                  
+                  // Question pattern with options
+                  (
+                    !!message.content.match(/(Which|What|How|Why|When|Where|Who)[\w\s,.'?:;()-]+\?/) && 
+                    (
+                      // Various option formats
+                      message.content.includes('Options:') || 
+                      !!message.content.match(/\*\*-\s*[A-D]\.\s*\*\*/) ||
+                      !!message.content.match(/\*\*[A-D]\.\s*\*\*/) ||
+                      !!message.content.match(/[A-D][.)]\s*[A-Za-z]/) ||
+                      
+                      // Answer indicators
+                      message.content.includes('✓') || 
+                      message.content.includes('✅') ||
+                      message.content.includes('❌') || 
+                      message.content.includes('(Correct answer)') ||
+                      message.content.includes('(Your answer')
+                    )
+                  )
+                );
+                   
+              return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
+                >
+                <div
+                  className={`rounded-2xl p-4 md:p-6 shadow-md max-w-[85%] ${
+                    message.role === 'user'
+                      ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white ml-2'
+                      : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white mr-2'
+                  }`}
+                >
+                  <StyledMarkdown 
+                    content={message.content} 
+                      isQuiz={isQuizReview}
+                  />
+                </div>
+              </motion.div>
+              );
+            })}
+          </AnimatePresence>
+          <div ref={messagesEndRef} className="h-4" />
+        </div>
+        {/* Input Area */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center space-x-4">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+              placeholder="Ask about your quiz or any courses related topics..."
+              className="flex-1 p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+            />
+            <button
+              onClick={handleSend}
+              disabled={loading || !input.trim()}
+              className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl"
+            >
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Sending...</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Send className="w-5 h-5" />
+                  <span>Send</span>
+                </div>
+              )}
+            </button>
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

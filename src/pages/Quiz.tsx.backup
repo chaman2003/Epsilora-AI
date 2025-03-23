@@ -7,8 +7,7 @@ import {
   Target,
   Award,
   Calendar,
-  History,
-  Clock
+  History
 } from 'lucide-react';
 import axiosInstance from '../utils/axios';
 import { Course, QuizAttempt } from '../types';
@@ -80,45 +79,124 @@ interface CourseStats {
   name: string;
 }
 
-// Improved answer correctness determination function
-const determineAnswerCorrectness = (selectedAnswer: string, optionText: string, correctAnswer: string): boolean => {
-  if (!correctAnswer) return false;
+// Add a comprehensive answer matching utility near the top of the file
+/**
+ * Determines if a selected answer matches the correct answer with multiple matching strategies
+ * Returns detailed information about the match process for debugging
+ */
+const determineAnswerCorrectness = (selectedAnswer: string, correctAnswer: string, options: any[]): { 
+  isCorrect: boolean; 
+  matchMethod: string;
+  details: string;
+} => {
+  // Clean up answers
+  const selectedClean = selectedAnswer?.trim?.() || '';
+  const correctClean = correctAnswer?.trim?.() || '';
   
-  // Normalize all strings for comparison
-  const normalizedSelected = selectedAnswer.trim().toUpperCase();
-  const normalizedText = optionText.trim().toUpperCase();
-  const normalizedCorrect = correctAnswer.trim().toUpperCase();
+  // Convert everything to uppercase for case-insensitive comparison
+  const selectedUpper = selectedClean.toUpperCase();
+  const correctUpper = correctClean.toUpperCase();
   
-  console.log('Comparing answers:', {
-    selectedAnswer: normalizedSelected,
-    optionText: normalizedText,
-    correctAnswer: normalizedCorrect
-  });
+  // Initialize result
+  let result = {
+    isCorrect: false,
+    matchMethod: 'none',
+    details: `Selected: "${selectedClean}", Correct: "${correctClean}"`
+  };
   
-  // Check several ways the answer might match
-  // 1. Direct match with the option letter (A, B, C, D)
-  if (normalizedSelected === normalizedCorrect) {
-    console.log("Match found: Option letter matches directly");
-    return true;
-  }
-  
-  // 2. The option text matches the correct answer text
-  if (normalizedText === normalizedCorrect) {
-    console.log("Match found: Option text matches correct answer text");
-    return true;
-  }
-  
-  // 3. The correct answer might be referring to the option by its position
-  if (['A', 'B', 'C', 'D'].includes(normalizedSelected) && 
-      ['A', 'B', 'C', 'D'].includes(normalizedCorrect)) {
-    if (normalizedSelected === normalizedCorrect) {
-      console.log("Match found: Option letter position matches");
-      return true;
+  // STRATEGY 1: Direct letter match (when the selected answer is just a letter like "A", "B", etc.)
+  if (selectedUpper.length === 1 && "ABCD".includes(selectedUpper)) {
+    // If correct answer is also a single letter
+    if (correctUpper.length === 1 && "ABCD".includes(correctUpper)) {
+      result.isCorrect = selectedUpper === correctUpper;
+      result.matchMethod = 'direct-letter';
+      result.details += ` | Direct letter match: ${result.isCorrect}`;
+      if (result.isCorrect) return result;
+    }
+    
+    // If correct answer starts with the letter (like "A.", "A)", "A -")
+    if (correctUpper.startsWith(selectedUpper) && !(/[A-Z]/.test(correctUpper.charAt(1)))) {
+      result.isCorrect = true;
+      result.matchMethod = 'letter-prefix';
+      result.details += ` | Letter prefix match`;
+      return result;
+    }
+    
+    // Map the selected letter to its index (A=0, B=1, etc.)
+    const letterIndex = selectedUpper.charCodeAt(0) - 65;
+    
+    // If it's a valid option index (0-3 for A-D)
+    if (letterIndex >= 0 && letterIndex < options.length) {
+      // Get the text content of the selected option
+      const optionText = typeof options[letterIndex] === 'object' && options[letterIndex] !== null && 'text' in options[letterIndex]
+        ? (options[letterIndex] as {text: string}).text
+        : String(options[letterIndex]);
+      
+      // Clean up option text
+      const cleanOptionText = optionText
+        .replace(/^[a-dA-D][\)\.]\s*/g, '')
+        .replace(/^[a-dA-D]\s+/g, '')
+        .trim()
+        .toUpperCase();
+      
+      // If the correct answer matches the option text
+      if (cleanOptionText === correctUpper || correctUpper.includes(cleanOptionText)) {
+        result.isCorrect = true;
+        result.matchMethod = 'option-text-match';
+        result.details += ` | Option text match: "${cleanOptionText}"`;
+        return result;
+      }
+      
+      // Check if the option text contains the correct answer or vice versa
+      if (cleanOptionText.includes(correctUpper) || correctUpper.includes(cleanOptionText)) {
+        result.isCorrect = true;
+        result.matchMethod = 'partial-option-text';
+        result.details += ` | Partial text match: "${cleanOptionText}" contains/within "${correctUpper}"`;
+        return result;
+      }
     }
   }
   
-  console.log("No match found between the selected answer and correct answer");
-  return false;
+  // STRATEGY 2: For special keywords
+  const specialKeywords = ["SET", "X", "IS", "TUPLE", "LIST", "DICTIONARY", "DEF"];
+  
+  // Remove quotes from correct answer if present
+  const cleanedCorrect = correctUpper.replace(/['"]/g, '');
+  
+  if (specialKeywords.includes(cleanedCorrect)) {
+    // Find the corresponding option text for this answer
+    if (selectedUpper.length === 1 && "ABCD".includes(selectedUpper)) {
+      const letterIndex = selectedUpper.charCodeAt(0) - 65;
+      if (letterIndex >= 0 && letterIndex < options.length) {
+        const optionText = typeof options[letterIndex] === 'object' && options[letterIndex] !== null && 'text' in options[letterIndex]
+          ? (options[letterIndex] as {text: string}).text
+          : String(options[letterIndex]);
+        
+        const cleanOptionText = optionText
+          .replace(/^[a-dA-D][\)\.]\s*/g, '')
+          .replace(/^[a-dA-D]\s+/g, '')
+          .trim()
+          .toUpperCase();
+        
+        if (cleanOptionText === cleanedCorrect) {
+          result.isCorrect = true;
+          result.matchMethod = 'keyword-match';
+          result.details += ` | Keyword match: "${cleanOptionText}" matches "${cleanedCorrect}"`;
+          return result;
+        }
+      }
+    }
+  }
+  
+  // STRATEGY 3: Direct string comparison (fallback)
+  if (selectedUpper === correctUpper) {
+    result.isCorrect = true;
+    result.matchMethod = 'exact-match';
+    result.details += ` | Exact string match`;
+    return result;
+  }
+  
+  return result;
 };
 
 const Quiz: React.FC = () => {
@@ -239,9 +317,6 @@ const Quiz: React.FC = () => {
   const [maxQuestionCount, setMaxQuestionCount] = useState(5);
   // Add state to track generation errors
   const [generationError, setGenerationError] = useState<string | null>(null);
-
-  // Function to set up the showContinue state if it doesn't exist
-  const [showContinue, setShowContinue] = useState(false);
 
   // Move fetchQuizHistory declaration to the top of the component, before any useEffects
   const fetchQuizHistory = React.useCallback(async () => {
@@ -688,43 +763,45 @@ const generateQuiz = async () => {
     });
   }, []);
 
-  // Handle answer selection with improved handling
-  const handleAnswerSelect = React.useCallback((selectedOptionLetter: string, optionText: string) => {
-    if (!questions || currentQuestion >= questions.length || questionStates[currentQuestion]?.viewed) {
+  // Now let's modify the handleAnswerSelect function to use our new matcher
+  const handleAnswerSelect = React.useCallback((answer: string) => {
+    if (currentQuestion >= questions?.length || questionStates[currentQuestion]?.viewed) {
       return;
     }
+    
+    setSelectedAnswer(answer);
     
     // Get the current question and its correct answer
     const currentQuestionObj = questions[currentQuestion];
     const correctAnswer = currentQuestionObj?.correctAnswer || '';
+    const options = currentQuestionObj?.options || [];
     
-    // Use our improved answer correctness function
-    const isCorrect = determineAnswerCorrectness(selectedOptionLetter, optionText, correctAnswer);
+    // Use our comprehensive matcher with full debugging
+    const matchResult = determineAnswerCorrectness(answer, correctAnswer, options);
     
-    // Log this selection with detailed information
+    // Clear, detailed logging
     console.log(`------ ANSWER SELECTION ------`);
     console.log(`Question: "${currentQuestionObj?.question}"`);
-    console.log(`Selected option: "${selectedOptionLetter}" (${optionText})`);
+    console.log(`Selected answer: "${answer}"`);
     console.log(`Correct answer: "${correctAnswer}"`);
-    console.log(`Result: ${isCorrect ? 'CORRECT ✓' : 'INCORRECT ✗'}`);
+    console.log(`Match result: ${matchResult.isCorrect ? 'CORRECT ✓' : 'INCORRECT ✗'}`);
+    console.log(`Match method: ${matchResult.matchMethod}`);
+    console.log(`Details: ${matchResult.details}`);
     console.log(`-------------------------------`);
     
     // Update score if answer is correct
-    if (isCorrect) {
+    if (matchResult.isCorrect) {
       setScore(prev => prev + 1);
     }
     
     // Mark question as viewed and store user's answer
     updateQuestionState(currentQuestion, {
-      userAnswer: selectedOptionLetter,
+      userAnswer: answer,
       viewed: true,
-      isCorrect: isCorrect
+      // IMPORTANT: Store whether the answer was correct in the questionState
+      // This ensures consistency when checking later
+      isCorrect: matchResult.isCorrect
     });
-    
-    // After a short delay, show the continue button
-    setTimeout(() => {
-      setShowContinue(true);
-    }, 1000);
   }, [currentQuestion, questions, questionStates, updateQuestionState]);
 
   useEffect(() => {
@@ -764,11 +841,11 @@ const generateQuiz = async () => {
 
   const getResultMessage = React.useCallback((score: number, total: number) => {
     const percentage = (score / total) * 100;
-    if (percentage >= 90) return "Excellent! You've mastered this topic!";
-    if (percentage >= 80) return "Great job! You have a strong understanding!";
-    if (percentage >= 70) return "Good work! Keep practicing to improve further.";
-    if (percentage >= 60) return "Not bad! A bit more study will help.";
-    return "You might want to review this topic and try again.";
+    if (percentage >= 90) return "Excellent! You've mastered this topic! 🌟";
+    if (percentage >= 80) return "Great job! You have a strong understanding! 💪";
+    if (percentage >= 70) return "Good work! Keep practicing to improve further. 👍";
+    if (percentage >= 60) return "Not bad! A bit more study will help. 📚";
+    return "You might want to review this topic and try again. 💡";
   }, []);
 
   const fetchQuizHistoryCallback = React.useCallback(fetchQuizHistory, [historyFetched, quizHistory.length]);
@@ -891,8 +968,10 @@ const generateQuiz = async () => {
         const userAnswer = questionStates[index]?.userAnswer;
         const correctAnswer = q.correctAnswer;
         
-        // Get the correct status directly from question state to ensure consistency
-        const isCorrect = questionStates[index]?.isCorrect || false;
+        // Determine if answer is correct using case-insensitive comparison
+        const isCorrect = userAnswer && correctAnswer 
+          ? userAnswer.toUpperCase() === correctAnswer.toUpperCase()
+          : false;
         
         console.log(`Question ${index + 1}: User answer=${userAnswer}, Correct answer=${correctAnswer}, isCorrect=${isCorrect}`);
         
@@ -925,36 +1004,71 @@ const generateQuiz = async () => {
       id: `${courseObj.name}-${score}-${questions.length}-${Date.now()}`
     };
     
-    // Save the quiz data to both local storage and the quiz context
-    localStorage.setItem('quizData', JSON.stringify(quizData));
+    // Check if this quiz has been processed already
+    const processedQuizzes = JSON.parse(localStorage.getItem('processedQuizzes') || '[]');
+    const quizDataId = quizData.id;
+    
+    // Clear any existing quiz data to prevent processing loops
+    localStorage.removeItem('quizData');
+    localStorage.removeItem('lastQuizData');
+    
+    console.log('Setting quiz data in context and localStorage:', quizData);
+    
+    // Store in both context and localStorage with different approaches to ensure it's saved
     setQuizData(quizData);
     
-    console.log("Quiz data saved for AI Assistant:", quizData);
-    toast.success("Quiz data prepared for AI analysis");
+    // Store the quiz data and track it as processed
+    try {
+      const jsonString = JSON.stringify(quizData);
+      localStorage.setItem('quizData', jsonString);
+      localStorage.setItem('lastQuizData', jsonString);
+      
+      // Mark this quiz as processed
+      if (!processedQuizzes.includes(quizDataId)) {
+        processedQuizzes.push(quizDataId);
+        localStorage.setItem('processedQuizzes', JSON.stringify(processedQuizzes));
+      }
+    } catch (error) {
+      console.error('Error saving quiz data:', error);
+    }
     
-    // Navigate to the AI Assist page
-    navigate('/ai-assist');
+    // Ensure the data is properly set before navigating
+    setTimeout(() => {
+      // Double-check that data was saved
+      const savedData = localStorage.getItem('quizData');
+      if (!savedData) {
+        console.error("Failed to save quiz data to localStorage");
+        toast.error("Error saving quiz data. Please try again.");
+        return;
+      }
+      
+      console.log("Quiz data successfully saved, navigating to AI assist");
+      // Navigate to AI assist
+      navigate('/ai-assist', { replace: true });
+    }, 100);
   }, [courses, selectedCourse, questions, questionStates, score, quizDetails.difficulty, setQuizData, navigate]);
 
-  // Make sure handleNextQuestion and handlePreviousQuestion are being used
   const handleNextQuestion = React.useCallback(() => {
     if (!questions || !questionStates) return;
     
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
+      setCurrentQuestion(currentQuestion + 1);
+      setSelectedAnswer('');
         setTimeLeft(quizDetails.timePerQuestion);
         setTimerActive(true);
-      setShowContinue(false);
       }
-  }, [currentQuestion, questions, quizDetails.timePerQuestion, questionStates]);
-
+  }, [currentQuestion, questions, quizDetails.timePerQuestion, setCurrentQuestion, setSelectedAnswer, setTimeLeft, setTimerActive]);
   const handlePreviousQuestion = React.useCallback(() => {
+    if (isTransitioning.current) return;
     if (currentQuestion > 0) {
       setCurrentQuestion(prev => prev - 1);
-      setShowContinue(true);
+      const prevState = questionStates[currentQuestion - 1];
+      setSelectedAnswer(prevState?.userAnswer || null);
+      setShowResult(true);
+      setTimerActive(false);
+      setTimeLeft(0);
     }
-  }, [currentQuestion]);
-
+  }, [currentQuestion, questionStates]);
   const handleFinishQuiz = React.useCallback(() => {
     setTimerActive(false);
     const finalScore = calculateFinalScore();
@@ -1101,142 +1215,83 @@ const generateQuiz = async () => {
     handleFinishQuiz();
   }, [handleFinishQuiz]);
 
-  // Render a quiz question with improved display of correct/incorrect answers and better color scheme
-  const renderQuestion = React.useCallback(() => {
-    // Skip rendering if there are no questions
-    if (!questions || questions.length === 0) {
-      return <div className="text-center">No questions available</div>;
-    }
+  // Improve renderQuestion for better clarity and structure
+  const renderQuestion = () => {
+    if (!questions || questions.length === 0) return null;
 
-    const currentQuestionState = questionStates[currentQuestion];
+    const currentState = questionStates[currentQuestion];
+    if (!currentState) return null;
+    
     const question = questions[currentQuestion];
-    const isQuestionViewed = currentQuestionState?.viewed || false;
-    const selectedOption = currentQuestionState?.userAnswer || '';
-
-                  return (
-      <div>
-        <p className="mb-4 text-base font-medium">{question.question}</p>
-        <div className="space-y-2">
-          {question.options.map((option, index) => {
-            // Get option text and clean it
-            let optionText = typeof option === 'object' && option !== null && 'text' in option 
-              ? (option as {text: string}).text 
-              : String(option);
-            
-            // Remove any existing letter prefixes like "a)", "b)", etc.
-            optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '').trim();
-            
-            // Determine if this option is correct
-            const optionLetter = String.fromCharCode(65 + index);
-            const correctAnswer = question.correctAnswer?.toUpperCase() || '';
-            const isCorrectOption = determineAnswerCorrectness(optionLetter, optionText, correctAnswer);
-            
-            // Determine styling based on selection, correctness, and viewed status with improved colors
-            let className = "p-2 border rounded flex items-center text-sm transition-colors";
-            
-            if (isQuestionViewed) {
-              // Question has been answered
-              if (optionLetter === selectedOption || optionText.toUpperCase() === selectedOption.toUpperCase()) {
-                // This option was selected by user
-                if (isCorrectOption) {
-                  // User selected correctly - softer green
-                  className += " bg-green-50 border-green-300 dark:bg-green-900/20 dark:border-green-700";
-                } else {
-                  // User selected incorrectly - softer red
-                  className += " bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700";
-                }
-              } else if (isCorrectOption) {
-                // This is the correct answer but wasn't selected - very subtle green
-                className += " bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800";
-              } else {
-                // Unselected and incorrect
-                className += " text-gray-500 dark:text-gray-400";
-              }
-            } else {
-              // Question hasn't been answered yet
-              if (optionLetter === selectedOption || optionText.toUpperCase() === selectedOption.toUpperCase()) {
-                className += " bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700";
-              } else {
-                className += " hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer";
-              }
-            }
-            
-            return (
-              <div
-                      key={index}
-                className={className}
-                onClick={() => {
-                  if (!isQuestionViewed) {
-                    handleAnswerSelect(optionLetter, optionText);
-                  }
-                }}
-              >
-                <div className="flex-1">
-                  <span className="font-bold mr-2">{optionLetter}.</span> {optionText}
-              </div>
-                
-                {isQuestionViewed && isCorrectOption && (
-                  <div className="text-green-600 dark:text-green-400 flex items-center text-xs">
-                    <span>Correct</span>
-            </div>
-                )}
-                
-                {isQuestionViewed && optionLetter === selectedOption && !isCorrectOption && (
-                  <div className="text-red-600 dark:text-red-400 text-xs">
-                    <span>✗</span>
-          </div>
-                )}
-                
-                {isQuestionViewed && optionLetter === selectedOption && isCorrectOption && (
-                  <div className="text-green-600 dark:text-green-400 flex items-center text-xs">
-                    <span>✓</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-            </div>
-            
-        {/* Navigation buttons */}
-        <div className="mt-6 flex flex-wrap justify-between items-center gap-2">
-              <button
-                onClick={handlePreviousQuestion}
-                disabled={currentQuestion === 0}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              currentQuestion === 0
-                ? 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
-            }`}
-          >
-                Previous
-              </button>
-
-          <div className="flex gap-2">
-            {currentQuestion === questions.length - 1 && (
-                <button
-                onClick={handleFinishQuiz}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all dark:bg-green-700 dark:hover:bg-green-600"
-            >
-                Finish Quiz
-                </button>
-            )}
-          </div>
+    
+    return (
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-5 shadow-sm">
+          <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">{question.question}</h3>
           
-                <button
-            onClick={handleNextQuestion}
-            disabled={currentQuestion === questions.length - 1}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              currentQuestion === questions.length - 1
-                ? 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
-            }`}
+          <div className="space-y-3 mt-6">
+            {question.options.map((option, index) => (
+              <div
+                key={index}
+                className={`p-4 rounded-lg cursor-pointer transition-colors duration-200 ${
+                  currentState.userAnswer === option
+                    ? currentState.viewed 
+                      ? currentState.isCorrect 
+                        ? "bg-green-100 dark:bg-green-800 border-2 border-green-500" 
+                        : "bg-red-100 dark:bg-red-800 border-2 border-red-500"
+                      : "bg-blue-100 dark:bg-blue-800 border-2 border-blue-500" 
+                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                } border ${
+                  currentState.userAnswer === option ? "border-2" : "border"
+                }`}
+                onClick={() => !currentState.viewed && handleAnswerSelect(option)}
+              >
+                <div className="flex items-center">
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center mr-3 text-sm font-medium">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  <span className="text-gray-800 dark:text-white">{option}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="flex justify-between mt-8">
+          <button 
+            onClick={handlePreviousQuestion}
+            disabled={currentQuestion === 0}
+            className="px-5 py-2.5 bg-gray-500 text-white rounded-lg disabled:opacity-50 hover:bg-gray-600 transition-colors"
           >
-            Next
-                </button>
+            Previous
+          </button>
+          
+          {!currentState.viewed ? (
+            <button
+              onClick={() => handleAnswerSelect(currentState.userAnswer || '')}
+              disabled={currentState.userAnswer === null}
+              className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg disabled:opacity-50 hover:bg-indigo-700 transition-colors"
+            >
+              Submit Answer
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                if (currentQuestion < questions.length - 1) {
+                  handleNextQuestion();
+                } else {
+                  handleFinishQuiz();
+                }
+              }}
+              className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              {currentQuestion < questions.length - 1 ? "Next Question" : "Finish Quiz"}
+            </button>
+          )}
         </div>
       </div>
     );
-  }, [currentQuestion, questions, questionStates, handleAnswerSelect, handleNextQuestion, handlePreviousQuestion, handleFinishQuiz, handleGetAIHelp]);
+  };
 
   // Memoized values
   const uniqueCourses = useMemo(() => {
@@ -1336,43 +1391,42 @@ const handleToggleHistory = () => {
         <div className="container mx-auto px-2 mt-1">
           {/* Charts Section */}
           {!quizStarted && courses.length > 0 && quizHistory && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-4 hover:shadow-xl transition-all duration-300`}>
-                <h2 className="text-lg font-semibold mb-3 text-center text-white">Quizzes per Course</h2>
-                <div className="h-[330px]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2`}>
+                <h2 className="text-lg font-semibold mb-1 text-center">Quizzes per Course</h2>
+                <div className="h-[350px]">
                   <Pie data={successRateData} options={pieOptions} />
                 </div>
               </div>
               
-              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-4 hover:shadow-xl transition-all duration-300`}>
-                <h2 className="text-lg font-semibold mb-3 text-center text-white">Success Rate by Course</h2>
-                <div className="h-[330px]">
+              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2`}>
+                <h2 className="text-lg font-semibold mb-1 text-center">Success Rate by Course</h2>
+                <div className="h-[350px]">
                   <Pie data={successRateData} options={pieOptions} />
                 </div>
               </div>
               
-              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-4 md:col-span-2 hover:shadow-xl transition-all duration-300`}>
-                <h2 className="text-lg font-semibold mb-3 text-center text-white">Correct vs Wrong Answers</h2>
+              <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-2 md:col-span-2`}>
+                <h2 className="text-lg font-semibold mb-1 text-center">Correct vs Wrong Answers</h2>
                 <div className="h-[300px]">
                   <Bar data={correctVsWrongData} options={barOptions} />
                 </div>
               </div>
             </div>
           )}
-
           {/* Gemini AI Quote */}
-          <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6 mb-6 hover:shadow-xl transition-all duration-300`}>
+          <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6 mb-6`}>
             <div className="flex items-start space-x-4">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4v2m0 4v2m0 4v2M8 10h8v4H8z" />
                   </svg>
                 </div>
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">Gemini AI Says:</p>
-                <blockquote className="text-gray-700 dark:text-gray-300 italic text-lg">
+                <blockquote className="text-gray-700 dark:text-gray-300 italic">
                   "Learning is not just about getting the right answers, but understanding why they're right. Each quiz is a step towards mastery, and every mistake is an opportunity to grow. Keep pushing your boundaries!"
                 </blockquote>
                 <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -1383,145 +1437,41 @@ const handleToggleHistory = () => {
           </div>
 
           {/* Quiz Selection Section */}
-          <div className="max-w-full mx-auto mb-6">
-            <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6 hover:shadow-xl transition-all duration-300`}>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent">
-                    Select a Course for Quiz
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1">
-                    Choose a course to generate questions from
-                  </p>
-                </div>
-              </div>
-              
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Available Courses
-                </label>
-                <motion.div 
-                  className="relative"
-                  initial={{ height: "60px", overflow: "hidden" }}
-                  whileHover={{ height: "auto", overflow: "visible" }}
-                  transition={{ duration: 0.3 }}
+          <div className="max-w-4xl mx-auto">
+            <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6`}>
+              <h1 className="text-2xl font-bold mb-6 text-center">Select a Course for Quiz</h1>
+              <div className="flex items-center justify-center">
+                <select
+                  value={selectedCourse}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  className="w-full md:w-1/2 p-1 rounded-md border dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pr-1">
-                    {courses.map((course) => (
-                      <motion.button
-                        key={course._id}
-                        onClick={() => setSelectedCourse(course._id)}
-                        className={`p-3 rounded-lg transition-all ${
-                          selectedCourse === course._id
-                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                        }`}
-                        whileHover={{ 
-                          scale: 1.05, 
-                          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
-                          backgroundColor: selectedCourse === course._id ? "" : "#f3f4f6",
-                          color: selectedCourse === course._id ? "#ffffff" : "#4f46e5",
-                          borderColor: selectedCourse === course._id ? "" : "#4f46e5" 
-                        }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        {course.name}
-                      </motion.button>
-                    ))}
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none"></div>
-                </motion.div>
+                  <option value="" disabled>Select a course</option>
+                  {courses.map((course) => (
+                    <option key={course._id} value={course._id}>{course.name}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Quiz Settings */}
               <div className="space-y-4 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Number of Questions */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Number of Questions
-                    </label>
-                    <div className="relative">
-                      <div className="grid grid-cols-2 gap-2 pr-1">
-                        {[5, 10, 15, 20].map(num => (
-                          <motion.button
-                            key={num}
-                            onClick={() => setQuizDetails(prev => ({
-                              ...prev,
-                              numberOfQuestions: num
-                            }))}
-                            className={`p-2 rounded-lg transition-all ${
-                              quizDetails.numberOfQuestions === num
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                            }`}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.98 }}
-                          >
-                            {num} Questions
-                          </motion.button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Difficulty */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Difficulty Level
-                    </label>
-                    <div className="relative">
-                      <div className="grid grid-cols-1 gap-2 pr-1">
-                        {['Easy', 'Medium', 'Hard'].map(level => (
-                          <motion.button
-                            key={level}
-                            onClick={() => setQuizDetails(prev => ({
-                              ...prev,
-                              difficulty: level as 'Easy' | 'Medium' | 'Hard'
-                            }))}
-                            className={`p-2 rounded-lg transition-all ${
-                              quizDetails.difficulty === level
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                            }`}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.98 }}
-                          >
-                            {level}
-                          </motion.button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Time per Question */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Time per Question
-                    </label>
-                    <div className="relative">
-                      <div className="grid grid-cols-2 gap-2 pr-1">
-                        {[15, 30, 45, 60].map(time => (
-                          <motion.button
-                            key={time}
-                            onClick={() => setQuizDetails(prev => ({
-                              ...prev,
-                              timePerQuestion: time
-                            }))}
-                            className={`p-2 rounded-lg transition-all ${
-                              quizDetails.timePerQuestion === time
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                            }`}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.98 }}
-                          >
-                            {time} seconds
-                          </motion.button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                {/* Number of Questions */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Number of Questions
+                  </label>
+                  <select
+                    value={quizDetails.numberOfQuestions}
+                    onChange={(e) => setQuizDetails(prev => ({
+                      ...prev,
+                      numberOfQuestions: parseInt(e.target.value)
+                    }))}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {[5, 10, 15, 20].map(num => (
+                      <option key={num} value={num}>{num} Questions</option>
+                    ))}
+                  </select>
                 </div>
                 
                 {/* Quiz Limit Notice */}
@@ -1538,20 +1488,56 @@ const handleToggleHistory = () => {
                     onRetry={retryWithFewerQuestions} 
                   />
                 )}
+
+                {/* Difficulty */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Difficulty Level
+                  </label>
+                  <select
+                    value={quizDetails.difficulty}
+                    onChange={(e) => setQuizDetails(prev => ({
+                      ...prev,
+                    difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard'
+                    }))}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {['Easy', 'Medium', 'Hard'].map(level => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Time per Question */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Time per Question (seconds)
+                  </label>
+                  <select
+                    value={quizDetails.timePerQuestion}
+                    onChange={(e) => setQuizDetails(prev => ({
+                      ...prev,
+                      timePerQuestion: parseInt(e.target.value)
+                    }))}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {[15, 30, 45, 60].map(time => (
+                      <option key={time} value={time}>{time} seconds</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Generate Button */}
-              <div className="mt-8">
-                <motion.button
+              {/* Generate Button and History Button */}
+              <div className="mt-8 space-y-4">
+                <button
                   onClick={generateQuiz}
                   disabled={loading || !selectedCourse}
-                  className={`w-full py-3 rounded-lg transition-all flex items-center justify-center space-x-2 ${
+                  className={`w-full py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 ${
                     loading || !selectedCourse
                       ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                   }`}
-                  whileHover={loading || !selectedCourse ? {} : { scale: 1.02, shadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
-                  whileTap={loading || !selectedCourse ? {} : { scale: 0.98 }}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center">
@@ -1575,294 +1561,207 @@ const handleToggleHistory = () => {
                   ) : (
                     <>
                       <Target className="w-5 h-5" />
-                      <span className="font-medium">Generate Quiz</span>
+                      <span>Generate Quiz</span>
                     </>
                   )}
-                </motion.button>
-              </div>
-            </div>
-          </div>
+                </button>
 
-          {/* Quiz Performance History Section */}
-          <div className="max-w-full mx-auto">
-            <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6 hover:shadow-xl transition-all duration-300`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Quiz Performance History
-                  </h2>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1">
-                    Track your progress and review past quiz attempts
-                  </p>
-                </div>
-                <motion.button
-                  onClick={handleToggleHistory}
-                  className="flex items-center space-x-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white px-4 py-2 rounded-lg transition-all shadow-md"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  animate={{
-                    y: [0, -5, 0],
-                    transition: { 
-                      repeat: showHistory ? 0 : Infinity, 
-                      repeatType: "reverse", 
-                      duration: 1.5 
-                    }
-                  }}
-                >
-                  <History className="w-5 h-5" />
-                  <span>{showHistory ? 'Hide History' : 'View History'}</span>
-                </motion.button>
-              </div>
-              
-              {/* Statistics Box */}
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
-                  Your Quiz Statistics
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <motion.div 
-                    className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm"
-                    whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}
-                  >
-                    <div className="flex items-center">
-                      <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full mr-3">
-                        <ClipboardList className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Total Quizzes</p>
-                        <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                          {filteredAndSortedHistory.length}
-                        </p>
-                      </div>
+                <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                        Quiz Performance History
+                      </h2>
+                      <p className="text-gray-600 dark:text-gray-400 mt-1">
+                        Track your progress and review past quiz attempts
+                      </p>
                     </div>
-                  </motion.div>
+                    <button
+                    onClick={handleToggleHistory}
+                    className="flex items-center space-x-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white px-4 py-2 rounded-lg transition-all"
+                    >
+                      <History className="w-5 h-5" />
+                      <span>{showHistory ? 'Hide History' : 'View History'}</span>
+                    </button>
+                  </div>
                   
-                  <motion.div 
-                    className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm"
-                    whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}
-                  >
-                    <div className="flex items-center">
-                      <div className="p-3 bg-green-100 dark:bg-green-900/50 rounded-full mr-3">
-                        <Award className="h-6 w-6 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Average Score</p>
-                        <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                          {filteredAndSortedHistory.length > 0
-                            ? Math.round(
-                                filteredAndSortedHistory.reduce(
-                                  (sum, quiz) => sum + (quiz.score / quiz.totalQuestions) * 100,
-                                  0
-                                ) / filteredAndSortedHistory.length
-                              )
-                            : 0}%
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                  
-                  <motion.div 
-                    className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm"
-                    whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}
-                  >
-                    <div className="flex items-center">
-                      <div className="p-3 bg-purple-100 dark:bg-purple-900/50 rounded-full mr-3">
-                        <Target className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Latest Quiz</p>
-                        <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                          {filteredAndSortedHistory.length > 0
-                            ? Math.round(
-                                (filteredAndSortedHistory[0].score / 
-                                 filteredAndSortedHistory[0].totalQuestions) * 100
-                              )
-                            : 0}%
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                </div>
-              </div>
-
-              {/* Expandable History Section */}
-              {showHistory && (
-                <motion.div 
-                  className="mt-6"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  {/* Filter and Sort Controls */}
+                  {/* Filter and Sort Controls - Moved above both history and stats */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Sort By
                       </label>
-                      <div className="grid grid-cols-1 gap-2">
-                        {[
-                          {value: 'date', label: 'Date (Newest First)'},
-                          {value: 'score', label: 'Score (Highest First)'},
-                          {value: 'difficulty', label: 'Difficulty'}
-                        ].map(option => (
-                          <motion.button
-                            key={option.value}
-                            onClick={() => setSortBy(option.value as 'date' | 'score' | 'difficulty')}
-                            className={`p-2 rounded-lg transition-all ${
-                              sortBy === option.value
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                            }`}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                          >
-                            {option.label}
-                          </motion.button>
-                        ))}
-                      </div>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as 'date' | 'score' | 'difficulty')}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="date">Date (Newest First)</option>
+                        <option value="score">Score (Highest First)</option>
+                        <option value="difficulty">Difficulty</option>
+                      </select>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Filter by Difficulty
                       </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <motion.button
-                          onClick={() => setFilterDifficulty('all')}
-                          className={`p-2 rounded-lg transition-all ${
-                            filterDifficulty === 'all'
-                              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                          }`}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          All Difficulties
-                        </motion.button>
-                        {['Easy', 'Medium', 'Hard'].map(level => (
-                          <motion.button
-                            key={level}
-                            onClick={() => setFilterDifficulty(level)}
-                            className={`p-2 rounded-lg transition-all ${
-                              filterDifficulty === level
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                            }`}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                          >
-                            {level}
-                          </motion.button>
-                        ))}
-                      </div>
+                      <select
+                        value={filterDifficulty}
+                        onChange={(e) => setFilterDifficulty(e.target.value)}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="all">All Difficulties</option>
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
+                      </select>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Filter by Course
                       </label>
-                      <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1">
-                        <motion.button
-                          onClick={() => setFilterCourse('all')}
-                          className={`p-2 rounded-lg transition-all ${
-                            filterCourse === 'all'
-                              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                          }`}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          All Courses
-                        </motion.button>
+                      <select
+                        value={filterCourse}
+                        onChange={(e) => setFilterCourse(e.target.value)}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="all">All Courses</option>
                         {uniqueCourses.map(course => (
-                          <motion.button
-                            key={course}
-                            onClick={() => setFilterCourse(course)}
-                            className={`p-2 rounded-lg transition-all ${
-                              filterCourse === course
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                            }`}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                          >
-                            {course}
-                          </motion.button>
+                          <option key={course} value={course}>{course}</option>
                         ))}
-                      </div>
+                      </select>
                     </div>
                   </div>
                   
-                  {/* Quiz History List */}
-                  {isLoadingHistory ? (
-                    <div className="flex justify-center items-center py-8">
-                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-500"></div>
-                    </div>
-                  ) : filteredAndSortedHistory.length === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="inline-block p-4 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
-                        <History className="w-10 h-10 text-gray-500 dark:text-gray-400" />
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-300 text-lg">
-                        No quiz attempts found yet.
-                      </p>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
-                        Complete your first quiz to start building your history!
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {filteredAndSortedHistory.map((attempt) => (
-                        <motion.div 
-                          key={attempt.id}
-                          className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow hover:shadow-md transition-shadow"
-                          whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}
-                        >
-                          <div className="flex flex-col gap-3">
-                            <div className="flex justify-between items-start">
-                              <h4 className="font-semibold text-gray-900 dark:text-white">
-                                {attempt.courseName}
-                              </h4>
-                              <span className={`text-sm px-2 py-1 rounded-full font-medium ${
-                                (attempt.score / attempt.totalQuestions) * 100 >= 70 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
-                                (attempt.score / attempt.totalQuestions) * 100 >= 50 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : 
-                                'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                              }`}>
-                                {((attempt.score / attempt.totalQuestions) * 100).toFixed(0)}%
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="flex items-center text-gray-600 dark:text-gray-300">
-                                <Award className="w-4 h-4 mr-2" />
-                                <span>Score: {attempt.score}/{attempt.totalQuestions}</span>
-                              </div>
-                              <div className="flex items-center text-gray-600 dark:text-gray-300">
-                                <Target className="w-4 h-4 mr-2" />
-                                <span>Difficulty: {attempt.difficulty}</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center text-gray-600 dark:text-gray-300 text-sm">
-                              <Calendar className="w-4 h-4 mr-2" />
-                              <span>{format(new Date(attempt.date), 'PPp')}</span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden mt-1">
-                              <div 
-                                className={`h-full rounded-full ${
-                                  (attempt.score / attempt.totalQuestions) * 100 >= 70 ? 'bg-green-500' : 
-                                  (attempt.score / attempt.totalQuestions) * 100 >= 50 ? 'bg-yellow-500' : 
-                                  'bg-red-500'
-                                }`}
-                                style={{ width: `${(attempt.score / attempt.totalQuestions) * 100}%` }}
-                              ></div>
-                            </div>
+                  {/* Statistics Box */}
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-lg p-4 mb-6">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
+                      Your Quiz Statistics
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
+                        <div className="flex items-center">
+                          <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full mr-3">
+                            <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                           </div>
-                        </motion.div>
-                      ))}
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Total Quizzes</p>
+                            <p className="text-xl font-bold text-gray-800 dark:text-white">
+                              {filteredAndSortedHistory.length}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
+                        <div className="flex items-center">
+                          <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full mr-3">
+                            <Award className="h-5 w-5 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Average Score</p>
+                            <p className="text-xl font-bold text-gray-800 dark:text-white">
+                              {filteredAndSortedHistory.length > 0
+                                ? Math.round(
+                                    filteredAndSortedHistory.reduce(
+                                      (sum, quiz) => sum + (quiz.score / quiz.totalQuestions) * 100,
+                                      0
+                                    ) / filteredAndSortedHistory.length
+                                  )
+                                : 0}%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
+                        <div className="flex items-center">
+                          <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-full mr-3">
+                            <Target className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Latest Quiz</p>
+                            <p className="text-xl font-bold text-gray-800 dark:text-white">
+                              {filteredAndSortedHistory.length > 0
+                                ? Math.round(
+                                    (filteredAndSortedHistory[0].score / 
+                                     filteredAndSortedHistory[0].totalQuestions) * 100
+                                  )
+                                : 0}%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expandable History Section */}
+                  {showHistory && (
+                    <div className="mt-6">
+                      {/* Quiz History List */}
+                      {isLoadingHistory ? (
+                        <div className="flex justify-center items-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                        </div>
+                      ) : filteredAndSortedHistory.length === 0 ? (
+                        <div className="text-center py-8">
+                          <div className="inline-block p-4 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+                            <History className="w-8 h-8 text-gray-500 dark:text-gray-400" />
+                          </div>
+                          <p className="text-gray-600 dark:text-gray-300">
+                            No quiz attempts found yet.
+                          </p>
+                          <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+                            Complete your first quiz to start building your history!
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {filteredAndSortedHistory.map((attempt) => (
+                          <div key={attempt.id}
+                              className="bg-white dark:bg-gray-800 p-4 rounded-lg hover:shadow-md transition-shadow">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                                    {attempt.courseName}
+                                  </h4>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center text-gray-600 dark:text-gray-300">
+                                      <Award className="w-4 h-4 mr-2" />
+                                      <span>Score: {attempt.score}/{attempt.totalQuestions}</span>
+                                    </div>
+                                    <div className="flex items-center text-gray-600 dark:text-gray-300">
+                                      <Target className="w-4 h-4 mr-2" />
+                                      <span>Difficulty: {attempt.difficulty}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className={`text-sm ${
+                                        (attempt.score / attempt.totalQuestions) * 100 >= 70 ? 'text-green-500' : 
+                                        (attempt.score / attempt.totalQuestions) * 100 >= 50 ? 'text-yellow-500' : 
+                                        'text-red-500'
+                                      }`}>
+                                        {((attempt.score / attempt.totalQuestions) * 100).toFixed(0)}% Success Rate
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center text-gray-600 dark:text-gray-300">
+                                    <Calendar className="w-4 h-4 mr-2" />
+                                    <span>{format(new Date(attempt.date), 'PPp')}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
-                </motion.div>
-              )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1878,34 +1777,14 @@ const handleToggleHistory = () => {
         className="container mx-auto px-4 py-8"
       >
         <div className="max-w-4xl mx-auto bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl shadow-lg overflow-hidden">
-          {/* Course information banner */}
-          <div className="bg-indigo-600 dark:bg-indigo-700 p-4 text-white">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold">
-                  {courses.find(c => c._id === selectedCourse)?.name || 'Quiz'}
-          </h2>
-                <p className="text-sm opacity-90">Difficulty: {quizDetails.difficulty}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm opacity-90">Total questions: {questions.length}</p>
-              </div>
-            </div>
-          </div>
-
           <div className="p-6 sm:p-8">
-            {/* Header with progress */}
+            {/* Header with course name and progress */}
             <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center">
-                <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-800 text-indigo-600 dark:text-indigo-300 font-bold mr-3">
-                  {currentQuestion + 1}
-                </span>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Question {currentQuestion + 1} of {questions.length}
-                </h3>
-              </div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {courses.find(c => c._id === selectedCourse)?.name || 'Quiz'}
+              </h2>
               <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Score: {score}/{currentQuestion}
+                Question {currentQuestion + 1} of {questions.length}
               </div>
             </div>
             
@@ -1917,47 +1796,15 @@ const handleToggleHistory = () => {
               ></div>
             </div>
 
-            {/* Timer display with color change */}
+            {/* Timer display */}
             <div className="mb-6 text-center">
-              <div 
-                className={`inline-flex items-center justify-center px-4 py-2 rounded-full text-white font-bold text-lg
-                  ${timeLeft > quizDetails.timePerQuestion * 0.75 ? 'bg-green-500 dark:bg-green-600' : 
-                    timeLeft > quizDetails.timePerQuestion * 0.5 ? 'bg-blue-500 dark:bg-blue-600' : 
-                    timeLeft > quizDetails.timePerQuestion * 0.25 ? 'bg-yellow-500 dark:bg-yellow-600' : 
-                    'bg-red-500 dark:bg-red-600 animate-pulse'}`}
-              >
-                {(() => {
-                  // Inline time formatting function
-                  const minutes = Math.floor(timeLeft / 60);
-                  const seconds = timeLeft % 60;
-                  return minutes > 0 
-                    ? `${minutes}:${seconds < 10 ? '0' : ''}${seconds}` 
-                    : `${seconds}s`;
-                })()}
+              <div className="text-md font-semibold text-gray-700 dark:text-gray-300">
+                Time remaining: {formatTimeSpent(timeLeft)}
               </div>
             </div>
             
-            {/* Question navigation buttons */}
-            <div className="flex overflow-x-auto pb-2 mb-4 gap-1">
-              {questions.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleQuestionNav(index)}
-                  className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium 
-                    ${currentQuestion === index ? 'bg-indigo-600 text-white' : 
-                      questionStates[index]?.viewed ? 
-                        questionStates[index]?.isCorrect ? 'bg-green-100 text-green-800 border border-green-500' : 
-                        'bg-red-100 text-red-800 border border-red-500' :
-                      questionStates[index]?.userAnswer ? 'bg-blue-100 text-blue-800 border border-blue-500' : 
-                      'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}
-                >
-                  {index + 1}
-                </button>
-              ))}
-            </div>
-            
             {/* Question content */}
-          {renderQuestion()}
+            {renderQuestion()}
           </div>
         </div>
       </motion.div>
@@ -1975,118 +1822,32 @@ if (currentQuestion >= questions?.length && questions?.length > 0) {
     >
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg overflow-hidden">
-            {/* Animated confetti effect for good scores */}
-            {scorePercentageValue >= 70 && (
-              <div className="absolute inset-0 pointer-events-none z-10">
-                <div className="absolute top-0 left-0 w-6 h-24 bg-yellow-400 rotate-45 opacity-70 animate-fall-slow"></div>
-                <div className="absolute top-0 left-1/4 w-4 h-16 bg-blue-500 rotate-12 opacity-70 animate-fall-medium"></div>
-                <div className="absolute top-0 left-1/2 w-5 h-20 bg-red-500 -rotate-45 opacity-70 animate-fall-fast"></div>
-                <div className="absolute top-0 left-3/4 w-4 h-16 bg-green-500 rotate-45 opacity-70 animate-fall-slow"></div>
-                <div className="absolute top-0 right-0 w-6 h-24 bg-purple-500 -rotate-12 opacity-70 animate-fall-medium"></div>
-              </div>
-            )}
-            
           <div className="p-6 sm:p-10">
             <div className="flex justify-center mb-6">
-                {scorePercentageValue >= 70 ? (
-                  <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                    <Award className="w-16 h-16 text-yellow-500 dark:text-yellow-400" />
+              <Award className="w-12 h-12 text-indigo-600 dark:text-indigo-300" />
             </div>
-                ) : scorePercentageValue >= 50 ? (
-                  <div className="p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                    <Award className="w-16 h-16 text-blue-500 dark:text-blue-400" />
-                  </div>
-                ) : (
-                  <div className="p-4 bg-purple-100 dark:bg-purple-900/30 rounded-full">
-                    <Award className="w-16 h-16 text-purple-500 dark:text-purple-400" />
-                  </div>
-                )}
-              </div>
-              
-              <h3 className="text-3xl font-bold text-center mb-2 text-gray-900 dark:text-white">
-                {scorePercentageValue >= 80 ? '🎉 Excellent!' : 
-                 scorePercentageValue >= 60 ? '👏 Well done!' : 
-                 scorePercentageValue >= 40 ? '👍 Good effort!' : 
-                 '💪 Keep practicing!'}
-              </h3>
-              
-              <div className="flex justify-center items-center gap-3 mb-8">
-                <span className="text-2xl font-bold">{finalScore}/{questions?.length}</span>
-                <div className="h-10 w-px bg-gray-300 dark:bg-gray-600"></div>
-                <div className={`text-2xl font-bold 
-                  ${scorePercentageValue >= 70 ? 'text-green-500 dark:text-green-400' : 
-                   scorePercentageValue >= 50 ? 'text-blue-500 dark:text-blue-400' : 
-                   'text-red-500 dark:text-red-400'}`}>
-                  {scorePercentageValue.toFixed(0)}%
-                </div>
-              </div>
+            <h3 className="text-2xl font-bold mb-4">Your Score: {finalScore}/{questions?.length}</h3>
+            <p className="text-lg text-gray-600 dark:text-gray-300">
+              {scorePercentageValue}% Correct
+            </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg p-5 shadow-sm">
-                  <h4 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Quiz Details</h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Course:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {courses.find(c => c._id === selectedCourse)?.name || 'Unknown'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Difficulty:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{quizDetails.difficulty}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Total time:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {startTime ? `${Math.floor((new Date().getTime() - startTime.getTime()) / 60000)} min` : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg p-5 shadow-sm">
-                  <h4 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Performance</h4>
-                  <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg p-4`}>
+              <div className="flex items-center justify-between">
                 <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Correct answers</p>
-                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                        <div 
-                          className="bg-green-500 h-2.5 rounded-full" 
-                          style={{ width: `${scorePercentageValue}%` }}
-                        ></div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Difficulty</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
+                    {quizDetails.difficulty}
+                  </p>
                 </div>
-                      <div className="flex justify-between text-xs mt-1">
-                        <span className="text-gray-500 dark:text-gray-400">0%</span>
-                        <span className="text-gray-500 dark:text-gray-400">100%</span>
-                      </div>
-                    </div>
-                    
-                    <div className="pt-3">
-                      <p className="text-gray-900 dark:text-white">
-                        {scorePercentageValue >= 80 ? 'Outstanding performance! You have excellent mastery of this subject.' : 
-                         scorePercentageValue >= 60 ? 'Good job! You have a solid understanding of most concepts.' : 
-                         scorePercentageValue >= 40 ? 'Nice effort! Keep reviewing to strengthen your knowledge.' : 
-                         'Keep practicing! Focus on the concepts you missed to improve.'}
-                      </p>
+                <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
+                  <ClipboardList className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
               </div>
             </div>
           </div>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                  onClick={() => resetQuiz()}
-                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition-colors focus:ring-4 focus:ring-indigo-300"
-                >
-                  Try Again
-                </button>
-                <button
-                  onClick={handleGetAIHelp}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow-sm transition-colors focus:ring-4 focus:ring-purple-300"
-                >
-                  Get AI Help
-                </button>
-              </div>
+          {renderResultActions()}
           </div>
         </div>
         </div>
@@ -2137,4 +1898,75 @@ const renderGenerationOverlay = (isLoading: boolean): React.ReactNode => {
 };
 
 // Add a helper function for case-insensitive comparisons
+const caseInsensitiveCompare = (str1: string | null, str2: string | null): boolean => {
+  if (!str1 || !str2) return false;
+  return str1.toUpperCase() === str2.toUpperCase();
+};
+
+// Helper function to check if all questions have been viewed/answered
+const allQuestionsViewed = (states: QuestionState[]) => {
+  // Check if all questions have been viewed
+  return states.every(state => state.viewed);
+};
+
+// Add the useEffect that was previously inside renderQuestion
+useEffect(() => {
+  // Reset quiz when timePerQuestion changes
+  if (quizStarted) {
+    setQuestionStates([]);
+    setHistoryFetched(false); 
+    setQuizHistory([]); 
+    window.location.reload();
+  }
+}, [quizDetails.timePerQuestion]);
+
+// Add back the renderResultActions function
+const renderResultActions = React.useCallback(() => {
+  return (
+    <div className="flex justify-center space-x-4 mt-6">
+      <button
+        onClick={resetQuiz}
+        className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200 ease-in-out"
+      >
+        Try Again
+      </button>
+      <button
+        onClick={handleGetAIHelp}
+        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 ease-in-out"
+      >
+        Get AI Help
+      </button>
+    </div>
+  );
+}, [resetQuiz, handleGetAIHelp]);
+
+// Add the missing handleSubmitAnswer function
+const handleSubmitAnswer = React.useCallback(() => {
+  // Get current question and state
+  const question = questions[currentQuestion];
+  const currentState = questionStates[currentQuestion];
+  
+  if (!question || !currentState || currentState.userAnswer === null) return;
+  
+  // Check if answer is correct
+  const isCorrect = currentState.userAnswer === question.correctAnswer;
+  
+  // Update question state
+  const updatedState = {
+    ...currentState,
+    viewed: true,
+    isCorrect
+  };
+  
+  // Update question states
+  const newQuestionStates = [...questionStates];
+  newQuestionStates[currentQuestion] = updatedState;
+  setQuestionStates(newQuestionStates);
+  
+  // Update score if answer is correct
+  if (isCorrect) {
+    setScore(prev => prev + 1);
+  }
+}, [currentQuestion, questions, questionStates, setQuestionStates, setScore]);
+
 export default Quiz;

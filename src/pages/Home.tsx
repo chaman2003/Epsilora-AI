@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { BarChart2, Brain, BookOpen, Bot, ArrowRight, Sparkles } from 'lucide-react';
 import { themeConfig } from '../config/theme';
 
@@ -81,14 +81,60 @@ const Home: React.FC = () => {
               <Sparkles className="h-6 w-6 text-indigo-600 dark:text-indigo-400 animate-pulse" />
             </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1.5, delay: 0.3 }}
-              className="text-6xl font-bold tracking-tight sm:text-7xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 mb-4"
+            {/* Enhanced heading with glow effect */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1,
+                textShadow: ["0 0 4px rgba(101, 31, 255, 0.1)", "0 0 8px rgba(101, 31, 255, 0.2)", "0 0 4px rgba(101, 31, 255, 0.1)"]
+              }}
+              transition={{ 
+                duration: 2, 
+                delay: 0.3,
+                textShadow: {
+                  repeat: Infinity,
+                  duration: 3
+                }
+              }}
+              className="relative mb-6"
             >
-              Welcome to Epsilora
-            </motion.h1>
+              <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 w-40 h-40 rounded-full bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 blur-3xl"></div>
+              
+              {/* Enhanced glow effect */}
+              <motion.h1 
+                className="text-7xl sm:text-8xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 dark:from-indigo-400 dark:via-violet-400 dark:to-fuchsia-400 pb-2"
+                animate={{
+                  background: [
+                    "linear-gradient(90deg, rgb(99, 102, 241) 0%, rgb(139, 92, 246) 50%, rgb(217, 70, 239) 100%)",
+                    "linear-gradient(90deg, rgb(79, 70, 229) 0%, rgb(124, 58, 237) 50%, rgb(236, 72, 153) 100%)",
+                    "linear-gradient(90deg, rgb(99, 102, 241) 0%, rgb(139, 92, 246) 50%, rgb(217, 70, 239) 100%)",
+                  ],
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  color: "transparent",
+                  textShadow: [
+                    "0 0 10px rgba(99, 102, 241, 0.4), 0 0 30px rgba(99, 102, 241, 0.2), 0 0 60px rgba(99, 102, 241, 0.1)",
+                    "0 0 20px rgba(124, 58, 237, 0.4), 0 0 40px rgba(124, 58, 237, 0.2), 0 0 70px rgba(124, 58, 237, 0.1)",
+                    "0 0 10px rgba(236, 72, 153, 0.4), 0 0 30px rgba(236, 72, 153, 0.2), 0 0 60px rgba(236, 72, 153, 0.1)"
+                  ]
+                }}
+                transition={{
+                  duration: 8,
+                  repeat: Infinity,
+                  repeatType: "reverse"
+                }}
+              >
+                ✨ Welcome to Epsilora ✨
+              </motion.h1>
+              
+              {/* Enhanced decorative elements for stronger glow */}
+              <div className="absolute -inset-x-20 -inset-y-12 -z-10">
+                <div className="absolute left-1/3 top-1/3 w-24 h-24 rounded-full bg-indigo-500/10 blur-2xl animate-pulse"></div>
+                <div className="absolute right-1/3 top-2/3 w-32 h-32 rounded-full bg-purple-500/10 blur-3xl animate-pulse" style={{ animationDelay: "1s" }}></div>
+                <div className="absolute left-1/2 top-1/2 w-40 h-40 rounded-full bg-pink-500/10 blur-3xl animate-pulse" style={{ animationDelay: "2s" }}></div>
+              </div>
+            </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -172,9 +218,45 @@ const Home: React.FC = () => {
       </div>
 
       {/* Features Section */}
-      <div className="py-8">
+      <div className="py-12 bg-gradient-to-b from-transparent via-gray-50/50 to-transparent dark:from-transparent dark:via-gray-900/30 dark:to-transparent">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2 lg:max-w-none lg:grid-cols-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            className="text-center mb-14 relative"
+          >
+            {/* Decorative elements */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 blur-3xl -z-10" />
+            <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-gradient-to-r from-indigo-500/10 to-purple-500/10 blur-2xl -z-10" />
+            
+            {/* Sparkles */}
+            <motion.div
+              animate={{ 
+                rotate: [0, 5, 0, -5, 0],
+                scale: [1, 1.05, 1, 1.05, 1] 
+              }}
+              transition={{ 
+                repeat: Infinity, 
+                duration: 4,
+                ease: "easeInOut" 
+              }}
+              className="inline-block mb-2"
+            >
+              <Sparkles className="h-8 w-8 mx-auto mb-2 text-indigo-600/80 dark:text-indigo-400/80" />
+            </motion.div>
+            
+            <h2 className="relative text-4xl md:text-5xl font-extrabold tracking-tight mb-4 inline-block bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400">
+              Elevate Your Learning Experience
+              <span className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500/50 via-purple-500/50 to-pink-500/50 rounded-full"></span>
+            </h2>
+            
+            <p className="mt-6 text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+              Unlock your <span className="text-indigo-600 dark:text-indigo-400 font-medium">full potential</span> with our powerful features designed to enhance your <span className="text-purple-600 dark:text-purple-400 font-medium">educational journey</span>.
+            </p>
+          </motion.div>
+
+          <div className="mx-auto grid max-w-2xl grid-cols-1 gap-8 sm:grid-cols-2 lg:max-w-none lg:grid-cols-4">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.name}
@@ -183,20 +265,35 @@ const Home: React.FC = () => {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="relative group"
               >
+                <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r from-${feature.color}-500/20 to-${feature.color}-500/5 dark:from-${feature.color}-500/10 dark:to-${feature.color}-500/5 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500`} />
                 <Link 
                   to={feature.link}
-                  className="block relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 h-full"
+                  className="block relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800/80 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 h-full border border-gray-100 dark:border-gray-700"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-transparent group-hover:from-indigo-50/50 group-hover:via-purple-50/50 group-hover:to-transparent dark:group-hover:from-indigo-900/30 dark:group-hover:via-purple-900/30 dark:group-hover:to-transparent transition-all duration-500" />
+                  {/* Feature Icon with Colored Background Circle */}
+                  <div className={`absolute -right-6 -top-6 w-20 h-20 rounded-full bg-${feature.color}-500/10 dark:bg-${feature.color}-500/20 group-hover:scale-110 transition-transform duration-500`} />
                   
-                  <dt className="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900 dark:text-gray-100">
-                    <feature.icon className={`h-6 w-6 flex-none text-${feature.color}-600 dark:text-${feature.color}-400 transition-transform duration-300 group-hover:scale-110`} aria-hidden="true" />
-                    {feature.name}
-                    <ArrowRight className={`ml-auto h-5 w-5 text-${feature.color}-600 dark:text-${feature.color}-400 opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-1 transition-all duration-300`} />
-                  </dt>
-                  <dd className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">
-                    {feature.description}
-                  </dd>
+                  {/* Feature Content */}
+                  <div className="p-6 relative z-10">
+                    <div className={`w-16 h-16 rounded-xl bg-${feature.color}-100 dark:bg-${feature.color}-900/30 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-500`}>
+                      <feature.icon className={`h-8 w-8 text-${feature.color}-600 dark:text-${feature.color}-400`} aria-hidden="true" />
+                    </div>
+                    
+                    <h3 className={`text-xl font-bold text-${feature.color}-600 dark:text-${feature.color}-400 mb-3 group-hover:translate-x-1 transition-transform duration-300`}>
+                      {feature.name}
+                    </h3>
+                    
+                    <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
+                      {feature.description}
+                    </p>
+                    
+                    <div className={`mt-4 inline-flex items-center text-${feature.color}-600 dark:text-${feature.color}-400 text-sm font-medium`}>
+                      <span className="mr-2 opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-1 transition-all duration-300">
+                        Explore
+                      </span>
+                      <ArrowRight className={`h-4 w-4 transform translate-x-0 group-hover:translate-x-1 transition-transform duration-300`} />
+                    </div>
+                  </div>
                 </Link>
               </motion.div>
             ))}

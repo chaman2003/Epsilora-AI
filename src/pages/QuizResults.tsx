@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Award, Clock, Book, ArrowLeft, MessageSquare } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Award, Book, MessageSquare, ChevronLeft, CheckCircle, XCircle, ArrowUp, AlertCircle, Info, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuiz } from '../context/QuizContext';
 import type { QuizData } from '../context/QuizContext';
@@ -13,6 +13,10 @@ const QuizResults: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { quizData: contextQuizData, setQuizData } = useQuiz();
   const quizData = (location.state as QuizData) || contextQuizData;
+  const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'questions'>('overview');
+  const [showStrengths, setShowStrengths] = useState(false);
+  const [showWeaknesses, setShowWeaknesses] = useState(false);
 
   React.useEffect(() => {
     // If no quiz data or not authenticated, redirect to quiz page
@@ -25,7 +29,7 @@ const QuizResults: React.FC = () => {
     return null;
   }
 
-  const { score, totalQuestions, courseName, difficulty } = quizData;
+  const { score, totalQuestions, courseName, difficulty, questions } = quizData;
   const percentage = ((score / totalQuestions) * 100);
 
   const formatScore = (score: number) => {
@@ -170,124 +174,420 @@ const QuizResults: React.FC = () => {
     }, 300); // Increased timeout for reliability
   };
 
+  const toggleQuestion = (index: number) => {
+    if (expandedQuestion === index) {
+      setExpandedQuestion(null);
+    } else {
+      setExpandedQuestion(index);
+    }
+  };
+
+  // Calculate strengths and weaknesses
+  const getStrengthsAndWeaknesses = () => {
+    if (!questions) return { strengths: [], weaknesses: [] };
+
+    interface QuestionItem {
+      index: number;
+      question: typeof questions[0];
+    }
+
+    const categorizedQuestions = questions.reduce((acc, question, index) => {
+      if (question.isCorrect) {
+        acc.strengths.push({ index, question });
+      } else {
+        acc.weaknesses.push({ index, question });
+      }
+      return acc;
+    }, { strengths: [], weaknesses: [] } as { strengths: QuestionItem[], weaknesses: QuestionItem[] });
+
+    return categorizedQuestions;
+  };
+
+  const { strengths, weaknesses } = getStrengthsAndWeaknesses();
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen bg-gradient-to-b from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 py-6 px-3 sm:py-8 sm:px-4"
+      className="container mx-auto px-4 py-6"
     >
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 md:p-8 relative overflow-hidden">
-          {/* Background decoration */}
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5" />
-          
-          {/* Content */}
-          <div className="relative">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-4 sm:mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text">
-              Quiz Results
-            </h1>
-
-            {/* Score Display with improved sizing */}
-            <div className="flex justify-center mb-4 sm:mb-6">
-              <div className="relative">
-                <svg className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32">
-                  <circle
-                    className="text-gray-200 dark:text-gray-700"
-                    strokeWidth="8"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="58"
-                    cx="64"
-                    cy="64"
-                  />
-                  <circle
-                    className={`${getScoreColor(percentage)}`}
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="58"
-                    cx="64"
-                    cy="64"
-                    strokeDasharray={`${Math.floor(percentage) * 3.64} 364`}
-                    transform="rotate(-90 64 64)"
-                  />
-                </svg>
-                <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-lg sm:text-xl md:text-2xl font-bold">
-                  {formatScore(percentage)}
-                </span>
-              </div>
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+          {/* Header */}
+          <div className="bg-indigo-600 dark:bg-indigo-700 p-4 text-white flex justify-between items-center">
+            <button 
+              onClick={() => navigate('/quiz')}
+              className="flex items-center text-white hover:text-indigo-100 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 mr-1" />
+              <span>Back to Quiz</span>
+            </button>
+            <div>
+              <h2 className="text-xl font-bold">Quiz Results</h2>
             </div>
-
-            {/* Message moved up for better flow */}
-            <div className="text-center mb-4 sm:mb-6">
-              <p className="text-base sm:text-lg md:text-xl font-medium text-gray-700 dark:text-gray-300 px-2">
-                {getMessage()}
-              </p>
+            <div>
+              <span className="text-sm opacity-90">Course: {courseName || 'General Quiz'}</span>
             </div>
+          </div>
 
-            {/* Details Grid with improved responsiveness */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 sm:p-4 shadow-sm">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
-                    <Award className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
+          {/* Tabs */}
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <nav className="flex" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 ${
+                  activeTab === 'overview'
+                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                Performance Overview
+              </button>
+              <button
+                onClick={() => setActiveTab('questions')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 ${
+                  activeTab === 'questions'
+                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                Question Review
+              </button>
+            </nav>
+          </div>
+
+          <div className="p-6">
+            {/* Performance Overview Tab */}
+            {activeTab === 'overview' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {/* Score Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                  <div className="md:col-span-1 flex justify-center">
+                    <div className="relative">
+                      <svg className="w-32 h-32">
+                        <circle
+                          className="text-gray-200 dark:text-gray-700"
+                          strokeWidth="8"
+                          stroke="currentColor"
+                          fill="transparent"
+                          r="58"
+                          cx="64"
+                          cy="64"
+                        />
+                        <circle
+                          className={`${getScoreColor(percentage)}`}
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                          stroke="currentColor"
+                          fill="transparent"
+                          r="58"
+                          cx="64"
+                          cy="64"
+                          strokeDasharray={`${Math.floor(percentage) * 3.64} 364`}
+                          transform="rotate(-90 64 64)"
+                        />
+                      </svg>
+                      <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-bold">
+                        {formatScore(percentage)}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Score</p>
-                    <p className="text-sm sm:text-lg font-semibold">{formatScore(percentage)}</p>
+                  
+                  <div className="md:col-span-2">
+                    <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text">
+                      {getMessage()}
+                    </h3>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg">
+                        <div className="flex items-center">
+                          <Award className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mr-2" />
+                          <div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Score</div>
+                            <div className="font-semibold">{score} / {totalQuestions} correct</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
+                        <div className="flex items-center">
+                          <Book className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-2" />
+                          <div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Difficulty</div>
+                            <div className="font-semibold">{difficulty}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 sm:p-4 shadow-sm">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
-                    <Book className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
+                {/* Strengths and Weaknesses */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  {/* Strengths */}
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+                    <div 
+                      className="p-4 cursor-pointer flex justify-between items-center bg-green-50 dark:bg-green-900/20 rounded-t-lg"
+                      onClick={() => setShowStrengths(!showStrengths)}
+                    >
+                      <div className="flex items-center">
+                        <CheckCircle className="w-5 h-5 text-green-500 dark:text-green-400 mr-2" />
+                        <h4 className="font-semibold">Your Strengths</h4>
+                      </div>
+                      <ChevronDown className={`w-5 h-5 transition-transform ${showStrengths ? 'rotate-180' : ''}`} />
+                    </div>
+                    
+                    <AnimatePresence>
+                      {showStrengths && (
+                        <motion.div 
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="p-4">
+                            {strengths.length > 0 ? (
+                              <ul className="space-y-2">
+                                {strengths.slice(0, 3).map(({ index, question }) => (
+                                  <li key={index} className="text-sm">
+                                    <div className="flex">
+                                      <span className="text-green-500 dark:text-green-400 mr-2">✓</span>
+                                      <span className="line-clamp-2">{question.question}</span>
+                                    </div>
+                                  </li>
+                                ))}
+                                {strengths.length > 3 && (
+                                  <li className="text-sm text-indigo-600 dark:text-indigo-400 mt-2">
+                                    + {strengths.length - 3} more correct answers
+                                  </li>
+                                )}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                                Keep practicing to develop strengths in this area.
+                              </p>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <div className="w-full overflow-hidden">
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Course</p>
-                    <p className="text-sm sm:text-lg font-semibold truncate" title={courseName || 'General Quiz'}>
-                      {courseName || 'General Quiz'}
-                    </p>
+                  
+                  {/* Weaknesses */}
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+                    <div 
+                      className="p-4 cursor-pointer flex justify-between items-center bg-red-50 dark:bg-red-900/20 rounded-t-lg"
+                      onClick={() => setShowWeaknesses(!showWeaknesses)}
+                    >
+                      <div className="flex items-center">
+                        <XCircle className="w-5 h-5 text-red-500 dark:text-red-400 mr-2" />
+                        <h4 className="font-semibold">Areas to Improve</h4>
+                      </div>
+                      <ChevronDown className={`w-5 h-5 transition-transform ${showWeaknesses ? 'rotate-180' : ''}`} />
+                    </div>
+                    
+                    <AnimatePresence>
+                      {showWeaknesses && (
+                        <motion.div 
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="p-4">
+                            {weaknesses.length > 0 ? (
+                              <ul className="space-y-2">
+                                {weaknesses.slice(0, 3).map(({ index, question }) => (
+                                  <li key={index} className="text-sm">
+                                    <div className="flex">
+                                      <span className="text-red-500 dark:text-red-400 mr-2">✗</span>
+                                      <span className="line-clamp-2">{question.question}</span>
+                                    </div>
+                                  </li>
+                                ))}
+                                {weaknesses.length > 3 && (
+                                  <li className="text-sm text-indigo-600 dark:text-indigo-400 mt-2">
+                                    + {weaknesses.length - 3} more areas to improve
+                                  </li>
+                                )}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                                Great job! You answered all questions correctly.
+                              </p>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
-              </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 sm:p-4 shadow-sm">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-lg">
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-teal-600 dark:text-teal-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Difficulty</p>
-                    <p className="text-sm sm:text-lg font-semibold">{difficulty}</p>
+                {/* Learning Tips */}
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg mb-8">
+                  <div className="flex items-start">
+                    <Info className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-semibold mb-2">Learning Tips</h4>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        {percentage >= 80 
+                          ? "Excellent work! To further master this subject, try explaining these concepts to someone else - teaching is one of the best ways to solidify your understanding."
+                          : percentage >= 60
+                          ? "Good progress! Focus on reviewing the questions you missed and try to understand why the correct answer is right. Consider creating flashcards for concepts you struggled with."
+                          : "Keep going! Try breaking down the subject into smaller parts and master each section before moving on. Schedule regular review sessions and consider getting additional learning resources."
+                        }
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            )}
 
-            {/* Action Buttons with improved responsiveness */}
-            <div className="flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-4">
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+            {/* Question Review Tab */}
+            {activeTab === 'questions' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <h3 className="text-xl font-semibold mb-4 flex items-center">
+                  <AlertCircle className="w-5 h-5 mr-2 text-indigo-500" />
+                  Review All Questions
+                </h3>
+                
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg mb-4 flex items-center text-sm">
+                  <Info className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mr-2 flex-shrink-0" />
+                  <p>Click on each question to see details and the correct answer.</p>
+                </div>
+                
+                <div className="space-y-3">
+                  {questions?.map((question, index) => (
+                    <motion.div 
+                      key={index}
+                      initial={false}
+                      layoutId={`question-${index}`}
+                      className="border dark:border-gray-700 rounded-lg overflow-hidden shadow-sm"
+                    >
+                      <motion.div 
+                        className={`p-4 flex justify-between items-center cursor-pointer ${
+                          question.isCorrect 
+                            ? 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30' 
+                            : 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30'
+                        } transition-colors`}
+                        onClick={() => toggleQuestion(index)}
+                      >
+                        <div className="flex items-center">
+                          {question.isCorrect 
+                            ? <CheckCircle className="w-5 h-5 text-green-500 dark:text-green-400 mr-2 flex-shrink-0" /> 
+                            : <XCircle className="w-5 h-5 text-red-500 dark:text-red-400 mr-2 flex-shrink-0" />
+                          }
+                          <div className="font-medium line-clamp-1 pr-2">{question.question}</div>
+                        </div>
+                        <motion.div 
+                          className="flex items-center text-sm"
+                          animate={{ rotate: expandedQuestion === index ? 180 : 0 }}
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </motion.div>
+                      </motion.div>
+                      
+                      <AnimatePresence>
+                        {expandedQuestion === index && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                              <p className="text-base mb-3">{question.question}</p>
+                              
+                              <div className="space-y-2 mb-3">
+                                {question.options.map((option, optIndex) => {
+                                  const optionText = typeof option === 'string' ? option : option.text;
+                                  const optionLabel = typeof option === 'string' ? String.fromCharCode(65 + optIndex) : option.label;
+                                  const isCorrectOption = question.correctAnswer === optionLabel;
+                                  const isSelectedOption = question.userAnswer === optionLabel;
+                                  
+                                  let className = "p-2 border rounded flex items-center text-sm transition-colors";
+                                  
+                                  if (isCorrectOption) {
+                                    className += " bg-green-50 border-green-300 dark:bg-green-900/20 dark:border-green-700";
+                                  } else if (isSelectedOption) {
+                                    className += " bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700";
+                                  }
+                                  
+                                  return (
+                                    <div key={optIndex} className={className}>
+                                      <div className="flex-1">
+                                        <span className="font-bold mr-2">{optionLabel}.</span> {optionText}
+                                      </div>
+                                      
+                                      {isCorrectOption && (
+                                        <div className="text-green-600 dark:text-green-400 flex items-center text-xs">
+                                          <span>Correct</span>
+                                        </div>
+                                      )}
+                                      
+                                      {isSelectedOption && !isCorrectOption && (
+                                        <div className="text-red-600 dark:text-red-400 text-xs">
+                                          <span>Your answer</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              
+                              {!question.isCorrect && (
+                                <div className="mt-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                                  <div className="flex items-start">
+                                    <Info className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5 mr-2 flex-shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-medium text-indigo-800 dark:text-indigo-300 mb-1">
+                                        Correct answer: {question.correctAnswer}
+                                      </p>
+                                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                                        Try to understand why this is the correct answer. Review related concepts in your course materials.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap justify-center gap-4 mt-8">
+              <button
                 onClick={handleTryAgain}
-                className="w-full sm:w-auto flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm sm:text-base"
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition-colors focus:ring-4 focus:ring-indigo-300"
               >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                Try Another Quiz
-              </motion.button>
+                Take Another Quiz
+              </button>
               
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+              <button
                 onClick={handleGetAIHelp}
-                className="w-full sm:w-auto flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm sm:text-base"
+                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow-sm transition-colors focus:ring-4 focus:ring-purple-300 flex items-center"
               >
-                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <MessageSquare className="w-5 h-5 mr-2" />
                 Get AI Help
-              </motion.button>
+              </button>
             </div>
           </div>
         </div>

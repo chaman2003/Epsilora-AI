@@ -7,8 +7,7 @@ import {
   Target,
   Award,
   Calendar,
-  History,
-  Clock
+  History
 } from 'lucide-react';
 import axiosInstance from '../utils/axios';
 import { Course, QuizAttempt } from '../types';
@@ -80,45 +79,124 @@ interface CourseStats {
   name: string;
 }
 
-// Improved answer correctness determination function
-const determineAnswerCorrectness = (selectedAnswer: string, optionText: string, correctAnswer: string): boolean => {
-  if (!correctAnswer) return false;
+// Add a comprehensive answer matching utility near the top of the file
+/**
+ * Determines if a selected answer matches the correct answer with multiple matching strategies
+ * Returns detailed information about the match process for debugging
+ */
+const determineAnswerCorrectness = (selectedAnswer: string, correctAnswer: string, options: any[]): { 
+  isCorrect: boolean; 
+  matchMethod: string;
+  details: string;
+} => {
+  // Clean up answers
+  const selectedClean = selectedAnswer?.trim?.() || '';
+  const correctClean = correctAnswer?.trim?.() || '';
   
-  // Normalize all strings for comparison
-  const normalizedSelected = selectedAnswer.trim().toUpperCase();
-  const normalizedText = optionText.trim().toUpperCase();
-  const normalizedCorrect = correctAnswer.trim().toUpperCase();
+  // Convert everything to uppercase for case-insensitive comparison
+  const selectedUpper = selectedClean.toUpperCase();
+  const correctUpper = correctClean.toUpperCase();
   
-  console.log('Comparing answers:', {
-    selectedAnswer: normalizedSelected,
-    optionText: normalizedText,
-    correctAnswer: normalizedCorrect
-  });
+  // Initialize result
+  let result = {
+    isCorrect: false,
+    matchMethod: 'none',
+    details: `Selected: "${selectedClean}", Correct: "${correctClean}"`
+  };
   
-  // Check several ways the answer might match
-  // 1. Direct match with the option letter (A, B, C, D)
-  if (normalizedSelected === normalizedCorrect) {
-    console.log("Match found: Option letter matches directly");
-    return true;
-  }
-  
-  // 2. The option text matches the correct answer text
-  if (normalizedText === normalizedCorrect) {
-    console.log("Match found: Option text matches correct answer text");
-    return true;
-  }
-  
-  // 3. The correct answer might be referring to the option by its position
-  if (['A', 'B', 'C', 'D'].includes(normalizedSelected) && 
-      ['A', 'B', 'C', 'D'].includes(normalizedCorrect)) {
-    if (normalizedSelected === normalizedCorrect) {
-      console.log("Match found: Option letter position matches");
-      return true;
+  // STRATEGY 1: Direct letter match (when the selected answer is just a letter like "A", "B", etc.)
+  if (selectedUpper.length === 1 && "ABCD".includes(selectedUpper)) {
+    // If correct answer is also a single letter
+    if (correctUpper.length === 1 && "ABCD".includes(correctUpper)) {
+      result.isCorrect = selectedUpper === correctUpper;
+      result.matchMethod = 'direct-letter';
+      result.details += ` | Direct letter match: ${result.isCorrect}`;
+      if (result.isCorrect) return result;
+    }
+    
+    // If correct answer starts with the letter (like "A.", "A)", "A -")
+    if (correctUpper.startsWith(selectedUpper) && !(/[A-Z]/.test(correctUpper.charAt(1)))) {
+      result.isCorrect = true;
+      result.matchMethod = 'letter-prefix';
+      result.details += ` | Letter prefix match`;
+      return result;
+    }
+    
+    // Map the selected letter to its index (A=0, B=1, etc.)
+    const letterIndex = selectedUpper.charCodeAt(0) - 65;
+    
+    // If it's a valid option index (0-3 for A-D)
+    if (letterIndex >= 0 && letterIndex < options.length) {
+      // Get the text content of the selected option
+      const optionText = typeof options[letterIndex] === 'object' && options[letterIndex] !== null && 'text' in options[letterIndex]
+        ? (options[letterIndex] as {text: string}).text
+        : String(options[letterIndex]);
+      
+      // Clean up option text
+      const cleanOptionText = optionText
+        .replace(/^[a-dA-D][\)\.]\s*/g, '')
+        .replace(/^[a-dA-D]\s+/g, '')
+        .trim()
+        .toUpperCase();
+      
+      // If the correct answer matches the option text
+      if (cleanOptionText === correctUpper || correctUpper.includes(cleanOptionText)) {
+        result.isCorrect = true;
+        result.matchMethod = 'option-text-match';
+        result.details += ` | Option text match: "${cleanOptionText}"`;
+        return result;
+      }
+      
+      // Check if the option text contains the correct answer or vice versa
+      if (cleanOptionText.includes(correctUpper) || correctUpper.includes(cleanOptionText)) {
+        result.isCorrect = true;
+        result.matchMethod = 'partial-option-text';
+        result.details += ` | Partial text match: "${cleanOptionText}" contains/within "${correctUpper}"`;
+        return result;
+      }
     }
   }
   
-  console.log("No match found between the selected answer and correct answer");
-  return false;
+  // STRATEGY 2: For special keywords
+  const specialKeywords = ["SET", "X", "IS", "TUPLE", "LIST", "DICTIONARY", "DEF"];
+  
+  // Remove quotes from correct answer if present
+  const cleanedCorrect = correctUpper.replace(/['"]/g, '');
+  
+  if (specialKeywords.includes(cleanedCorrect)) {
+    // Find the corresponding option text for this answer
+    if (selectedUpper.length === 1 && "ABCD".includes(selectedUpper)) {
+      const letterIndex = selectedUpper.charCodeAt(0) - 65;
+      if (letterIndex >= 0 && letterIndex < options.length) {
+        const optionText = typeof options[letterIndex] === 'object' && options[letterIndex] !== null && 'text' in options[letterIndex]
+          ? (options[letterIndex] as {text: string}).text
+          : String(options[letterIndex]);
+        
+        const cleanOptionText = optionText
+          .replace(/^[a-dA-D][\)\.]\s*/g, '')
+          .replace(/^[a-dA-D]\s+/g, '')
+          .trim()
+          .toUpperCase();
+        
+        if (cleanOptionText === cleanedCorrect) {
+          result.isCorrect = true;
+          result.matchMethod = 'keyword-match';
+          result.details += ` | Keyword match: "${cleanOptionText}" matches "${cleanedCorrect}"`;
+          return result;
+        }
+      }
+    }
+  }
+  
+  // STRATEGY 3: Direct string comparison (fallback)
+  if (selectedUpper === correctUpper) {
+    result.isCorrect = true;
+    result.matchMethod = 'exact-match';
+    result.details += ` | Exact string match`;
+    return result;
+  }
+  
+  return result;
 };
 
 const Quiz: React.FC = () => {
@@ -239,9 +317,6 @@ const Quiz: React.FC = () => {
   const [maxQuestionCount, setMaxQuestionCount] = useState(5);
   // Add state to track generation errors
   const [generationError, setGenerationError] = useState<string | null>(null);
-
-  // Function to set up the showContinue state if it doesn't exist
-  const [showContinue, setShowContinue] = useState(false);
 
   // Move fetchQuizHistory declaration to the top of the component, before any useEffects
   const fetchQuizHistory = React.useCallback(async () => {
@@ -688,43 +763,45 @@ const generateQuiz = async () => {
     });
   }, []);
 
-  // Handle answer selection with improved handling
-  const handleAnswerSelect = React.useCallback((selectedOptionLetter: string, optionText: string) => {
-    if (!questions || currentQuestion >= questions.length || questionStates[currentQuestion]?.viewed) {
+  // Now let's modify the handleAnswerSelect function to use our new matcher
+  const handleAnswerSelect = React.useCallback((answer: string) => {
+    if (currentQuestion >= questions?.length || questionStates[currentQuestion]?.viewed) {
       return;
     }
+    
+    setSelectedAnswer(answer);
     
     // Get the current question and its correct answer
     const currentQuestionObj = questions[currentQuestion];
     const correctAnswer = currentQuestionObj?.correctAnswer || '';
+    const options = currentQuestionObj?.options || [];
     
-    // Use our improved answer correctness function
-    const isCorrect = determineAnswerCorrectness(selectedOptionLetter, optionText, correctAnswer);
+    // Use our comprehensive matcher with full debugging
+    const matchResult = determineAnswerCorrectness(answer, correctAnswer, options);
     
-    // Log this selection with detailed information
+    // Clear, detailed logging
     console.log(`------ ANSWER SELECTION ------`);
     console.log(`Question: "${currentQuestionObj?.question}"`);
-    console.log(`Selected option: "${selectedOptionLetter}" (${optionText})`);
+    console.log(`Selected answer: "${answer}"`);
     console.log(`Correct answer: "${correctAnswer}"`);
-    console.log(`Result: ${isCorrect ? 'CORRECT ✓' : 'INCORRECT ✗'}`);
+    console.log(`Match result: ${matchResult.isCorrect ? 'CORRECT  " ' : 'INCORRECT ✗'}`);
+    console.log(`Match method: ${matchResult.matchMethod}`);
+    console.log(`Details: ${matchResult.details}`);
     console.log(`-------------------------------`);
     
     // Update score if answer is correct
-    if (isCorrect) {
+    if (matchResult.isCorrect) {
       setScore(prev => prev + 1);
     }
     
     // Mark question as viewed and store user's answer
     updateQuestionState(currentQuestion, {
-      userAnswer: selectedOptionLetter,
+      userAnswer: answer,
       viewed: true,
-      isCorrect: isCorrect
+      // IMPORTANT: Store whether the answer was correct in the questionState
+      // This ensures consistency when checking later
+      isCorrect: matchResult.isCorrect
     });
-    
-    // After a short delay, show the continue button
-    setTimeout(() => {
-      setShowContinue(true);
-    }, 1000);
   }, [currentQuestion, questions, questionStates, updateQuestionState]);
 
   useEffect(() => {
@@ -891,8 +968,10 @@ const generateQuiz = async () => {
         const userAnswer = questionStates[index]?.userAnswer;
         const correctAnswer = q.correctAnswer;
         
-        // Get the correct status directly from question state to ensure consistency
-        const isCorrect = questionStates[index]?.isCorrect || false;
+        // Determine if answer is correct using case-insensitive comparison
+        const isCorrect = userAnswer && correctAnswer 
+          ? userAnswer.toUpperCase() === correctAnswer.toUpperCase()
+          : false;
         
         console.log(`Question ${index + 1}: User answer=${userAnswer}, Correct answer=${correctAnswer}, isCorrect=${isCorrect}`);
         
@@ -925,36 +1004,71 @@ const generateQuiz = async () => {
       id: `${courseObj.name}-${score}-${questions.length}-${Date.now()}`
     };
     
-    // Save the quiz data to both local storage and the quiz context
-    localStorage.setItem('quizData', JSON.stringify(quizData));
+    // Check if this quiz has been processed already
+    const processedQuizzes = JSON.parse(localStorage.getItem('processedQuizzes') || '[]');
+    const quizDataId = quizData.id;
+    
+    // Clear any existing quiz data to prevent processing loops
+    localStorage.removeItem('quizData');
+    localStorage.removeItem('lastQuizData');
+    
+    console.log('Setting quiz data in context and localStorage:', quizData);
+    
+    // Store in both context and localStorage with different approaches to ensure it's saved
     setQuizData(quizData);
     
-    console.log("Quiz data saved for AI Assistant:", quizData);
-    toast.success("Quiz data prepared for AI analysis");
+    // Store the quiz data and track it as processed
+    try {
+      const jsonString = JSON.stringify(quizData);
+      localStorage.setItem('quizData', jsonString);
+      localStorage.setItem('lastQuizData', jsonString);
+      
+      // Mark this quiz as processed
+      if (!processedQuizzes.includes(quizDataId)) {
+        processedQuizzes.push(quizDataId);
+        localStorage.setItem('processedQuizzes', JSON.stringify(processedQuizzes));
+      }
+    } catch (error) {
+      console.error('Error saving quiz data:', error);
+    }
     
-    // Navigate to the AI Assist page
-    navigate('/ai-assist');
+    // Ensure the data is properly set before navigating
+    setTimeout(() => {
+      // Double-check that data was saved
+      const savedData = localStorage.getItem('quizData');
+      if (!savedData) {
+        console.error("Failed to save quiz data to localStorage");
+        toast.error("Error saving quiz data. Please try again.");
+        return;
+      }
+      
+      console.log("Quiz data successfully saved, navigating to AI assist");
+      // Navigate to AI assist
+      navigate('/ai-assist', { replace: true });
+    }, 100);
   }, [courses, selectedCourse, questions, questionStates, score, quizDetails.difficulty, setQuizData, navigate]);
 
-  // Make sure handleNextQuestion and handlePreviousQuestion are being used
   const handleNextQuestion = React.useCallback(() => {
     if (!questions || !questionStates) return;
     
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
+      setCurrentQuestion(currentQuestion + 1);
+      setSelectedAnswer('');
         setTimeLeft(quizDetails.timePerQuestion);
         setTimerActive(true);
-      setShowContinue(false);
       }
-  }, [currentQuestion, questions, quizDetails.timePerQuestion, questionStates]);
-
+  }, [currentQuestion, questions, quizDetails.timePerQuestion, setCurrentQuestion, setSelectedAnswer, setTimeLeft, setTimerActive]);
   const handlePreviousQuestion = React.useCallback(() => {
+    if (isTransitioning.current) return;
     if (currentQuestion > 0) {
       setCurrentQuestion(prev => prev - 1);
-      setShowContinue(true);
+      const prevState = questionStates[currentQuestion - 1];
+      setSelectedAnswer(prevState?.userAnswer || null);
+      setShowResult(true);
+      setTimerActive(false);
+      setTimeLeft(0);
     }
-  }, [currentQuestion]);
-
+  }, [currentQuestion, questionStates]);
   const handleFinishQuiz = React.useCallback(() => {
     setTimerActive(false);
     const finalScore = calculateFinalScore();
@@ -1101,142 +1215,83 @@ const generateQuiz = async () => {
     handleFinishQuiz();
   }, [handleFinishQuiz]);
 
-  // Render a quiz question with improved display of correct/incorrect answers and better color scheme
-  const renderQuestion = React.useCallback(() => {
-    // Skip rendering if there are no questions
-    if (!questions || questions.length === 0) {
-      return <div className="text-center">No questions available</div>;
-    }
+  // Improve renderQuestion for better clarity and structure
+  const renderQuestion = () => {
+    if (!questions || questions.length === 0) return null;
 
-    const currentQuestionState = questionStates[currentQuestion];
+    const currentState = questionStates[currentQuestion];
+    if (!currentState) return null;
+    
     const question = questions[currentQuestion];
-    const isQuestionViewed = currentQuestionState?.viewed || false;
-    const selectedOption = currentQuestionState?.userAnswer || '';
 
                   return (
-      <div>
-        <p className="mb-4 text-base font-medium">{question.question}</p>
-        <div className="space-y-2">
-          {question.options.map((option, index) => {
-            // Get option text and clean it
-            let optionText = typeof option === 'object' && option !== null && 'text' in option 
-              ? (option as {text: string}).text 
-              : String(option);
-            
-            // Remove any existing letter prefixes like "a)", "b)", etc.
-            optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '').trim();
-            
-            // Determine if this option is correct
-            const optionLetter = String.fromCharCode(65 + index);
-            const correctAnswer = question.correctAnswer?.toUpperCase() || '';
-            const isCorrectOption = determineAnswerCorrectness(optionLetter, optionText, correctAnswer);
-            
-            // Determine styling based on selection, correctness, and viewed status with improved colors
-            let className = "p-2 border rounded flex items-center text-sm transition-colors";
-            
-            if (isQuestionViewed) {
-              // Question has been answered
-              if (optionLetter === selectedOption || optionText.toUpperCase() === selectedOption.toUpperCase()) {
-                // This option was selected by user
-                if (isCorrectOption) {
-                  // User selected correctly - softer green
-                  className += " bg-green-50 border-green-300 dark:bg-green-900/20 dark:border-green-700";
-                } else {
-                  // User selected incorrectly - softer red
-                  className += " bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700";
-                }
-              } else if (isCorrectOption) {
-                // This is the correct answer but wasn't selected - very subtle green
-                className += " bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800";
-              } else {
-                // Unselected and incorrect
-                className += " text-gray-500 dark:text-gray-400";
-              }
-            } else {
-              // Question hasn't been answered yet
-              if (optionLetter === selectedOption || optionText.toUpperCase() === selectedOption.toUpperCase()) {
-                className += " bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700";
-              } else {
-                className += " hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer";
-              }
-            }
-            
-            return (
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-5 shadow-sm">
+          <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">{question.question}</h3>
+          
+          <div className="space-y-3 mt-6">
+            {question.options.map((option, index) => (
               <div
                       key={index}
-                className={className}
-                onClick={() => {
-                  if (!isQuestionViewed) {
-                    handleAnswerSelect(optionLetter, optionText);
-                  }
-                }}
+                className={`p-4 rounded-lg cursor-pointer transition-colors duration-200 ${
+                  currentState.userAnswer === option
+                    ? currentState.viewed 
+                      ? currentState.isCorrect 
+                        ? "bg-green-100 dark:bg-green-800 border-2 border-green-500" 
+                        : "bg-red-100 dark:bg-red-800 border-2 border-red-500"
+                      : "bg-blue-100 dark:bg-blue-800 border-2 border-blue-500" 
+                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                } border ${
+                  currentState.userAnswer === option ? "border-2" : "border"
+                }`}
+                onClick={() => !currentState.viewed && handleAnswerSelect(option)}
               >
-                <div className="flex-1">
-                  <span className="font-bold mr-2">{optionLetter}.</span> {optionText}
+                <div className="flex items-center">
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center mr-3 text-sm font-medium">
+                    {String.fromCharCode(65 + index)}
+                      </span>
+                  <span className="text-gray-800 dark:text-white">{option}</span>
               </div>
-                
-                {isQuestionViewed && isCorrectOption && (
-                  <div className="text-green-600 dark:text-green-400 flex items-center text-xs">
-                    <span>Correct</span>
             </div>
-                )}
-                
-                {isQuestionViewed && optionLetter === selectedOption && !isCorrectOption && (
-                  <div className="text-red-600 dark:text-red-400 text-xs">
-                    <span>✗</span>
+            ))}
           </div>
-                )}
-                
-                {isQuestionViewed && optionLetter === selectedOption && isCorrectOption && (
-                  <div className="text-green-600 dark:text-green-400 flex items-center text-xs">
-                    <span>✓</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
             </div>
             
-        {/* Navigation buttons */}
-        <div className="mt-6 flex flex-wrap justify-between items-center gap-2">
+        <div className="flex justify-between mt-8">
               <button
                 onClick={handlePreviousQuestion}
                 disabled={currentQuestion === 0}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              currentQuestion === 0
-                ? 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
-            }`}
+            className="px-5 py-2.5 bg-gray-500 text-white rounded-lg disabled:opacity-50 hover:bg-gray-600 transition-colors"
           >
                 Previous
               </button>
 
-          <div className="flex gap-2">
-            {currentQuestion === questions.length - 1 && (
+          {!currentState.viewed ? (
                 <button
-                onClick={handleFinishQuiz}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all dark:bg-green-700 dark:hover:bg-green-600"
+              onClick={() => handleAnswerSelect(currentState.userAnswer || '')}
+              disabled={currentState.userAnswer === null}
+              className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg disabled:opacity-50 hover:bg-indigo-700 transition-colors"
             >
-                Finish Quiz
+              Submit Answer
                 </button>
-            )}
-          </div>
-          
+              ) : (
                 <button
-            onClick={handleNextQuestion}
-            disabled={currentQuestion === questions.length - 1}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              currentQuestion === questions.length - 1
-                ? 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
-            }`}
-          >
-            Next
+              onClick={() => {
+                if (currentQuestion < questions.length - 1) {
+                  handleNextQuestion();
+                } else {
+                  handleFinishQuiz();
+                }
+              }}
+              className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              {currentQuestion < questions.length - 1 ? "Next Question" : "Finish Quiz"}
                 </button>
+              )}
         </div>
       </div>
     );
-  }, [currentQuestion, questions, questionStates, handleAnswerSelect, handleNextQuestion, handlePreviousQuestion, handleFinishQuiz, handleGetAIHelp]);
+  };
 
   // Memoized values
   const uniqueCourses = useMemo(() => {
@@ -1586,9 +1641,9 @@ const handleToggleHistory = () => {
           {/* Quiz Performance History Section */}
           <div className="max-w-full mx-auto">
             <div className={`bg-${themeConfig.colors.background.light} dark:bg-${themeConfig.colors.background.dark} rounded-lg shadow-lg p-6 hover:shadow-xl transition-all duration-300`}>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent">
                     Quiz Performance History
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -1613,6 +1668,110 @@ const handleToggleHistory = () => {
                   <span>{showHistory ? 'Hide History' : 'View History'}</span>
                 </motion.button>
               </div>
+              
+              {showHistory && (
+                <>
+                  {/* Filter and Sort Controls */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Sort By
+                      </label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {[
+                          {value: 'date', label: 'Date (Newest First)'},
+                          {value: 'score', label: 'Score (Highest First)'},
+                          {value: 'difficulty', label: 'Difficulty'}
+                        ].map(option => (
+                          <motion.button
+                            key={option.value}
+                            onClick={() => setSortBy(option.value as 'date' | 'score' | 'difficulty')}
+                            className={`p-2 rounded-lg transition-all ${
+                              sortBy === option.value
+                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
+                            }`}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            {option.label}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Filter by Difficulty
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <motion.button
+                          onClick={() => setFilterDifficulty('all')}
+                          className={`p-2 rounded-lg transition-all ${
+                            filterDifficulty === 'all'
+                              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
+                          }`}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          All Difficulties
+                        </motion.button>
+                        {['Easy', 'Medium', 'Hard'].map(level => (
+                          <motion.button
+                            key={level}
+                            onClick={() => setFilterDifficulty(level)}
+                            className={`p-2 rounded-lg transition-all ${
+                              filterDifficulty === level
+                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
+                            }`}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            {level}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Filter by Course
+                      </label>
+                      <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1">
+                        <motion.button
+                          onClick={() => setFilterCourse('all')}
+                          className={`p-2 rounded-lg transition-all ${
+                            filterCourse === 'all'
+                              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
+                          }`}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          All Courses
+                        </motion.button>
+                        {uniqueCourses.map(course => (
+                          <motion.button
+                            key={course}
+                            onClick={() => setFilterCourse(course)}
+                            className={`p-2 rounded-lg transition-all ${
+                              filterCourse === course
+                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
+                            }`}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            {course}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
               
               {/* Statistics Box */}
               <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-lg p-4 mb-6">
@@ -1889,6 +2048,7 @@ const handleToggleHistory = () => {
               </div>
               <div className="text-right">
                 <p className="text-sm opacity-90">Total questions: {questions.length}</p>
+                <p className="text-sm opacity-90">Time per question: {quizDetails.timePerQuestion / 60} seconds</p>
               </div>
             </div>
           </div>
@@ -2034,6 +2194,10 @@ if (currentQuestion >= questions?.length && questions?.length > 0) {
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Difficulty:</span>
                       <span className="font-medium text-gray-900 dark:text-white">{quizDetails.difficulty}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Time per question:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{quizDetails.timePerQuestion} seconds</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Total time:</span>
