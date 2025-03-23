@@ -490,7 +490,7 @@ const Progress: React.FC = () => {
             />
           </div>
         </div>
-
+        <h2 className="text-2xl font-bold text-center  text-gray-900 dark:text-white mb-4">Manage Your Milestones</h2>
         {/* Course List */}
         <div className="p-2">
           {courses.map(course => {

@@ -831,9 +831,9 @@ IMPORTANT RULES:
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="container mx-auto px-4">
       {/* Add New Course Section */}
-      <div className="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+      <div className="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden max-w-7xl mx-auto my-6">
         <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
           <h2 className="text-2xl font-bold text-white">Add New Course</h2>
           <p className="text-indigo-100 mt-1">Enter a course URL and we'll analyze it for you</p>
@@ -1080,9 +1080,8 @@ IMPORTANT RULES:
                 </button>
                 <button
                   onClick={handleSaveCourse}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-md hover:shadow-lg transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 flex items-center"
+                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-md hover:shadow-lg transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
                 >
-                  <Plus className="h-4 w-4 mr-1.5 group-hover:scale-110 transition-transform duration-200" />
                   Add to My Courses
                 </button>
               </div>
@@ -1094,8 +1093,8 @@ IMPORTANT RULES:
       {/* Saved Courses Section */}
       {savedCourses.length > 0 && (
         <div className="mt-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Saved Courses</h2>
-          <div className="space-y-3">
+          <h2 className="text-2xl font-bold text-center  text-gray-900 dark:text-white mb-4">Saved Courses</h2>
+          <div className="space-y-3 max-w-7xl mx-auto my-6">
             {savedCourses.map((course) => (
               <div
                 key={course._id}

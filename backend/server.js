@@ -38,7 +38,8 @@ const corsOptions = {
       'https://epsilora-8f6lvf0o2-chaman-ss-projects.vercel.app',
       'http://localhost:3000',
       'http://localhost:3002',
-      'http://localhost:5173'
+      'http://localhost:5173',
+      'http://localhost:5174'
     ];
     
     // Allow requests with no origin (like mobile apps or curl requests) 
@@ -542,7 +543,8 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
     'https://epsilora-8f6lvf0o2-chaman-ss-projects.vercel.app',
     'http://localhost:3000',
     'http://localhost:3002',
-    'http://localhost:5173'
+    'http://localhost:5173',
+    'http://localhost:5174'
   ];
   
   // Set the appropriate CORS headers based on origin

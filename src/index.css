@@ -606,3 +606,20 @@ html {
 .dark .code-block pre::-webkit-scrollbar-thumb:hover {
   background: rgba(75, 85, 99, 0.6);
 }
+
+/* Add shimmer animation for the heading */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-shimmer {
+  animation-name: shimmer;
+  animation-duration: 3s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
