@@ -15,7 +15,10 @@ import {
   Target,
   Calendar,
   History as HistoryIcon,
-  ClipboardList
+  ClipboardList,
+  BookOpen,
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 import axiosInstance from '../config/axios';
 import toast from 'react-hot-toast';
