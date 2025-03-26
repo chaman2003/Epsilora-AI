@@ -247,7 +247,7 @@ const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-8b:generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

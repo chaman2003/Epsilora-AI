@@ -1,20 +1,26 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  MessageSquare,
-  ClipboardList,
-  Target,
-  Award,
-  Calendar,
-  History,
-  Clock
-} from 'lucide-react';
-import axiosInstance from '../utils/axios';
-import { Course, QuizAttempt } from '../types';
-import { useAuth } from '../contexts/AuthContext';
 import { useQuiz } from '../context/QuizContext';
+import { useAuth } from '../contexts/AuthContext';
+import { 
+  User,
+  Send,
+  Award,
+  AlertCircle,
+  Loader2,
+  Timer,
+  XCircle,
+  CheckCircle,
+  Target,
+  Calendar,
+  History as HistoryIcon,
+  ClipboardList
+} from 'lucide-react';
+import axiosInstance from '../config/axios';
 import toast from 'react-hot-toast';
+import axios from 'axios';
+import { Course, QuizAttempt } from '../types';
 import QuizLimitNotice from '../components/QuizLimitNotice';
 import QuizGenerationError from '../components/QuizGenerationError';
 import QuizGenerationOverlay from '../components/quiz/QuizGenerationOverlay';
@@ -136,8 +142,8 @@ const Quiz: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quizDetails, setQuizDetails] = useState<QuizDetails>({
-    numberOfQuestions: 5,
-    difficulty: 'Medium',
+    numberOfQuestions: 5, // Change back to 5 as default
+    difficulty: 'Hard', // Keep difficulty as Hard
     timePerQuestion: 30
   });
   const [timeLeft, setTimeLeft] = useState<number>(30);
@@ -506,6 +512,7 @@ const retryWithFewerQuestions = () => {
   generateQuiz();
 };
 
+// Update the generateQuiz function to respect the user's selection for the number of questions
 const generateQuiz = async () => {
   if (!selectedCourse) {
     toast.error('Please select a course first');
@@ -521,30 +528,31 @@ const generateQuiz = async () => {
   // Clear any previous generation errors
   setGenerationError(null);
   setLoading(true);
-  let retryCount = 0;
-  const maxRetries = 2;
 
-  const attemptQuizGeneration = async (): Promise<any> => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
       }
 
-      console.log('Sending quiz generation request with params:', {
+    // Use the user's selected number of questions while keeping Hard difficulty
+    const quizParams = {
         courseId: selectedCourse,
-        numberOfQuestions: quizDetails.numberOfQuestions,
-        difficulty: quizDetails.difficulty,
+      numberOfQuestions: quizDetails.numberOfQuestions, // Respect user's selection
+      difficulty: 'Hard', // Keep hardcoded to Hard difficulty
         timePerQuestion: quizDetails.timePerQuestion
-      });
+    };
 
-      // Set timeout to 15 seconds (reduced from 180000)
-      const response = await axiosInstance.post('/api/generate-quiz', {
-        courseId: selectedCourse,
-        numberOfQuestions: quizDetails.numberOfQuestions,
-        difficulty: quizDetails.difficulty,
-        timePerQuestion: quizDetails.timePerQuestion
-      }, {
+    console.log('Sending quiz generation request with params:', quizParams);
+
+    // Update only the difficulty in the UI to reflect the hardcoded setting
+    setQuizDetails(prev => ({
+      ...prev,
+      difficulty: 'Hard'
+    }));
+
+    // Send request to generate quiz
+    const response = await axiosInstance.post('/api/generate-quiz', quizParams, {
         timeout: 15000, // 15 seconds timeout
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -552,119 +560,60 @@ const generateQuiz = async () => {
         }
       });
 
-      console.log('Quiz generation API response status:', response.status);
-      return response;
-    } catch (error: any) {
-      console.error('Error in attemptQuizGeneration:', error);
-      
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
+    if (response.data) {
+      // Process the quiz questions with consistent formatting
+      const formattedQuestions = response.data.map((q: any) => {
+        // Ensure correctAnswer exists and is properly formatted
+        let correctAnswer = q.correctAnswer?.toUpperCase().trim();
         
-        // Handle timeout errors specifically
-        if (error.response.status === 504 || 
-            (error.response.status === 500 && 
-             error.response.data?.message === 'Quiz generation timed out')) {
-          
-          // Extract max questions count if available
-          if (error.response.data?.maxQuestions) {
-            setMaxQuestionCount(error.response.data.maxQuestions);
-          }
-          
-          // Create a more informative error message
-          const errorMsg = `Quiz generation timed out. Please try with ${maxQuestionCount} or fewer questions.`;
-          setGenerationError(errorMsg);
+        // Add validation to ensure correctAnswer is always a valid single letter
+        if (!correctAnswer || !['A', 'B', 'C', 'D'].includes(correctAnswer)) {
+          console.warn(`Invalid correctAnswer found: "${correctAnswer}" for question: "${q.question}"`);
+          // Set a default correct answer if missing or invalid (use first option as fallback)
+          correctAnswer = 'A';
         }
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-      } else {
-        console.error('Error message:', error.message);
-      }
-      
-      // Only retry for certain errors, not timeouts
-      if (error.response?.status === 500 && 
-          !error.response.data?.message?.includes('timed out') && 
-          retryCount < maxRetries) {
-        retryCount++;
-        console.log(`Retry attempt ${retryCount} of ${maxRetries}`);
-        await new Promise(resolve => setTimeout(resolve, 2000 * retryCount)); // Exponential backoff
-        return attemptQuizGeneration();
-      }
-      throw error;
-    }
-  };
+        
+        console.log(`Question: "${q.question}", correctAnswer: "${correctAnswer}"`);
+        
+        return {
+          ...q,
+          correctAnswer: correctAnswer, // Ensure uppercase and trimmed for consistency
+        };
+      });
 
-  try {
-    const response = await attemptQuizGeneration();
+      console.log('Formatted questions with validated correctAnswers:', formattedQuestions);
 
-    // Log the entire response to help with debugging
-    console.log('Quiz generation response:', response);
-    
-    // More detailed validation of the response
-    if (!response) {
-      throw new Error('No response received from server');
-    }
-    
-    if (!response.data) {
-      throw new Error('Response missing data object');
-    }
-
-    // Check if response.data is the questions array directly
-    let questionsArray;
-    if (Array.isArray(response.data)) {
-      console.log('Response data is directly an array of questions');
-      questionsArray = response.data;
-    } else if (response.data.questions && Array.isArray(response.data.questions)) {
-      console.log('Response data contains a questions property with an array');
-      questionsArray = response.data.questions;
-    } else {
-      console.error('Invalid response structure:', response.data);
-      throw new Error('Unable to find questions array in response');
-    }
-    
-    if (questionsArray.length === 0) {
-      console.error('Questions array is empty:', questionsArray);
-      throw new Error('Questions array must not be empty');
-    }
-
-    setQuestions(questionsArray);
-
-    const initialQuestionStates = questionsArray.map(() => ({
+      // Set the questions with consistent format
+      setQuestions(formattedQuestions);
+      setQuestionStates(Array(formattedQuestions.length).fill({
       userAnswer: null,
       timeExpired: false,
       viewed: false,
       timeLeft: quizDetails.timePerQuestion
     }));
-
-    setQuestionStates(initialQuestionStates);
     setCurrentQuestion(0);
+      setSelectedAnswer(null);
     setScore(0);
     setQuizStarted(true);
+      setShowResult(false);
+      setQuizSubmitted(false);
     setStartTime(new Date());
-    setLoading(false);
-
+      setTimeLeft(quizDetails.timePerQuestion);
+      setTimerActive(true);
+    } else {
+      throw new Error('No data returned from quiz generation');
+    }
   } catch (error: any) {
     console.error('Error generating quiz:', error);
     
-    // Log more details about the error
-    if (error.response) {
-      console.error('Error response data:', error.response.data);
-      console.error('Error response status:', error.response.status);
+    let errorMessage = 'Failed to generate quiz. Please try again.';
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
     }
     
-    if (error.response?.status === 401) {
-      toast.error('Session expired. Please log in again');
-      navigate('/login', { state: { from: '/quiz' } });
-    } else if (error.message?.includes('timed out')) {
-      // Set the error message for the error component instead of using toast
-      const errorMsg = `Quiz generation timed out. Please try with ${maxQuestionCount} or fewer questions.`;
-      setGenerationError(errorMsg);
-    } else {
-      // Set general error message
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to generate quiz';
+    toast.error(errorMessage);
       setGenerationError(errorMessage);
-    }
-    
+  } finally {
     setLoading(false);
   }
 };
@@ -688,44 +637,47 @@ const generateQuiz = async () => {
     });
   }, []);
 
-  // Handle answer selection with improved handling
-  const handleAnswerSelect = React.useCallback((selectedOptionLetter: string, optionText: string) => {
-    if (!questions || currentQuestion >= questions.length || questionStates[currentQuestion]?.viewed) {
-      return;
-    }
+  // Ensure consistent feedback across all combinations of question counts and difficulty
+  const handleAnswerSelect = React.useCallback((selectedLetter: string, optionText: string) => {
+    if (!questions || currentQuestion >= questions.length) return;
     
-    // Get the current question and its correct answer
     const currentQuestionObj = questions[currentQuestion];
-    const correctAnswer = currentQuestionObj?.correctAnswer || '';
     
-    // Use our improved answer correctness function
-    const isCorrect = determineAnswerCorrectness(selectedOptionLetter, optionText, correctAnswer);
+    // Always normalize answers to uppercase for consistent comparison
+    const normalizedCorrectAnswer = currentQuestionObj.correctAnswer.toUpperCase().trim();
+    const normalizedSelectedAnswer = selectedLetter.toUpperCase().trim();
     
-    // Log this selection with detailed information
-    console.log(`------ ANSWER SELECTION ------`);
-    console.log(`Question: "${currentQuestionObj?.question}"`);
-    console.log(`Selected option: "${selectedOptionLetter}" (${optionText})`);
-    console.log(`Correct answer: "${correctAnswer}"`);
-    console.log(`Result: ${isCorrect ? 'CORRECT ✓' : 'INCORRECT ✗'}`);
-    console.log(`-------------------------------`);
+    // Direct letter comparison
+    const isCorrect = normalizedSelectedAnswer === normalizedCorrectAnswer;
     
-    // Update score if answer is correct
-    if (isCorrect) {
-      setScore(prev => prev + 1);
-    }
+    console.log(`Selected: "${normalizedSelectedAnswer}", Correct: "${normalizedCorrectAnswer}", isCorrect: ${isCorrect}`);
     
-    // Mark question as viewed and store user's answer
-    updateQuestionState(currentQuestion, {
-      userAnswer: selectedOptionLetter,
-      viewed: true,
-      isCorrect: isCorrect
+    // Set the selected answer in state
+    setSelectedAnswer(selectedLetter);
+    
+    // CRITICAL: Always mark the question as viewed to ensure feedback is shown
+    setQuestionStates(prevStates => {
+      const newStates = [...prevStates];
+      newStates[currentQuestion] = {
+        ...newStates[currentQuestion],
+        userAnswer: selectedLetter.toUpperCase(), // Always store uppercase
+        viewed: true, // ALWAYS true to show feedback
+        isCorrect: isCorrect
+      };
+      return newStates;
     });
     
-    // After a short delay, show the continue button
-    setTimeout(() => {
-      setShowContinue(true);
-    }, 1000);
-  }, [currentQuestion, questions, questionStates, updateQuestionState]);
+    // If correct and not previously answered, increase score
+    if (isCorrect && !questionStates[currentQuestion]?.viewed) {
+      setScore(prevScore => prevScore + 1);
+    }
+    
+    // Always show the result
+    setShowResult(true);
+    
+    // Stop the timer
+    setTimerActive(false);
+  }, [currentQuestion, questions, questionStates, score]);
 
   useEffect(() => {
     let timer: Timeout;
@@ -777,16 +729,7 @@ const generateQuiz = async () => {
       console.error('Quiz data not found. Please ensure all data is available before saving.');
       return;
     }
-    console.log('Before saving quiz result:', { 
-      userId: user?._id, 
-      selectedCourse, 
-      questions, 
-      questionStates, 
-      finalScore, 
-      quizDetails, 
-      startTime, 
-      courses 
-    });
+    
     try {
       const courseObj = courses.find(c => c._id === selectedCourse);
       if (!courseObj) {
@@ -813,8 +756,15 @@ const generateQuiz = async () => {
               ? (opt as {text: string}).text 
               : String(opt);
             
-            // Remove any existing letter prefixes like "a)", "b)", etc.
-            optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
+            // Enhanced regex to remove duplicate prefixes
+            optionText = optionText
+              // First, handle double prefixes like "A. A:" or "D) D:"
+              .replace(/^([A-Da-d])[.):]\s*\1[.):]\s*/g, '')
+              // Then handle single prefixes like "A." or "A)"
+              .replace(/^[A-Da-d][.):]\s*/g, '')
+              // Also handle cases with just a letter and space
+              .replace(/^[A-Da-d]\s+/g, '')
+              .trim();
             
             return {
               text: optionText,
@@ -887,29 +837,34 @@ const generateQuiz = async () => {
     // Create a copy of the quiz data with proper structure for AI processing
     const quizData = {
       questions: questions.map((q, index) => {
-        // Get user answer from question states
-        const userAnswer = questionStates[index]?.userAnswer;
-        const correctAnswer = q.correctAnswer;
+        // Normalize user answer and correct answer for consistency
+        const userAnswer = questionStates[index]?.userAnswer?.toUpperCase() || null;
+        const correctAnswer = q.correctAnswer.toUpperCase();
         
-        // Get the correct status directly from question state to ensure consistency
-        const isCorrect = questionStates[index]?.isCorrect || false;
-        
-        console.log(`Question ${index + 1}: User answer=${userAnswer}, Correct answer=${correctAnswer}, isCorrect=${isCorrect}`);
+        // Determine correctness consistently
+        const isCorrect = userAnswer === correctAnswer;
         
         return {
           question: q.question,
           options: q.options.map((opt, optIndex) => {
-            // Get option text and clean it if it's a string
+            // Get option text and clean it
             let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
               ? (opt as {text: string}).text 
               : String(opt);
             
-            // Remove any existing letter prefixes like "a)", "b)", etc.
-            optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '').trim();
+            // Enhanced regex to remove various duplicate letter prefixes like "A. A:" or "D) D:"
+            optionText = optionText
+              // First, handle double prefixes like "A. A:" or "D) D:"
+              .replace(/^([A-Da-d])[.):]\s*\1[.):]\s*/g, '')
+              // Then handle single prefixes like "A." or "A)"
+              .replace(/^[A-Da-d][.):]\s*/g, '')
+              // Also handle cases with just a letter and space
+              .replace(/^[A-Da-d]\s+/g, '')
+              .trim();
             
             return {
               text: optionText,
-              label: String.fromCharCode(65 + optIndex)
+              label: String.fromCharCode(65 + optIndex) // Always A, B, C, D
             };
           }),
           correctAnswer: correctAnswer,
@@ -920,7 +875,7 @@ const generateQuiz = async () => {
       score: score,
       totalQuestions: questions.length,
       courseName: courseObj.name,
-      difficulty: quizDetails.difficulty,
+      difficulty: quizDetails.difficulty, // Use the current difficulty setting
       timestamp: new Date().toISOString(),
       id: `${courseObj.name}-${score}-${questions.length}-${Date.now()}`
     };
@@ -955,46 +910,59 @@ const generateQuiz = async () => {
     }
   }, [currentQuestion]);
 
+  // Update the handleFinishQuiz function to ensure consistent quiz data is passed to both results and AI assist
   const handleFinishQuiz = React.useCallback(() => {
     setTimerActive(false);
     const finalScore = calculateFinalScore();
     
-    // Prepare quiz data with complete question details
+    // Prepare quiz data with complete and consistent question details
     const quizData = {
       questions: questions.map((q, index) => {
+        // Normalize options format consistently
         const questionOptions = q.options.map((opt, optIndex) => {
-          // Get option text and clean it if it's a string
+          // Get option text and clean it
           let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
             ? (opt as {text: string}).text 
             : String(opt);
           
-          // Remove any existing letter prefixes like "a)", "b)", etc.
-          optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '');
+          // Enhanced regex to remove various duplicate letter prefixes
+          optionText = optionText
+            // First, handle double prefixes like "A. A:" or "D) D:"
+            .replace(/^([A-Da-d])[.):]\s*\1[.):]\s*/g, '')
+            // Then handle single prefixes like "A." or "A)"
+            .replace(/^[A-Da-d][.):]\s*/g, '')
+            // Also handle cases with just a letter and space
+            .replace(/^[A-Da-d]\s+/g, '')
+            .trim();
           
           return {
             text: optionText,
-            label: String.fromCharCode(65 + optIndex)
+            label: String.fromCharCode(65 + optIndex) // Always A, B, C, D
           };
         });
         
-        // Use the stored isCorrect value directly from questionStates for consistency
+        // Ensure consistent userAnswer and correctAnswer format
+        const userAnswer = questionStates[index]?.userAnswer?.toUpperCase() || null;
+        const correctAnswer = q.correctAnswer.toUpperCase();
+        const isCorrect = userAnswer === correctAnswer;
+        
         return {
           question: q.question,
           options: questionOptions,
-          correctAnswer: q.correctAnswer,
-          userAnswer: questionStates[index]?.userAnswer || null,
-          isCorrect: questionStates[index]?.isCorrect || false
+          correctAnswer: correctAnswer,
+          userAnswer: userAnswer,
+          isCorrect: isCorrect
         };
       }),
       score: finalScore,
       totalQuestions: questions.length,
       courseName: courses.find(course => course._id === selectedCourse)?.name || '',
-      difficulty: quizDetails.difficulty,
+      difficulty: quizDetails.difficulty, // Use the current difficulty setting
       timestamp: new Date().toISOString()
     };
     
-    // Log the prepared data
-    console.log("Prepared quiz data for results screen:", quizData);
+    // Log the prepared data for debugging
+    console.log("Prepared quiz data for results and AI assist:", quizData);
     
     // Save quiz data for AI Assistant
     localStorage.setItem('quizData', JSON.stringify(quizData));
@@ -1019,54 +987,12 @@ const generateQuiz = async () => {
       console.error('Error saving quiz result:', error);
       toast.error('There was an issue saving your results, but you can still view them.');
       
-      // Prepare quizData for the results page
-      const courseObj = courses.find(c => c._id === selectedCourse);
-      if (courseObj) {
-        const quizData = {
-          score: finalScore,
-          totalQuestions: questions.length,
-          courseName: courseObj.name,
-          difficulty: quizDetails.difficulty,
-          questions: questions.map((q, index) => {
-            // Create options array with proper label and text format
-            const optionsWithLabels = q.options.map((opt, i) => {
-              // Get option text and clean it if it's a string
-              let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
-                ? (opt as {text: string}).text 
-                : String(opt);
-              
-              // Remove any existing letter prefixes like "a)", "b)", etc.
-              optionText = optionText.replace(/^[a-dA-D][\)\.]\s*/g, '').replace(/^[a-dA-D]\s+/g, '');
-              
-              return {
-                text: optionText,
-                label: String.fromCharCode(65 + i)
-              };
-            });
-            
-            const userAnswer = questionStates[index]?.userAnswer;
-            const isCorrect = userAnswer && q.correctAnswer 
-              ? userAnswer.toUpperCase() === q.correctAnswer.toUpperCase()
-              : false;
-            
-            return {
-              question: q.question,
-              options: optionsWithLabels,
-              userAnswer: userAnswer,
-              correctAnswer: q.correctAnswer,
-              isCorrect: isCorrect
-            };
-          }),
-          timestamp: new Date().toISOString()
-        };
-        
-        // Always navigate to results page, even if saving failed
+      // Use the already prepared quizData for the results page
         setQuizData(quizData);
         navigate('/quiz-results', { 
           state: quizData,
           replace: true 
         });
-      }
     });
   }, [questions, questionStates, courses, selectedCourse, quizDetails.difficulty, calculateFinalScore, saveQuizResult, navigate, setQuizData]);
 
@@ -1101,108 +1027,155 @@ const generateQuiz = async () => {
     handleFinishQuiz();
   }, [handleFinishQuiz]);
 
-  // Render a quiz question with improved display of correct/incorrect answers and better color scheme
+  // Update the renderQuestion function to always show feedback when an answer is selected
   const renderQuestion = React.useCallback(() => {
-    // Skip rendering if there are no questions
-    if (!questions || questions.length === 0) {
-      return <div className="text-center">No questions available</div>;
-    }
-
-    const currentQuestionState = questionStates[currentQuestion];
-    const question = questions[currentQuestion];
-    const isQuestionViewed = currentQuestionState?.viewed || false;
-    const selectedOption = currentQuestionState?.userAnswer || '';
+    if (!questions || !questions[currentQuestion]) return null;
+    const currentQuestionObj = questions[currentQuestion];
+    const questionState = questionStates[currentQuestion] || {
+      userAnswer: null,
+      timeExpired: false,
+      viewed: false,
+      timeLeft: quizDetails.timePerQuestion
+    };
+    const selectedAnswer = questionState.userAnswer;
+    
+    // Determine if we should show feedback
+    const showFeedback = selectedAnswer !== null;
 
                   return (
-      <div>
-        <p className="mb-4 text-base font-medium">{question.question}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+        <motion.h3 
+          className="text-lg font-bold mb-4 text-gray-900 dark:text-white"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {currentQuestionObj.question}
+        </motion.h3>
+        
         <div className="space-y-2">
-          {question.options.map((option, index) => {
-            // Get option text and clean it
-            let optionText = typeof option === 'object' && option !== null && 'text' in option 
+          {currentQuestionObj.options.map((option, idx) => {
+            const optionText = typeof option === 'object' && option !== null && 'text' in option 
               ? (option as {text: string}).text 
               : String(option);
             
-            // Remove any existing letter prefixes like "a)", "b)", etc.
-            optionText = optionText.replace(/^[a-dA-D]\)[\s]*/g, '').trim();
+            const optionLabel = String.fromCharCode(65 + idx); // A, B, C, D
+            const isSelected = selectedAnswer === optionLabel;
             
-            // Determine if this option is correct
-            const optionLetter = String.fromCharCode(65 + index);
-            const correctAnswer = question.correctAnswer?.toUpperCase() || '';
-            const isCorrectOption = determineAnswerCorrectness(optionLetter, optionText, correctAnswer);
+            // Determine if the answer is correct
+            const correctAnswer = currentQuestionObj.correctAnswer.toUpperCase();
+            const isCorrect = optionLabel.toUpperCase() === correctAnswer.toUpperCase();
+            const isWrong = isSelected && !isCorrect;
             
-            // Determine styling based on selection, correctness, and viewed status with improved colors
-            let className = "p-2 border rounded flex items-center text-sm transition-colors";
-            
-            if (isQuestionViewed) {
-              // Question has been answered
-              if (optionLetter === selectedOption || optionText.toUpperCase() === selectedOption.toUpperCase()) {
-                // This option was selected by user
-                if (isCorrectOption) {
-                  // User selected correctly - softer green
-                  className += " bg-green-50 border-green-300 dark:bg-green-900/20 dark:border-green-700";
-                } else {
-                  // User selected incorrectly - softer red
-                  className += " bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700";
-                }
-              } else if (isCorrectOption) {
-                // This is the correct answer but wasn't selected - very subtle green
-                className += " bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800";
-              } else {
-                // Unselected and incorrect
-                className += " text-gray-500 dark:text-gray-400";
+            // Get background color based on answer state
+            const getBgColor = () => {
+              if (!showFeedback) {
+                // No selection made yet
+                return 'bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30';
               }
-            } else {
-              // Question hasn't been answered yet
-              if (optionLetter === selectedOption || optionText.toUpperCase() === selectedOption.toUpperCase()) {
-                className += " bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700";
+              
+              if (isSelected && isCorrect) {
+                // Selected and correct
+                return 'bg-green-100 border-green-300 dark:bg-green-900/30 dark:border-green-700';
+              } else if (isSelected && isWrong) {
+                // Selected and wrong
+                return 'bg-red-100 border-red-300 dark:bg-red-900/30 dark:border-red-700';
+              } else if (isCorrect && showFeedback) {
+                // This is the correct answer but wasn't selected
+                return 'bg-green-100 border-green-300 dark:bg-green-900/30 dark:border-green-700';
               } else {
-                className += " hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer";
+                // Not selected and not correct
+                return 'bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700';
               }
-            }
+            };
             
             return (
-              <div
-                      key={index}
-                className={className}
-                onClick={() => {
-                  if (!isQuestionViewed) {
-                    handleAnswerSelect(optionLetter, optionText);
-                  }
-                }}
+              <motion.div
+                key={idx}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: idx * 0.05 }}
               >
-                <div className="flex-1">
-                  <span className="font-bold mr-2">{optionLetter}.</span> {optionText}
+                <div 
+                  onClick={() => !showFeedback && handleAnswerSelect(optionLabel, optionText)}
+                  className={`
+                    p-3 rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-between
+                    ${getBgColor()}
+                  `}
+              >
+                <div className="flex items-center">
+                    <span className={`
+                      flex items-center justify-center w-6 h-6 rounded-full mr-3 text-sm font-medium
+                      ${isSelected && isCorrect ? 'bg-green-500 text-white' : 
+                        isSelected && isWrong ? 'bg-red-500 text-white' : 
+                        isCorrect && showFeedback ? 'bg-green-500 text-white' : 
+                        'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'}
+                    `}>
+                      {optionLabel}
+                      </span>
+                    <span className="text-gray-700 dark:text-gray-300">{optionText}</span>
               </div>
-                
-                {isQuestionViewed && isCorrectOption && (
-                  <div className="text-green-600 dark:text-green-400 flex items-center text-xs">
-                    <span>Correct</span>
+                  
+                  {/* Always show answer feedback if an option is selected */}
+                  {showFeedback && (
+                    <div className="flex items-center ml-auto">
+                      {isSelected && isWrong && (
+                        <motion.div 
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="flex items-center ml-2 text-red-600 dark:text-red-400"
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          <span className="text-xs font-medium whitespace-nowrap">Your answer</span>
+                        </motion.div>
+                      )}
+                      
+                      {isSelected && isCorrect && (
+                        <motion.div 
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="flex items-center ml-2 text-green-600 dark:text-green-400"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          <span className="text-xs font-medium whitespace-nowrap">Your answer - Correct</span>
+                        </motion.div>
+                      )}
+                      
+                      {isCorrect && !isSelected && (
+                        <motion.div 
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="flex items-center ml-2 text-green-600 dark:text-green-400"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          <span className="text-xs font-medium whitespace-nowrap">Correct answer</span>
+                        </motion.div>
+                      )}
             </div>
-                )}
-                
-                {isQuestionViewed && optionLetter === selectedOption && !isCorrectOption && (
-                  <div className="text-red-600 dark:text-red-400 text-xs">
-                    <span>✗</span>
+                  )}
           </div>
-                )}
-                
-                {isQuestionViewed && optionLetter === selectedOption && isCorrectOption && (
-                  <div className="text-green-600 dark:text-green-400 flex items-center text-xs">
-                    <span>✓</span>
-                  </div>
-                )}
-              </div>
+              </motion.div>
             );
           })}
             </div>
             
-        {/* Navigation buttons */}
-        <div className="mt-6 flex flex-wrap justify-between items-center gap-2">
+        {/* Navigation buttons - ALWAYS VISIBLE */}
+        <motion.div 
+          className="mt-4 flex flex-wrap justify-between items-center gap-2"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {/* Previous Button - Always visible */}
               <button
                 onClick={handlePreviousQuestion}
                 disabled={currentQuestion === 0}
-            className={`px-4 py-2 rounded-lg transition-all ${
+            className={`px-3 py-1.5 rounded-lg transition-all text-sm ${
               currentQuestion === 0
                 ? 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
                 : 'bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
@@ -1211,32 +1184,46 @@ const generateQuiz = async () => {
                 Previous
               </button>
 
+          {/* Action Buttons - Always visible */}
           <div className="flex gap-2">
-            {currentQuestion === questions.length - 1 && (
+            {/* AI Help Button - Always visible */}
                 <button
-                onClick={handleFinishQuiz}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all dark:bg-green-700 dark:hover:bg-green-600"
+              onClick={handleGetAIHelp}
+              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-all dark:bg-purple-700 dark:hover:bg-purple-600"
             >
-                Finish Quiz
+              Get AI Help
                 </button>
-            )}
-          </div>
-          
+
+            {/* Finish Quiz Button - Always visible but disabled unless on last question */}
                 <button
+              onClick={handleFinishQuiz}
+              disabled={currentQuestion !== questions.length - 1}
+              className={`px-3 py-1.5 text-white text-sm rounded-lg transition-all ${
+                currentQuestion === questions.length - 1
+                  ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600'
+                  : 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'
+              }`}
+            >
+              Finish Quiz
+                </button>
+        </div>
+          
+          {/* Next Button - Always visible */}
+          <button
             onClick={handleNextQuestion}
             disabled={currentQuestion === questions.length - 1}
-            className={`px-4 py-2 rounded-lg transition-all ${
+            className={`px-3 py-1.5 rounded-lg transition-all text-sm ${
               currentQuestion === questions.length - 1
                 ? 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
                 : 'bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
             }`}
           >
             Next
-                </button>
-        </div>
+          </button>
+        </motion.div>
       </div>
     );
-  }, [currentQuestion, questions, questionStates, handleAnswerSelect, handleNextQuestion, handlePreviousQuestion, handleFinishQuiz, handleGetAIHelp]);
+  }, [currentQuestion, questions, questionStates, handleAnswerSelect, handleNextQuestion, handlePreviousQuestion, handleFinishQuiz, handleGetAIHelp, quizDetails.timePerQuestion]);
 
   // Memoized values
   const uniqueCourses = useMemo(() => {
@@ -1609,7 +1596,7 @@ const handleToggleHistory = () => {
                     }
                   }}
                 >
-                  <History className="w-5 h-5" />
+                  <HistoryIcon className="w-5 h-5" />
                   <span>{showHistory ? 'Hide History' : 'View History'}</span>
                 </motion.button>
               </div>
@@ -1802,7 +1789,7 @@ const handleToggleHistory = () => {
                   ) : filteredAndSortedHistory.length === 0 ? (
                     <div className="text-center py-8">
                       <div className="inline-block p-4 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
-                        <History className="w-10 h-10 text-gray-500 dark:text-gray-400" />
+                        <HistoryIcon className="w-10 h-10 text-gray-500 dark:text-gray-400" />
                       </div>
                       <p className="text-gray-600 dark:text-gray-300 text-lg">
                         No quiz attempts found yet.
@@ -1875,14 +1862,14 @@ const handleToggleHistory = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="container mx-auto px-4 py-8"
+        className="container mx-auto px-2 py-4"
       >
-        <div className="max-w-4xl mx-auto bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl shadow-lg overflow-hidden">
+        <div className="max-w-3xl mx-auto bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl shadow-lg overflow-hidden">
           {/* Course information banner */}
-          <div className="bg-indigo-600 dark:bg-indigo-700 p-4 text-white">
+          <div className="bg-indigo-600 dark:bg-indigo-700 p-3 text-white">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold">
+                <h2 className="text-lg font-bold">
                   {courses.find(c => c._id === selectedCourse)?.name || 'Quiz'}
           </h2>
                 <p className="text-sm opacity-90">Difficulty: {quizDetails.difficulty}</p>
@@ -1893,14 +1880,14 @@ const handleToggleHistory = () => {
             </div>
           </div>
 
-          <div className="p-6 sm:p-8">
+          <div className="p-4">
             {/* Header with progress */}
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-3">
               <div className="flex items-center">
-                <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-800 text-indigo-600 dark:text-indigo-300 font-bold mr-3">
+                <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-800 text-indigo-600 dark:text-indigo-300 font-bold mr-2">
                   {currentQuestion + 1}
                 </span>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   Question {currentQuestion + 1} of {questions.length}
                 </h3>
               </div>
@@ -1910,17 +1897,17 @@ const handleToggleHistory = () => {
             </div>
             
             {/* Progress bar */}
-            <div className="mb-6 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+            <div className="mb-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
               <div 
-                className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" 
+                className="bg-indigo-600 h-2 rounded-full transition-all duration-300" 
                 style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
               ></div>
             </div>
 
             {/* Timer display with color change */}
-            <div className="mb-6 text-center">
+            <div className="mb-3 text-center">
               <div 
-                className={`inline-flex items-center justify-center px-4 py-2 rounded-full text-white font-bold text-lg
+                className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-white font-bold text-sm
                   ${timeLeft > quizDetails.timePerQuestion * 0.75 ? 'bg-green-500 dark:bg-green-600' : 
                     timeLeft > quizDetails.timePerQuestion * 0.5 ? 'bg-blue-500 dark:bg-blue-600' : 
                     timeLeft > quizDetails.timePerQuestion * 0.25 ? 'bg-yellow-500 dark:bg-yellow-600' : 
@@ -1938,7 +1925,7 @@ const handleToggleHistory = () => {
             </div>
             
             {/* Question navigation buttons */}
-            <div className="flex overflow-x-auto pb-2 mb-4 gap-1">
+            <div className="flex overflow-x-auto pb-2 mb-3 gap-1">
               {questions.map((_, index) => (
                 <button
                   key={index}
