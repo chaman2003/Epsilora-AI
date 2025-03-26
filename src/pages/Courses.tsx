@@ -1221,6 +1221,24 @@ IMPORTANT RULES:
                           </div>
                         )}
 
+                        {/* Learning Objectives */}
+                        {course.objectives && course.objectives.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center">
+                              <Target className="h-3.5 w-3.5 text-green-500 mr-1" />
+                              Learning Objectives
+                            </h4>
+                            <div className="grid grid-cols-1 gap-1">
+                              {course.objectives.map((objective: string, index: number) => (
+                                <div key={index} className="text-xs text-gray-600 dark:text-gray-400 flex items-center">
+                                  <div className="w-1 h-1 rounded-full bg-green-500 mr-2" />
+                                  {objective}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Main Skills */}
                         {course.mainSkills && course.mainSkills.length > 0 && (
                           <div>
