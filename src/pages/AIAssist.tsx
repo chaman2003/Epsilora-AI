@@ -83,7 +83,7 @@ const WELCOME_MESSAGE = `# 👋 Welcome to Epsilora AI Assistant!
 ## 🎮 Getting Started:
 Type your question below or click "New Chat" to start fresh! 
 
-*Powered by advanced AI to enhance your learning journey* ✨`;
+*Powered by Epsilora AI to enhance your learning journey* ✨`;
 
 // Update the cleanMarkdown function to identify quiz review markers
 const cleanMarkdown = (text: string): string => {
@@ -1203,7 +1203,7 @@ const AIAssist: React.FC = () => {
                   </div>
                   <div>
                 <h2 className="text-lg font-bold tracking-tight">AI Learning Assistant</h2>
-                <p className="text-indigo-100 text-xs mt-0.5">Powered by advanced AI to help you learn</p>
+                <p className="text-indigo-100 text-xs mt-0.5">Powered by advanced Epsilora AI to help you learn</p>
                   </div>
                 </div>
             <div className="flex items-center space-x-3">
