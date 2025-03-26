@@ -129,7 +129,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <Link 
-                  to="/documentation" 
+                  to="https://github.com/chaman2003" 
                   className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300"
                 >
                   <BookOpen className="w-4 h-4 mr-2 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
@@ -138,7 +138,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link 
-                  to="/support" 
+                  to="https://github.com/chaman2003" 
                   className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300"
                 >
                   <MessageSquare className="w-4 h-4 mr-2 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
@@ -147,7 +147,7 @@ const Footer = () => {
               </li>
               <li>
                 <a 
-                  href="https://github.com/chaman-ss" 
+                  href="https://github.com/chaman2003" 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="group flex items-center text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300"
@@ -243,7 +243,7 @@ const Footer = () => {
                 <Twitter className="w-4 h-4" />
               </a>
               <a 
-                href="https://github.com/chaman-ss" 
+                href="https://github.com/chaman2003" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="p-1.5 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transform hover:scale-110 transition-all duration-300"
@@ -251,7 +251,7 @@ const Footer = () => {
                 <Github className="w-4 h-4" />
               </a>
               <a 
-                href="https://www.linkedin.com/in/chaman-ss" 
+                href="https://www.linkedin.com/in/chaman2003/" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="p-1.5 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transform hover:scale-110 transition-all duration-300"
