@@ -622,15 +622,13 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
     
     try {
       // Use the API key as a query parameter with extended timeout
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-8b:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: promptText }]
-          }],
+          contents: [{ parts: [{ text: promptText }] }],
           generationConfig: {
             temperature: 0.4,
             maxOutputTokens: 2048, // Maximum allowed tokens
@@ -706,21 +704,62 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
             q.options.map(opt => opt.trim()) : 
             ["Option A", "Option B", "Option C", "Option D"]; // Default if missing
             
-          const correctAnswer = q.correctAnswer ? 
-            q.correctAnswer.trim().toUpperCase() : "A"; // Default if missing
+          // Enhanced correctAnswer validation
+          let correctAnswer = null;
+          
+          if (q.correctAnswer) {
+            // Parse and normalize the correctAnswer
+            let parsedAnswer = q.correctAnswer.trim().toUpperCase();
             
+            // Handle various formats (A, A., A:, etc.)
+            if (parsedAnswer.match(/^([A-D])[.):]/)) {
+              parsedAnswer = parsedAnswer.charAt(0);
+            }
+            
+            // Validate that it's a single letter from A-D
+            if (/^[A-D]$/.test(parsedAnswer)) {
+              correctAnswer = parsedAnswer;
+            }
+          }
+          
+          // If no valid correctAnswer, randomly select one to avoid always using 'A'
+          if (!correctAnswer) {
+            // Use index to distribute answers more evenly across options
+            const possibleAnswers = ['A', 'B', 'C', 'D'];
+            // Use a combination of index and random selection for better distribution
+            const randomIndex = (index % 4 + Math.floor(Math.random() * 4)) % 4;
+            correctAnswer = possibleAnswers[randomIndex];
+            console.warn(`Assigning random correct answer ${correctAnswer} for question: "${q.question}"`);
+          }
+          
+          // Log the final processed question data for verification
+          console.log(`Question ${index+1} correctAnswer: ${correctAnswer}`);
+          
           return {
             id: index + 1,
             question: q.question?.trim() || `Question ${index + 1}`,
             options: options.slice(0, 4), // Ensure exactly 4 options
-            correctAnswer: correctAnswer,
+            correctAnswer: correctAnswer, // Validated, normalized, and randomized
             timePerQuestion
           };
         });
 
+      // Additional validation to ensure all questions have valid correctAnswers
+      const validatedQuestions = formattedQuestions.map((q, index) => {
+        // Double-check correctAnswer is valid, if not randomize it
+        if (!['A', 'B', 'C', 'D'].includes(q.correctAnswer)) {
+          console.error(`Found invalid correctAnswer after processing: ${q.correctAnswer}. Randomizing.`);
+          // Use a different randomization method to ensure variety
+          const possibleAnswers = ['A', 'B', 'C', 'D'];
+          const randomIndex = (index * 7 + Math.floor(Math.random() * 4)) % 4;
+          return {...q, correctAnswer: possibleAnswers[randomIndex]};
+        }
+        return q;
+      });
+
       // Log completion and return the result
       console.log(`Quiz generation completed in ${Date.now() - startTime}ms`);
-      return res.json(formattedQuestions);
+      return res.json(validatedQuestions);
       
     } catch (error) {
       console.error('Quiz Generation Error:', error);
@@ -1149,7 +1188,7 @@ Remember to:
 
     try {
       console.log('Getting generative model from genAI instance...');
-      const model = genAIInstance.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAIInstance.getGenerativeModel({ model: "models/gemini-1.5-flash-8b" });
       console.log('Model retrieved successfully');
       
       console.log('Generating content...');

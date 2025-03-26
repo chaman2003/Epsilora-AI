@@ -17,7 +17,7 @@ export const QuoteSection = () => {
   const fetchQuote = async () => {
     setLoading(true);
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+      const model = genAI.getGenerativeModel({ model: 'models/gemini-1.5-flash-8b' });
       const prompt = 'Generate a short, inspiring quote about learning, education, or personal growth. Return ONLY a JSON object in this exact format: {"text": "quote text", "author": "author name"}. The response must be valid JSON with properly escaped quotes.';
       
       const result = await model.generateContent(prompt);
