@@ -18,7 +18,9 @@ import {
   ClipboardList,
   BookOpen,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  ChevronUp,
+  BarChart2
 } from 'lucide-react';
 import axiosInstance from '../config/axios';
 import toast from 'react-hot-toast';
@@ -144,9 +146,11 @@ const Quiz: React.FC = () => {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAllCourses, setShowAllCourses] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [quizDetails, setQuizDetails] = useState<QuizDetails>({
-    numberOfQuestions: 5, // Change back to 5 as default
-    difficulty: 'Hard', // Keep difficulty as Hard
+    numberOfQuestions: 5,
+    difficulty: 'Hard',
     timePerQuestion: 30
   });
   const [timeLeft, setTimeLeft] = useState<number>(30);
@@ -855,7 +859,7 @@ const generateQuiz = async () => {
               ? (opt as {text: string}).text 
               : String(opt);
             
-            // Enhanced regex to remove various duplicate letter prefixes like "A. A:" or "D) D:"
+            // Enhanced regex to remove various duplicate letter prefixes
             optionText = optionText
               // First, handle double prefixes like "A. A:" or "D) D:"
               .replace(/^([A-Da-d])[.):]\s*\1[.):]\s*/g, '')
@@ -878,7 +882,7 @@ const generateQuiz = async () => {
       score: score,
       totalQuestions: questions.length,
       courseName: courseObj.name,
-      difficulty: quizDetails.difficulty, // Use the current difficulty setting
+      difficulty: quizDetails.difficulty,
       timestamp: new Date().toISOString(),
       id: `${courseObj.name}-${score}-${questions.length}-${Date.now()}`
     };
@@ -1237,19 +1241,26 @@ const generateQuiz = async () => {
 
   const filteredAndSortedHistory = useMemo(() => {
     if (!formattedQuizHistory) return [];
+    
+    // Filter out any entries with 'Loading...' as courseName
     const filteredHistory = formattedQuizHistory.filter(quiz => quiz.courseName !== 'Loading...');
-    return filteredHistory
-      .filter(quiz => {
+    
+    // Apply filters
+    let filtered = filteredHistory.filter(quiz => {
         if (filterDifficulty !== 'all' && quiz.difficulty !== filterDifficulty) return false;
         if (filterCourse !== 'all' && quiz.courseName !== filterCourse) return false;
         return true;
-      })
-      .sort((a, b) => {
+    });
+    
+    // Apply sorting
+    return filtered.sort((a, b) => {
         if (sortBy === 'date') {
           return new Date(b.date).getTime() - new Date(a.date).getTime();
         }
         if (sortBy === 'score') {
-          return b.percentageScore - a.percentageScore;
+        const scoreA = (a.score / a.totalQuestions) * 100;
+        const scoreB = (b.score / b.totalQuestions) * 100;
+        return scoreB - scoreA;
         }
         // Sort by difficulty
         const difficultyOrder = { Easy: 0, Medium: 1, Hard: 2 };
@@ -1313,6 +1324,13 @@ const handleToggleHistory = () => {
     fetchQuizHistory();
   }
 };
+
+  // Add this useEffect to scroll to top when quiz starts
+  useEffect(() => {
+    if (quizStarted) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [quizStarted]);
 
   if (!quizStarted && !loading) {
     return (
@@ -1386,22 +1404,19 @@ const handleToggleHistory = () => {
                 </div>
               </div>
               
+              {/* Course Selection Section */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Available Courses
                 </label>
-                <motion.div 
-                  className="relative"
-                  initial={{ height: "60px", overflow: "hidden" }}
-                  whileHover={{ height: "auto", overflow: "visible" }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pr-1">
+                <div className="relative">
+                  {/* Replace with auto-scrolling vertical grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[240px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-600 scrollbar-track-gray-200 dark:scrollbar-thumb-purple-500 dark:scrollbar-track-gray-700">
                     {courses.map((course) => (
                       <motion.button
                         key={course._id}
                         onClick={() => setSelectedCourse(course._id)}
-                        className={`p-3 rounded-lg transition-all ${
+                        className={`p-3 rounded-lg transition-all relative overflow-hidden group ${
                           selectedCourse === course._id
                             ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
                             : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
@@ -1415,12 +1430,15 @@ const handleToggleHistory = () => {
                         }}
                         whileTap={{ scale: 0.98 }}
                       >
-                        {course.name}
+                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-400 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+                        <span className="relative z-10">{course.name}</span>
                       </motion.button>
                     ))}
                   </div>
-                  <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none"></div>
-                </motion.div>
+                  
+                  {/* Add a scroll fade at the bottom for visual indication */}
+                  <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none"></div>
+                </div>
               </div>
 
               {/* Quiz Settings */}
@@ -2063,7 +2081,7 @@ if (currentQuestion >= questions?.length && questions?.length > 0) {
             </div>
           </div>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center p-6">
                 <button
                   onClick={() => resetQuiz()}
                   className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition-colors focus:ring-4 focus:ring-indigo-300"
@@ -2071,7 +2089,48 @@ if (currentQuestion >= questions?.length && questions?.length > 0) {
                   Try Again
                 </button>
                 <button
-                  onClick={handleGetAIHelp}
+                  onClick={() => {
+                    const courseObj = courses.find(course => course._id === selectedCourse);
+                    if (!courseObj) {
+                      toast.error("Error: Could not find course information");
+                      return;
+                    }
+                    
+                    const quizData = {
+                      questions: questions.map((q, index) => ({
+                        question: q.question,
+                        options: q.options.map((opt, optIndex) => {
+                          let optionText = typeof opt === 'object' && opt !== null && 'text' in opt 
+                            ? (opt as {text: string}).text 
+                            : String(opt);
+                          
+                          optionText = optionText
+                            .replace(/^([A-Da-d])[.):]\s*\1[.):]\s*/g, '')
+                            .replace(/^[A-Da-d][.):]\s*/g, '')
+                            .replace(/^[A-Da-d]\s+/g, '')
+                            .trim();
+                          
+                          return {
+                            text: optionText,
+                            label: String.fromCharCode(65 + optIndex)
+                          };
+                        }),
+                        correctAnswer: q.correctAnswer.toUpperCase(),
+                        userAnswer: questionStates[index]?.userAnswer?.toUpperCase() || null,
+                        isCorrect: questionStates[index]?.userAnswer?.toUpperCase() === q.correctAnswer.toUpperCase()
+                      })),
+                      score: score,
+                      totalQuestions: questions.length,
+                      courseName: courseObj.name,
+                      difficulty: quizDetails.difficulty,
+                      timestamp: new Date().toISOString(),
+                      id: `${courseObj.name}-${score}-${questions.length}-${Date.now()}`
+                    };
+                    
+                    localStorage.setItem('quizData', JSON.stringify(quizData));
+                    setQuizData(quizData);
+                    navigate('/ai-assist');
+                  }}
                   className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow-sm transition-colors focus:ring-4 focus:ring-purple-300"
                 >
                   Get AI Help

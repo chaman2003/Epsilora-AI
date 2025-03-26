@@ -49,8 +49,8 @@ const Navbar: React.FC = () => {
 
   return (
     <nav className="fixed top-0 left-0 right-0 bg-background-light/80 dark:bg-background-dark/80 border-b border-border-light/50 dark:border-border-dark/50 shadow-lg dark:shadow-gray-900/30 z-50 theme-transition backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="flex justify-between h-14 sm:h-16">
           <div className="flex">
             <Link to="/" className="flex items-center">
               <motion.div
@@ -59,7 +59,7 @@ const Navbar: React.FC = () => {
                 transition={{ duration: 0.5 }}
                 className="flex items-center"
               >
-                <span className="logo-text text-2xl">Epsilora</span>
+                <span className="logo-text text-xl sm:text-2xl">Epsilora</span>
               </motion.div>
             </Link>
           </div>
@@ -78,7 +78,7 @@ const Navbar: React.FC = () => {
                 <Link
                   to={item.href}
                   onClick={() => handleNavClick(item.href)}
-                  className={`relative px-4 py-2 rounded-lg text-sm font-medium theme-transition group ${
+                  className={`relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium theme-transition group ${
                     location.pathname === item.href
                       ? 'text-primary-light dark:text-primary-dark bg-gradient-to-r from-primary-light/10 to-primary-light/5 dark:from-primary-dark/20 dark:to-primary-dark/10 shadow-lg'
                       : 'text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark'
@@ -114,7 +114,7 @@ const Navbar: React.FC = () => {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleThemeToggle}
-              className="p-2.5 rounded-2xl text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20"
+              className="p-2 sm:p-2.5 rounded-2xl text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20"
               aria-label="Toggle theme"
             >
               <motion.div
@@ -122,14 +122,14 @@ const Navbar: React.FC = () => {
                 transition={{ duration: 0.5 }}
                 className="rounded-2xl"
               >
-                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {theme === 'dark' ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
               </motion.div>
             </motion.button>
 
             {user && (
               <>
-                <div className="flex items-center px-4 py-2 rounded-2xl bg-gradient-to-r from-gray-50/30 via-white/20 to-gray-50/30 dark:from-gray-800/30 dark:via-gray-700/20 dark:to-gray-800/30 border border-gray-200/20 dark:border-gray-700/20 hover:shadow-lg hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 group">
-                  <span className="text-sm font-medium bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-400 bg-clip-text text-transparent group-hover:bg-gradient-to-r group-hover:from-indigo-500 group-hover:via-purple-500 group-hover:to-indigo-500 dark:group-hover:from-indigo-300 dark:group-hover:via-purple-300 dark:group-hover:to-indigo-300 transition-all duration-300">
+                <div className="flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-gradient-to-r from-gray-50/30 via-white/20 to-gray-50/30 dark:from-gray-800/30 dark:via-gray-700/20 dark:to-gray-800/30 border border-gray-200/20 dark:border-gray-700/20 hover:shadow-lg hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 group">
+                  <span className="text-xs sm:text-sm font-medium bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-400 bg-clip-text text-transparent group-hover:bg-gradient-to-r group-hover:from-indigo-500 group-hover:via-purple-500 group-hover:to-indigo-500 dark:group-hover:from-indigo-300 dark:group-hover:via-purple-300 dark:group-hover:to-indigo-300 transition-all duration-300">
                     {user.email}
                   </span>
                 </div>
@@ -137,7 +137,7 @@ const Navbar: React.FC = () => {
                 <motion.button
                   onClick={handleLogout}
                   whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 rounded-2xl text-sm font-medium text-error-light dark:text-error-dark hover:text-error-light/80 dark:hover:text-error-dark/80 theme-transition hover:shadow-md bg-red-50/50 dark:bg-red-900/20 hover:bg-red-50/80 dark:hover:bg-red-900/30"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl text-xs sm:text-sm font-medium text-error-light dark:text-error-dark hover:text-error-light/80 dark:hover:text-error-dark/80 theme-transition hover:shadow-md bg-red-50/50 dark:bg-red-900/20 hover:bg-red-50/80 dark:hover:bg-red-900/30"
                 >
                   Logout
                 </motion.button>
@@ -149,7 +149,7 @@ const Navbar: React.FC = () => {
                 <Link
                   to="/login"
                   onClick={() => handleNavClick('/login')}
-                  className={`px-4 py-2 rounded-2xl text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20 ${
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl text-xs sm:text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20 ${
                     clickedItem === '/login' ? 'animate-nav-click shadow-lg' : ''
                   }`}
                 >
@@ -158,7 +158,7 @@ const Navbar: React.FC = () => {
                 <Link
                   to="/signup"
                   onClick={() => handleNavClick('/signup')}
-                  className={`btn-primary rounded-2xl px-4 py-2 hover:shadow-lg bg-primary-light/90 dark:bg-primary-dark/90 hover:bg-primary-light dark:hover:bg-primary-dark ${clickedItem === '/signup' ? 'animate-nav-click shadow-lg' : ''}`}
+                  className={`btn-primary rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm hover:shadow-lg bg-primary-light/90 dark:bg-primary-dark/90 hover:bg-primary-light dark:hover:bg-primary-dark ${clickedItem === '/signup' ? 'animate-nav-click shadow-lg' : ''}`}
                 >
                   Sign Up
                 </Link>
@@ -172,20 +172,20 @@ const Navbar: React.FC = () => {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleThemeToggle}
-              className="p-2.5 rounded-2xl text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark focus:outline-none transition-colors duration-200 mr-2"
+              className="p-2 rounded-2xl text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark focus:outline-none transition-colors duration-200 mr-1.5"
               aria-label="Toggle theme"
             >
-              {theme === 'dark' ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
+              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </motion.button>
 
             <motion.button
               onClick={() => setIsOpen(!isOpen)}
               whileTap={{ scale: 0.95 }}
-              className="inline-flex items-center justify-center p-2.5 rounded-2xl text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20"
+              className="inline-flex items-center justify-center p-2 rounded-2xl text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20"
               aria-expanded={isOpen}
             >
               <span className="sr-only">Open main menu</span>
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </motion.button>
           </div>
         </div>
@@ -199,7 +199,7 @@ const Navbar: React.FC = () => {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="md:hidden bg-background-light/90 dark:bg-background-dark/90 border-b border-border-light/50 dark:border-border-dark/50 theme-transition shadow-lg dark:shadow-gray-900/30 rounded-b-3xl mx-2 backdrop-blur-md"
+            className="md:hidden bg-background-light/90 dark:bg-background-dark/90 border-b border-border-light/50 dark:border-border-dark/50 theme-transition shadow-lg dark:shadow-gray-900/30 rounded-b-2xl mx-2 backdrop-blur-md"
           >
             <div className="px-2 pt-2 pb-3 space-y-1">
               {user && navigation.map((item) => (
@@ -210,7 +210,7 @@ const Navbar: React.FC = () => {
                     handleNavClick(item.href);
                     setIsOpen(false);
                   }}
-                  className={`block px-4 py-2 rounded-2xl text-base font-medium theme-transition ${
+                  className={`block px-3 py-2 rounded-xl text-sm font-medium theme-transition ${
                     location.pathname === item.href
                       ? 'text-primary-light dark:text-primary-dark bg-gradient-to-r from-primary-light/10 to-primary-light/5 dark:from-primary-dark/20 dark:to-primary-dark/10 shadow-lg'
                       : 'text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark'
@@ -227,7 +227,7 @@ const Navbar: React.FC = () => {
                     setIsOpen(false);
                   }}
                   whileTap={{ scale: 0.95 }}
-                  className="block w-full text-left px-4 py-2 rounded-2xl text-base font-medium text-error-light dark:text-error-dark hover:text-error-light/80 dark:hover:text-error-dark/80 theme-transition hover:shadow-md"
+                  className="block w-full text-left px-3 py-2 rounded-xl text-sm font-medium text-error-light dark:text-error-dark hover:text-error-light/80 dark:hover:text-error-dark/80 theme-transition hover:shadow-md"
                 >
                   Logout
                 </motion.button>
@@ -241,7 +241,7 @@ const Navbar: React.FC = () => {
                       handleNavClick('/login');
                       setIsOpen(false);
                     }}
-                    className={`block px-4 py-2 rounded-2xl text-base font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20 ${
+                    className={`block px-3 py-2 rounded-xl text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary-light dark:hover:text-primary-dark theme-transition hover:shadow-md bg-white/5 dark:bg-gray-800/5 hover:bg-white/20 dark:hover:bg-gray-800/20 ${
                       clickedItem === '/login' ? 'animate-nav-click shadow-lg' : ''
                     }`}
                   >
@@ -253,7 +253,7 @@ const Navbar: React.FC = () => {
                       handleNavClick('/signup');
                       setIsOpen(false);
                     }}
-                    className={`block px-4 py-2 rounded-2xl text-base font-medium btn-primary hover:shadow-lg bg-primary-light/90 dark:bg-primary-dark/90 hover:bg-primary-light dark:hover:bg-primary-dark ${
+                    className={`block px-3 py-2 rounded-xl text-sm font-medium btn-primary hover:shadow-lg bg-primary-light/90 dark:bg-primary-dark/90 hover:bg-primary-light dark:hover:bg-primary-dark ${
                       clickedItem === '/signup' ? 'animate-nav-click shadow-lg' : ''
                     }`}
                   >

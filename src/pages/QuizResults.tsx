@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Award, Book, MessageSquare, ChevronLeft, CheckCircle, XCircle, ArrowUp, AlertCircle, Info, ChevronDown } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useQuiz } from '../context/QuizContext';
 import type { QuizData } from '../context/QuizContext';
 import { toast } from 'react-hot-toast';
+import { useTheme } from '../contexts/ThemeContext';
 
 const QuizResults: React.FC = () => {
   const location = useLocation();
@@ -17,6 +18,7 @@ const QuizResults: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'questions'>('overview');
   const [showStrengths, setShowStrengths] = useState(false);
   const [showWeaknesses, setShowWeaknesses] = useState(false);
+  const { theme } = useTheme();
 
   React.useEffect(() => {
     // If no quiz data or not authenticated, redirect to quiz page
@@ -24,6 +26,42 @@ const QuizResults: React.FC = () => {
       navigate('/quiz', { replace: true });
     }
   }, [quizData, isAuthenticated, navigate]);
+
+  // Set CSS variables for theme-dependent hover effects
+  useEffect(() => {
+    const isDarkMode = theme === 'dark';
+    
+    // Set CSS variables for hover effects - make styles consistent
+    // Green variables for Your Strengths
+    document.documentElement.style.setProperty(
+      '--color-green-hover', 
+      isDarkMode ? 'rgba(6, 78, 59, 0.3)' : 'rgba(240, 253, 244, 1)'
+    );
+    document.documentElement.style.setProperty(
+      '--color-green-text', 
+      isDarkMode ? 'rgba(134, 239, 172, 1)' : 'rgba(22, 101, 52, 1)'
+    );
+    
+    // Red variables for Areas to Improve - match the same opacity and intensity as green
+    document.documentElement.style.setProperty(
+      '--color-red-hover', 
+      isDarkMode ? 'rgba(127, 29, 29, 0.3)' : 'rgba(254, 242, 242, 1)'
+    );
+    document.documentElement.style.setProperty(
+      '--color-red-text', 
+      isDarkMode ? 'rgba(252, 165, 165, 1)' : 'rgba(153, 27, 27, 1)'
+    );
+    
+    // Indigo variables for Learning Tips
+    document.documentElement.style.setProperty(
+      '--color-indigo-hover', 
+      isDarkMode ? 'rgba(79, 70, 229, 0.25)' : 'rgba(238, 242, 255, 1)'
+    );
+    document.documentElement.style.setProperty(
+      '--color-indigo-text', 
+      isDarkMode ? 'rgba(165, 180, 252, 1)' : 'rgba(79, 70, 229, 1)'
+    );
+  }, [theme]);
 
   if (!quizData || !isAuthenticated) {
     return null;
@@ -390,7 +428,14 @@ const QuizResults: React.FC = () => {
                     <motion.div 
                       className="p-4 cursor-pointer flex justify-between items-center bg-green-50 dark:bg-green-900/20 rounded-t-lg"
                       onClick={() => setShowStrengths(!showStrengths)}
-                      whileHover={{ backgroundColor: showStrengths ? "rgba(240, 253, 244, 0.8)" : "rgba(240, 253, 244, 1)" }}
+                      whileHover={{ 
+                        backgroundColor: "var(--color-green-hover)",
+                        color: "var(--color-green-text)"
+                      }}
+                      data-theme-light-bg="rgba(240, 253, 244, 1)"
+                      data-theme-dark-bg="rgba(6, 78, 59, 0.3)"
+                      data-theme-light-text="rgba(22, 101, 52, 1)"
+                      data-theme-dark-text="rgba(134, 239, 172, 1)"
                       whileTap={{ scale: 0.98 }}
                     >
                       <div className="flex items-center">
@@ -458,7 +503,7 @@ const QuizResults: React.FC = () => {
                     </AnimatePresence>
                   </motion.div>
                   
-                  {/* Weaknesses */}
+                  {/* Weaknesses - match styling with Strengths */}
                   <motion.div 
                     className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm"
                     initial={{ opacity: 0, y: 30 }}
@@ -469,13 +514,20 @@ const QuizResults: React.FC = () => {
                     <motion.div 
                       className="p-4 cursor-pointer flex justify-between items-center bg-red-50 dark:bg-red-900/20 rounded-t-lg"
                       onClick={() => setShowWeaknesses(!showWeaknesses)}
-                      whileHover={{ backgroundColor: showWeaknesses ? "rgba(254, 242, 242, 0.8)" : "rgba(254, 242, 242, 1)" }}
+                      whileHover={{ 
+                        backgroundColor: "var(--color-red-hover)",
+                        color: "var(--color-red-text)" 
+                      }}
+                      data-theme-light-bg="rgba(254, 242, 242, 1)"
+                      data-theme-dark-bg="rgba(127, 29, 29, 0.3)"
+                      data-theme-light-text="rgba(153, 27, 27, 1)"
+                      data-theme-dark-text="rgba(252, 165, 165, 1)"
                       whileTap={{ scale: 0.98 }}
                     >
                       <div className="flex items-center">
                         <XCircle className="w-5 h-5 text-red-500 dark:text-red-400 mr-2" />
                         <h4 className="font-semibold">Areas to Improve</h4>
-              </div>
+                      </div>
                       <motion.div
                         animate={{ rotate: showWeaknesses ? 180 : 0 }}
                         transition={{ duration: 0.3 }}
@@ -507,7 +559,7 @@ const QuizResults: React.FC = () => {
                                     <div className="flex">
                                       <span className="text-red-500 dark:text-red-400 mr-2">✗</span>
                                       <span className="line-clamp-2">{question.question}</span>
-                  </div>
+                                    </div>
                                   </motion.li>
                                 ))}
                                 {weaknesses.length > 3 && (
@@ -531,7 +583,7 @@ const QuizResults: React.FC = () => {
                                 Great job! You answered all questions correctly.
                               </motion.p>
                             )}
-                  </div>
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -546,8 +598,14 @@ const QuizResults: React.FC = () => {
                   transition={{ duration: 0.6, delay: 1 }}
                   whileHover={{ 
                     boxShadow: "0 10px 25px -5px rgba(99, 102, 241, 0.2)",
-                    y: -5
+                    backgroundColor: "var(--color-indigo-hover)",
+                    color: "var(--color-indigo-text)",
+                    y: -3
                   }}
+                  data-theme-light-bg="rgba(238, 242, 255, 1)"
+                  data-theme-dark-bg="rgba(79, 70, 229, 0.25)"
+                  data-theme-light-text="rgba(79, 70, 229, 1)"
+                  data-theme-dark-text="rgba(165, 180, 252, 1)"
                 >
                   <div className="flex items-start">
                     <Info className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mt-0.5 mr-3 flex-shrink-0" />

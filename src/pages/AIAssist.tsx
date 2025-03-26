@@ -9,6 +9,9 @@ import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '../context/QuizContext';
 import { normalizeMarkdownText } from '../utils/markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark, coldarkDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -81,6 +84,24 @@ const WELCOME_MESSAGE = `# 👋 Welcome to Epsilora AI Assistant!
 Type your question below or click "New Chat" to start fresh! 
 
 *Powered by advanced AI to enhance your learning journey* ✨`;
+
+// Update the cleanMarkdown function to identify quiz review markers
+const cleanMarkdown = (text: string): string => {
+  if (!text) return '';
+  
+  // Fix misformatted tables by ensuring proper spacing
+  let fixed = text
+    // Fix table headers with improper spacing
+    .replace(/\|\s*-\s*-\s*-\s*\|/g, '| --- |')
+    .replace(/\|\s*-\s*-\s*\|/g, '| --- |')
+    // Ensure proper spaces around table separators
+    .replace(/\|(\w)/g, '| $1')
+    .replace(/(\w)\|/g, '$1 |')
+    // Fix multiple table headers
+    .replace(/\|\s*---\s*\|\s*---\s*\|/g, '| --- | --- |');
+  
+  return fixed;
+};
 
 const AIAssist: React.FC = () => {
   // State declarations
@@ -970,31 +991,18 @@ const AIAssist: React.FC = () => {
     return;
   }, []);
 
-  // Add this helper function before the return statement to clean markdown formatting
-  const cleanMarkdown = (text: string) => {
-    if (!text) return '';
-    return text
-      .replace(/#{1,6}\s/g, '') // Remove heading markers
-      .replace(/\*\*/g, '')     // Remove bold markers
-      .replace(/\*/g, '')       // Remove italic markers
-      .replace(/```[\s\S]*?```/g, 'Code snippet')  // Replace code blocks
-      .replace(/`([^`]+)`/g, '$1')  // Remove inline code markers
-      .replace(/-\s/g, '')      // Remove list markers
-      .trim();
-  };
-
-  return (
+    return (
     <div className="container mx-auto px-4">
-      {/* Chat History Sidebar */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div
-            initial={{ x: -320, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -320, opacity: 0 }}
-            transition={{ type: "spring", damping: 20 }}
-            className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50 flex flex-col"
-          >
+          {/* Chat History Sidebar */}
+          <AnimatePresence>
+            {isSidebarOpen && (
+              <motion.div
+                initial={{ x: -320, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -320, opacity: 0 }}
+                transition={{ type: "spring", damping: 20 }}
+                className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden border-r border-gray-200 dark:border-gray-700 z-50 flex flex-col"
+              >
             {/* Sidebar Header with Gradient and Animation */}
             <motion.div 
               className="p-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white"
@@ -1002,37 +1010,37 @@ const AIAssist: React.FC = () => {
               animate={{ y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <History className="w-5 h-5 text-white/90" />
                   <h2 className="text-xl font-bold">Chat History</h2>
-                </div>
+                      </div>
                 <motion.button
-                  onClick={() => setIsSidebarOpen(false)}
+                      onClick={() => setIsSidebarOpen(false)}
                   className="p-2 rounded-full hover:bg-white/10 transition-colors"
                   whileHover={{ rotate: 90 }}
                   transition={{ duration: 0.2 }}
-                >
-                  <X className="w-5 h-5" />
+                    >
+                      <X className="w-5 h-5" />
                 </motion.button>
-              </div>
+                  </div>
             </motion.div>
 
             {/* Search Input */}
             <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-              <div className="relative">
-                <input
-                  type="text"
+                  <div className="relative">
+                    <input
+                      type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search conversations..."
+                      placeholder="Search conversations..."
                   className="w-full p-2 pl-9 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500 dark:text-gray-400">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
+                      </svg>
+                    </div>
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
@@ -1041,9 +1049,9 @@ const AIAssist: React.FC = () => {
                     <X className="h-4 w-4" />
                   </button>
                 )}
-              </div>
-            </div>
-            
+                  </div>
+                </div>
+                
             {/* Chat History List with filtering based on search */}
             <div className="flex-1 overflow-y-auto p-3">
               {chatHistories.length > 0 ? (
@@ -1059,7 +1067,7 @@ const AIAssist: React.FC = () => {
                     })
                     .map((chat) => (
                       <motion.div
-                        key={chat._id}
+                          key={chat._id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         whileHover={{ scale: 1.02, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
@@ -1068,10 +1076,10 @@ const AIAssist: React.FC = () => {
                             ? 'bg-indigo-50 border-indigo-300 dark:bg-indigo-900/30 dark:border-indigo-700 shadow-md'
                             : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/70'
                         }`}
-                        onClick={() => {
-                          loadChat(chat._id);
-                          setIsSidebarOpen(false);
-                        }}
+                          onClick={() => {
+                            loadChat(chat._id);
+                            setIsSidebarOpen(false);
+                          }}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
@@ -1083,7 +1091,7 @@ const AIAssist: React.FC = () => {
                               {chat.type === 'quiz_review' ? (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 mr-2">
                                   Quiz
-                                </span>
+                                    </span>
                               ) : (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 mr-2">
                                   Chat
@@ -1095,29 +1103,29 @@ const AIAssist: React.FC = () => {
                             </div>
                           </div>
                           <motion.button
-                            onClick={(e) => {
-                              e.stopPropagation();
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                               if (confirm('Are you sure you want to delete this chat?')) {
-                                deleteChat(chat._id);
+                                        deleteChat(chat._id);
                               }
-                            }}
+                                      }}
                             className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}
-                          >
+                                    >
                             <Trash2 className="w-4 h-4" />
                           </motion.button>
-                        </div>
+                                  </div>
                       </motion.div>
-                    ))}
-                </div>
+                                  ))}
+                                  </div>
               ) : (
                 <div className="text-center p-6 text-gray-500 dark:text-gray-400 flex flex-col items-center">
                   <MessageSquare className="h-12 w-12 mb-2 opacity-30" />
                   <p className="font-medium">No chat history available</p>
                   <p className="text-sm mt-1">Start a new conversation to see it here</p>
-                </div>
-              )}
+                                  </div>
+                                )}
               
               {/* "No results" message when search has no matches */}
               {searchQuery && chatHistories.filter(chat => {
@@ -1128,10 +1136,10 @@ const AIAssist: React.FC = () => {
               }).length === 0 && (
                 <div className="text-center p-4 text-gray-500 dark:text-gray-400">
                   <p>No results found for "{searchQuery}"</p>
+                              </div>
+                  )}
                 </div>
-              )}
-            </div>
-            
+                
             {/* Control Buttons */}
             <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
               <motion.button
@@ -1156,23 +1164,23 @@ const AIAssist: React.FC = () => {
                 <Plus className="w-4 h-4 mr-2" />
                 <span>New Chat</span>
               </motion.button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-      {/* Backdrop */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm z-40"
-          />
-        )}
-      </AnimatePresence>
+          {/* Backdrop */}
+          <AnimatePresence>
+            {isSidebarOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSidebarOpen(false)}
+                className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm z-40"
+              />
+            )}
+          </AnimatePresence>
 
       {/* Main Chat Area - Enhanced with better styling */}
       <motion.div 
@@ -1188,45 +1196,45 @@ const AIAssist: React.FC = () => {
           transition={{ delay: 0.1, duration: 0.3 }}
           className="p-3 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 text-white bg-size-200 bg-pos-0 hover:bg-pos-100 transition-all duration-500"
         >
-          <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm shadow-inner">
                 <Bot className="w-5 h-5" />
-              </div>
-              <div>
+                  </div>
+                  <div>
                 <h2 className="text-lg font-bold tracking-tight">AI Learning Assistant</h2>
                 <p className="text-indigo-100 text-xs mt-0.5">Powered by advanced AI to help you learn</p>
-              </div>
-            </div>
+                  </div>
+                </div>
             <div className="flex items-center space-x-3">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={async () => {
-                  // First save the current chat if it exists
-                  if (messages.length > 1 && currentChatId) {  
-                    // Save current chat to ensure it's persisted
-                    await saveMessagesToChat(currentChatId, messages);
-                  }
-                  
-                  // Create a new chat with welcome message
-                  const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
-                  const newChat = await createNewChat(initialMessages);
-                  
-                  if (newChat) {
-                    setMessages(initialMessages);
-                    setCurrentChatId(newChat._id);
-                    localStorage.setItem('lastActiveChatId', newChat._id);
-                  } else {
-                    // Fallback if API call fails
-                    setMessages(initialMessages);
-                    setCurrentChatId(null);
-                    localStorage.removeItem('lastActiveChatId');
-                  }
-                  
-                  setIsSidebarOpen(false);
-                  toast.success('Started a new chat');
-                }}
+                    onClick={async () => {
+                      // First save the current chat if it exists
+                      if (messages.length > 1 && currentChatId) {  
+                        // Save current chat to ensure it's persisted
+                        await saveMessagesToChat(currentChatId, messages);
+                      }
+                      
+                      // Create a new chat with welcome message
+                      const initialMessages: Message[] = [{ role: 'assistant' as const, content: WELCOME_MESSAGE }];
+                      const newChat = await createNewChat(initialMessages);
+                      
+                      if (newChat) {
+                        setMessages(initialMessages);
+                        setCurrentChatId(newChat._id);
+                        localStorage.setItem('lastActiveChatId', newChat._id);
+                      } else {
+                        // Fallback if API call fails
+                        setMessages(initialMessages);
+                        setCurrentChatId(null);
+                        localStorage.removeItem('lastActiveChatId');
+                      }
+                      
+                      setIsSidebarOpen(false);
+                      toast.success('Started a new chat');
+                    }}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors flex items-center space-x-2"
               >
                 <Plus className="w-5 h-5" />
@@ -1235,14 +1243,14 @@ const AIAssist: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setIsSidebarOpen(true)}
+                    onClick={() => setIsSidebarOpen(true)}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors flex items-center space-x-2"
               >
                 <History className="w-5 h-5" />
                 <span className="text-xs font-medium">History</span>
               </motion.button>
-            </div>
-          </div>
+                </div>
+              </div>
         </motion.div>
 
         {/* Chat Messages - Enhanced with animations and better styling */}
@@ -1250,10 +1258,10 @@ const AIAssist: React.FC = () => {
           <div className="max-w-5xl mx-auto space-y-6">
             <AnimatePresence>
               {messages.map((message, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} w-full`}
                 >
@@ -1269,17 +1277,13 @@ const AIAssist: React.FC = () => {
                   
                   {/* Message bubble - with enhanced styling */}
                   <motion.div 
-                    whileHover={{ scale: 1.01 }}
-                    className={`max-w-[60%] rounded-2xl p-4 shadow-sm ${
-                      message.role === 'user'
-                        ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white' 
-                        : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'
+                    className={`relative mb-2 px-4 py-3 rounded-lg flex flex-col ${
+                      message.role === 'assistant'
+                        ? 'bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 text-gray-800 dark:text-gray-200 ml-2 mr-12 sm:mr-24'
+                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 mr-2 ml-12 sm:ml-24'
                     }`}
                   >
-                    <StyledMarkdown 
-                      content={message.content} 
-                      isQuiz={message.content.includes('Quiz Review')}
-                    />
+                    <MessageContent content={message.content} />
                   </motion.div>
                   
                   {/* User avatar icon - with enhanced appearance */}
@@ -1293,8 +1297,8 @@ const AIAssist: React.FC = () => {
                   )}
                 </motion.div>
               ))}
-            </AnimatePresence>
-          </div>
+              </AnimatePresence>
+            </div>
         </div>
 
         {/* Input Area - Enhanced with better styling and animations */}
@@ -1310,12 +1314,12 @@ const AIAssist: React.FC = () => {
               whileFocus={{ scale: 1.01 }}
               className="relative flex-1 group"
             >
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="Ask about your quiz or any courses related topics..."
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                  placeholder="Ask about your quiz or any courses related topics..."
                 className="w-full p-4 pr-12 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 text-sm shadow-sm group-hover:shadow-md"
               />
               {input.length > 0 && (
@@ -1332,290 +1336,251 @@ const AIAssist: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={handleSend}
-              disabled={loading || !input.trim()}
+                  onClick={handleSend}
+                  disabled={loading || !input.trim()}
               className="px-5 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg hover:shadow-xl text-sm"
-            >
-              {loading ? (
-                <div className="flex items-center space-x-2">
+                >
+                  {loading ? (
+                    <div className="flex items-center space-x-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Sending...</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
+                      <span>Sending...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
                   <Send className="w-4 h-4" />
-                  <span>Send</span>
-                </div>
-              )}
+                      <span>Send</span>
+                    </div>
+                  )}
             </motion.button>
-          </div>
+              </div>
         </motion.div>
       </motion.div>
-    </div>
+            </div>
   );
 };
 
-// MOVED OUTSIDE: Enhanced StyledMarkdown component with improved styling for quizzes
-interface StyledMarkdownProps {
-  content: string;
-  isQuiz?: boolean;
-}
-
-const StyledMarkdown: React.FC<StyledMarkdownProps> = ({ content, isQuiz = false }) => {
-  // Process content with improved normalizing logic
-  const normalizedContent = useMemo(() => {
-    return normalizeMarkdownText(content);
-  }, [content]);
-
-  return (
-    <div className="markdown-body relative break-words text-sm w-full">
-      <ReactMarkdown 
-        remarkPlugins={[remarkGfm]}
-        components={{
-          h4: ({children, ...props}) => {
-            if (isQuiz) {
-              return (
-                <h4 
-                  {...props} 
-                  className="text-base font-semibold border-b pb-1 border-gray-200 dark:border-gray-700 mt-4 mb-2 text-indigo-700 dark:text-indigo-400 w-full text-left"
-                >
-                  {children}
-                </h4>
-              );
-            }
-            return <h4 className="text-base font-semibold mt-3 mb-1.5 w-full text-left" {...props}>{children}</h4>;
-          },
-          h3: ({children, ...props}) => {
-            if (isQuiz) {
-              return (
-                <h3 
-                  {...props} 
-                  className="text-lg font-bold border-b pb-1.5 border-indigo-200 dark:border-indigo-800 mt-4 mb-2 text-indigo-800 dark:text-indigo-300 w-full text-left"
-                >
-                  {children}
-                </h3>
-              );
-            }
-            return <h3 className="text-lg font-bold mt-4 mb-2 w-full text-left" {...props}>{children}</h3>;
-          },
-          h2: ({children, ...props}) => {
-            if (isQuiz) {
-              return (
-                <h2 
-                  {...props} 
-                  className="text-xl font-bold mb-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text w-full text-left"
-                >
-                  {children}
-                </h2>
-              );
-            }
-            return <h2 className="text-xl font-bold mt-5 mb-3 w-full text-left" {...props}>{children}</h2>;
-          },
-          li: ({children, ...props}) => {
-            if (isQuiz) {
-              return (
-                <li 
-                  {...props} 
-                  className="py-0.5 px-1.5 my-0.5 rounded-md bg-gray-50 dark:bg-gray-800/60 border-l-2 border-gray-300 dark:border-gray-600 quiz-option text-sm w-full"
-                >
-                  <QuizOptionContent content={children} />
-                </li>
-              );
-            }
-            return <li className="py-0.5 text-sm" {...props}>{children}</li>;
-          },
-          p: ({children, ...props}) => {
-            if (isQuiz) {
-              return <p className="my-1 text-sm w-full text-left" {...props}>{children}</p>;
-            }
-            return <p className="my-2 text-sm w-full text-left" {...props}>{children}</p>;
-          },
-          hr: ({...props}) => {
-            if (isQuiz) {
-              return <hr className="my-2 border-gray-200 dark:border-gray-700" {...props} />;
-            }
-            return <hr className="my-4 border-gray-300 dark:border-gray-600" {...props} />;
-          },
-          table: ({children, ...props}) => {
-            return (
-              <div className="overflow-x-auto w-full my-2">
-                <table className="min-w-full border border-gray-200 dark:border-gray-700 text-sm" {...props}>
-                  {children}
-                </table>
-              </div>
-            );
-          },
-          pre: ({children, ...props}) => {
-            return (
-              <pre className="bg-gray-100 dark:bg-gray-900 p-2 rounded-md overflow-x-auto w-full text-sm my-2" {...props}>
-                {children}
-              </pre>
-            );
-          },
-          code: ({children, ...props}) => {
-            if (props.className?.includes('language-')) {
-              return (
-                <div className="w-full overflow-x-auto">
-                  <code className={`${props.className} block p-2 text-sm`} {...props}>
-                    {children}
-                  </code>
-                </div>
-              );
-            }
-            return (
-              <code className="bg-gray-100 dark:bg-gray-900 px-1 py-0.5 rounded text-sm" {...props}>
-                {children}
-              </code>
-            );
-          },
-        }}
-      >
-        {normalizedContent}
-      </ReactMarkdown>
-    </div>
-  );
-};
-
-// MOVED OUTSIDE: Enhanced QuizOptionContent component
-const QuizOptionContent: React.FC<{content: React.ReactNode}> = ({ content }) => {
-  // Convert React nodes to string for better pattern matching
-  let text = '';
+// Enhance MessageContent to color-code quiz answers
+const MessageContent = ({ content }: { content: string }) => {
+  // Get current theme
+  const { theme } = useTheme();
+  const isLightTheme = theme === 'light';
   
-  const extractTextContent = (node: React.ReactNode): string => {
-    if (typeof node === 'string') {
-      return node;
-    } else if (React.isValidElement(node)) {
-      const childrenText = React.Children.toArray(node.props.children)
-        .map(extractTextContent)
-        .join('');
-      
-      const elementType = typeof node.type === 'string' ? node.type : '';
-      if (elementType === 'svg' || elementType === 'path') {
-        return node.props.className?.includes('correct') ? '✓ ' : 
-               node.props.className?.includes('incorrect') ? '❌ ' : '';
-      }
-      
-      return childrenText;
-    } else if (Array.isArray(node)) {
-      return node.map(extractTextContent).join('');
-    } else if (node === null || node === undefined) {
-      return '';
-    } else if (typeof node === 'object') {
-      try {
-        return String(node);
-      } catch {
-        return '';
-      }
-    }
-    return String(node || '');
+  // Determine if this is a quiz review message
+  const isQuizReview = content.includes('Quiz Review:') || content.includes('# Quiz Review');
+  
+  // Special rendering for quiz content
+  const renderQuizContent = () => {
+    // Process content sections with proper markdown rendering
+    const sections = content.split(/(?=#{1,4}\s+\d+\.)/);
+    
+    return (
+      <div className="markdown-content">
+        {/* Render the header section with proper markdown */}
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            h1: (props) => <h1 className="text-2xl font-bold mb-4 mt-2" {...props} />,
+            h2: (props) => <h2 className="text-xl font-bold mb-3 mt-4" {...props} />,
+            p: (props) => <p className="mb-3" {...props} />
+          }}
+        >
+          {sections[0]}
+        </ReactMarkdown>
+        
+        {/* Render each question section */}
+        {sections.slice(1).map((section, sectionIndex) => {
+          // Split the section into lines to process answer options separately
+          const lines = section.split('\n');
+          const questionHeader = lines[0]; // This is the question header (#### 1. Question...)
+          const questionLines = [];
+          const answerLines = [];
+          let reachedAnswers = false;
+          
+          // Separate question content from answer options
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.match(/^\s*-\s*[A-D]\./)) {
+              reachedAnswers = true;
+            }
+            
+            if (reachedAnswers) {
+              answerLines.push(line);
+            } else {
+              questionLines.push(line);
+            }
+          }
+          
+          return (
+            <div key={sectionIndex} className="mb-4">
+              {/* Render question header and content with markdown */}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h4: (props) => <h4 className="text-lg font-semibold mb-2 mt-4" {...props} />,
+                  p: (props) => <p className="mb-2" {...props} />
+                }}
+              >
+                {questionHeader + '\n' + questionLines.join('\n')}
+              </ReactMarkdown>
+              
+              {/* Render answer options with colored highlighting */}
+              <div className="ml-1 mb-3">
+                {answerLines.map((line, lineIndex) => {
+                  // Apply color based on answer type - improved detection
+                  const isCorrectAnswer = line.includes('(Correct answer)') || 
+                                         line.includes('(Your answer - Correct)');
+                                         
+                  const isWrongAnswer = line.includes('(Your answer - Incorrect)');
+                  
+                  // Add user selected option that wasn't already handled
+                  const isUserAnswer = line.includes('(Your answer)') && 
+                                     !line.includes('(Your answer - Correct)') && 
+                                     !line.includes('(Your answer - Incorrect)');
+                  
+                  if (isCorrectAnswer) {
+                    return (
+                      <div key={lineIndex} className="bg-green-100 dark:bg-green-900/30 border-l-4 border-green-500 pl-3 py-1 my-0.5 rounded">
+                        {line.replace(/^\s*-\s*/, '')}
+                      </div>
+                    );
+                  } else if (isWrongAnswer || isUserAnswer) {
+                    return (
+                      <div key={lineIndex} className="bg-red-100 dark:bg-red-900/30 border-l-4 border-red-500 pl-3 py-1 my-0.5 rounded">
+                        {line.replace(/^\s*-\s*/, '')}
+                      </div>
+                    );
+                  } else if (line.trim() === '---') {
+                    return <hr key={lineIndex} className="my-4 border-gray-200 dark:border-gray-700" />;
+                  } else if (line.trim().startsWith('-')) {
+                    return (
+                      <div key={lineIndex} className="pl-3 py-1 my-0.5">
+                        {line.replace(/^\s*-\s*/, '')}
+                      </div>
+                    );
+                  }
+                  
+                  return <div key={lineIndex}>{line}</div>;
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
   
-  text = extractTextContent(content);
-  
-  // Extract option letter using a more comprehensive pattern that matches multiple formats
-  const optionLetterMatch = 
-    // Look for uppercase letter patterns: A., A:, A), etc.
-    text.match(/^-?\s*([A-D])[.):]\s/) || 
-    // Look for duplicate patterns like "A. A:" or "A) A)"
-    text.match(/^-?\s*([A-D])[.):]\s*\1[.):]\s/) ||
-    // Look for lowercase letter patterns: a., a:, a), etc.
-    text.match(/^-?\s*([a-d])[.):]\s/) ||
-    // Look for numeric options: 1., 2:, 3), etc.
-    text.match(/^-?\s*([1-4])[.):]\s/);
-  
-  // Determine the option letter from the match
-  let optionLetter = null;
-  if (optionLetterMatch) {
-    const matched = optionLetterMatch[1];
-    // Convert to standardized uppercase A-D format
-    if (/[A-D]/.test(matched)) {
-      optionLetter = matched; // Already uppercase A-D
-    } else if (/[a-d]/.test(matched)) {
-      // Convert lowercase a-d to uppercase A-D
-      optionLetter = matched.toUpperCase();
-    } else if (/[1-4]/.test(matched)) {
-      // Convert 1-4 to A-D
-      optionLetter = String.fromCharCode(64 + parseInt(matched));
-    }
+  // If it's a quiz review, use our custom rendering
+  if (isQuizReview) {
+    return renderQuizContent();
   }
   
-  // More comprehensive checks for correct/incorrect answers
-  // Check for existing correct answer markers to avoid duplication
-  const hasCorrectAnswerMarker = text.includes('(Correct answer)');
-  const hasYourAnswerCorrectMarker = text.includes('(Your answer - Correct)');
-  
-  // Simplify detection by prioritizing explicit markers
-  const isCorrectAnswer = hasCorrectAnswerMarker || 
-                         hasYourAnswerCorrectMarker || 
-                         (text.includes('Correct') && !text.includes('Your answer'));
-  
-  const isUserIncorrect = text.includes('(Your answer - Incorrect)') ||
-                         text.includes('(Your answer)') && !text.includes('Correct');
-  
-  // Clean the content to remove redundant labels and indicators
-  let cleanedContent = content;
-  if (typeof content === 'string') {
-    // Enhanced regex to clean option text with more patterns
-    const optionWithoutLabels = content
-      // Clean correctness indicators - remove all redundant indicators  
-      .replace(/\s*✓\s*\(Correct answer\)\s*Correct\s*/g, '')
-      .replace(/\s*\(Correct answer\)\s*Correct\s*/g, '')
-      .replace(/\s*Correct\s*✓\s*\(Correct answer\)\s*/g, '')
-      .replace(/\s*Correct\s*\(Correct answer\)\s*/g, '')
-      // Clean option labels - handle double prefixes first (uppercase and lowercase)
-      .replace(/^-?\s*([A-Da-d])[.):]\s*\1[.):]\s*/g, '')
-      // Clean uppercase letter prefixes
-      .replace(/^-?\s*[A-D][.):]\s*/g, '')
-      // Clean lowercase letter prefixes
-      .replace(/^-?\s*[a-d][.):]\s*/g, '')
-      // Clean numeric prefixes
-      .replace(/^-?\s*[1-9][.):]\s*/g, '')
-      // Clean letter-only prefixes without punctuation
-      .replace(/^-?\s*[A-Da-d]\s+/g, '')
-      .replace(/\(\)\s*/g, ''); // Remove empty parentheses
-    
-    // For display, ensure we have a consistent letter prefix for each option
-    const formattedContent = optionWithoutLabels.trim();
-    
-    // If we extracted an option letter, prepend it to the cleaned content for consistency
-    if (optionLetter && !formattedContent.startsWith(optionLetter)) {
-      cleanedContent = `${optionLetter}. ${formattedContent}`;
-    } else {
-      cleanedContent = formattedContent;
-    }
-  }
-  
-  // Prioritize correct answer check before incorrect check
-  if (isCorrectAnswer) {
-    return (
-      <div className="flex items-start space-x-1.5 bg-green-50 dark:bg-green-900/30 p-0.5 rounded-md border-l-2 border-green-500 transition-colors w-full">
-        <div className="flex-grow text-sm">{cleanedContent}</div>
-        <div className="flex-shrink-0 flex items-center">
-          <svg className="w-3.5 h-3.5 text-green-600 dark:text-green-400 correct-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          <span className="text-xs ml-0.5 font-medium text-green-700 dark:text-green-400">Correct</span>
-        </div>
-      </div>
-    );
-  } else if (isUserIncorrect) {
-    return (
-      <div className="flex items-start space-x-1.5 bg-red-100 dark:bg-red-900/40 p-0.5 rounded-md border-l-2 border-red-500 transition-colors w-full">
-        <div className="flex-grow text-sm text-red-800 dark:text-red-300">{cleanedContent}</div>
-        <div className="flex-shrink-0 flex items-center">
-          <svg className="w-3.5 h-3.5 text-red-600 dark:text-red-400 incorrect-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-          </svg>
-          <span className="text-xs ml-0.5 font-medium text-red-700 dark:text-red-400">Your answer</span>
-        </div>
-      </div>
-    );
-  }
-  
+  // Otherwise use standard markdown rendering
   return (
-    <div className="flex items-start p-0.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/40 transition-colors text-sm w-full">
-      {cleanedContent}
-    </div>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        table: (props) => (
+          <div className="overflow-x-auto my-4">
+            <table className="min-w-full divide-y divide-gray-300 border border-gray-300 dark:border-gray-700" {...props} />
+          </div>
+        ),
+        thead: (props) => (
+          <thead className="bg-gray-100 dark:bg-gray-800" {...props} />
+        ),
+        tbody: (props) => (
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" {...props} />
+        ),
+        tr: (props) => (
+          <tr className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" {...props} />
+        ),
+        th: (props) => (
+          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" {...props} />
+        ),
+        td: (props) => (
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" {...props} />
+        ),
+        p: (props) => (
+          <p className="mb-4 last:mb-0" {...props} />
+        ),
+        code: ({ inline, className, children, ...props }) => {
+          const match = /language-(\w+)/.exec(className || '');
+          return !inline && match ? (
+            <div className="rounded-md overflow-hidden my-4 relative group">
+              <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => {
+                    const code = String(children).replace(/\n$/, '');
+                    navigator.clipboard.writeText(code)
+                      .then(() => {
+                        toast.success('Code copied to clipboard');
+                      })
+                      .catch(() => {
+                        toast.error('Failed to copy code');
+                      });
+                  }}
+                  className="p-1.5 rounded-md bg-gray-800/70 hover:bg-gray-700 text-gray-200 transition-colors flex items-center space-x-1.5"
+                  aria-label="Copy code to clipboard"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                  <span className="text-xs font-medium">Copy</span>
+                </button>
+              </div>
+              <SyntaxHighlighter
+                language={match[1]}
+                style={isLightTheme ? oneDark : coldarkDark}
+                PreTag="div"
+                className="rounded-md text-sm"
+                showLineNumbers
+                {...props}
+              >
+                {String(children).replace(/\n$/, '')}
+              </SyntaxHighlighter>
+            </div>
+          ) : (
+            <code
+              className={`${inline ? 'bg-gray-200 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono' : ''} ${className || ''}`}
+              {...props}
+            >
+              {children}
+            </code>
+          );
+        },
+        pre: ({ children }) => <>{children}</>,
+        a: (props) => (
+          <a 
+            className="text-blue-600 dark:text-blue-400 hover:underline" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            {...props} 
+          />
+        ),
+        ul: (props) => (
+          <ul className="pl-6 mb-4 list-disc" {...props} />
+        ),
+        ol: (props) => (
+          <ol className="pl-6 mb-4 list-decimal" {...props} />
+        ),
+        li: (props) => (
+          <li className="mb-1" {...props} />
+        ),
+        h1: (props) => (
+          <h1 className="text-2xl font-bold mb-4 mt-6" {...props} />
+        ),
+        h2: (props) => (
+          <h2 className="text-xl font-bold mb-3 mt-5" {...props} />
+        ),
+        h3: (props) => (
+          <h3 className="text-lg font-bold mb-2 mt-4" {...props} />
+        ),
+        blockquote: (props) => (
+          <blockquote className="border-l-4 border-gray-300 dark:border-gray-700 pl-4 py-2 my-4 italic bg-gray-50 dark:bg-gray-800 rounded-r-md" {...props} />
+        )
+      }}
+    >
+      {cleanMarkdown(content)}
+    </ReactMarkdown>
   );
 };
 
