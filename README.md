@@ -1,9 +1,5 @@
 # Epsilora AI - Smart Learning Pathway Manager
 
-<p align="center">
-  <img src="public/favicon.ico" alt="Epsilora AI Logo" width="100" />
-</p>
-
 <h1 align="center">✨ Epsilora AI ✨</h1>
 <h3 align="center">Smart Learning Pathway Manager</h3>
 
