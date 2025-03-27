@@ -1,19 +1,4 @@
-<div align="center">  
-  <svg width="500" height="70" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style="stop-color:#4F46E5" />
-        <stop offset="50%" style="stop-color:#8B5CF6" />
-        <stop offset="100%" style="stop-color:#EC4899" />
-      </linearGradient>
-    </defs>
-    <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="url(#gradient)">
-      ✨ Epsilora AI ✨
-    </text>
-  </svg>
-  
-  
-  # ✨ Epsilora AI ✨
+ # ✨ Epsilora AI ✨
   
   <h3>Smart Learning & Performance Tracker</h3>
   
@@ -37,7 +22,6 @@
   
   <br/>
   
-  ![Epsilora AI Dashboard](https://i.ibb.co/MVTK9Cx/demo-dashboard.png)
 </div>
 
 ## 🚀 What is Epsilora AI?
