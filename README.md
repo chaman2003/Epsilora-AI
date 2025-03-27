@@ -197,5 +197,5 @@ npm run dev
     Star ⭐ this repo and watch for updates!
   </p>
   
-  [![Star this repo](https://img.shields.io/github/stars/yourusername/epsilora-ai?style=social)](https://github.com/yourusername/epsilora-ai)
+  [![Star this repo](https://img.shields.io/github/stars/chaman2003/Epsilora-AI?style=social)](https://github.com/chaman2003/Epsilora-AI/)
 </div> 
