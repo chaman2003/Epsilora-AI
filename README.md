@@ -1,6 +1,4 @@
-<div align="center">
-  <img src="public/favicon.ico" alt="Epsilora AI Logo" width="120" height="120" />
-  
+<div align="center">  
   <svg width="500" height="70" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
