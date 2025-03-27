@@ -3,7 +3,7 @@
   
   # ✨ Epsilora AI ✨
   
-  <h3>Smart Learning Pathway Manager</h3>
+  <h3>Smart Learning & Performance Tracker</h3>
   
   <p>
     <b>Transform your learning journey with AI-powered course management</b>
@@ -124,6 +124,9 @@ git clone https://github.com/yourusername/Epsilora-AI.git
 
 # Install dependencies
 cd Epsilora-AI
+npm install
+
+cd backend
 npm install
 
 # Set up environment
