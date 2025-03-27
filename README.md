@@ -1,279 +1,202 @@
-# Epsilora AI - Smart Learning Pathway Manager
+<div align="center">
+  <img src="public/favicon.ico" alt="Epsilora AI Logo" width="120" height="120" />
+  
+  # ✨ Epsilora AI ✨
+  
+  <h3>Smart Learning Pathway Manager</h3>
+  
+  <p>
+    <b>Transform your learning journey with AI-powered course management</b>
+  </p>
+  
+  <p>
+    <a href="#-features"><img src="https://img.shields.io/badge/Explore%20Features-FF6B6B?style=for-the-badge&logo=speakerdeck&logoColor=white" alt="Explore Features" /></a>
+    <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick%20Start-4CAF50?style=for-the-badge&logo=codecademy&logoColor=white" alt="Quick Start" /></a>
+    <a href="#-tech-stack"><img src="https://img.shields.io/badge/Tech%20Stack-007FFF?style=for-the-badge&logo=react&logoColor=white" alt="Tech Stack" /></a>
+  </p>
+  
+  <p>
+    <img src="https://img.shields.io/badge/React-18-blue?logo=react" />
+    <img src="https://img.shields.io/badge/TypeScript-5-blue?logo=typescript" />
+    <img src="https://img.shields.io/badge/Node.js-LTS-green?logo=node.js" />
+    <img src="https://img.shields.io/badge/MongoDB-Atlas-green?logo=mongodb" />
+    <img src="https://img.shields.io/badge/Google%20Gemini-AI-purple?logo=google" />
+  </p>
+  
+  <br/>
+  
+  ![Epsilora AI Dashboard](https://i.ibb.co/MVTK9Cx/demo-dashboard.png)
+</div>
 
-<h1 align="center">✨ Epsilora AI ✨</h1>
-<h3 align="center">Smart Learning Pathway Manager</h3>
+## 🚀 What is Epsilora AI?
 
-<p align="center">
-  <strong>Transform your learning journey with AI-powered course management and personalized learning pathways</strong>
-</p>
+Epsilora AI is an intelligent learning management system powered by AI that helps you organize, track, and optimize your online learning journey.
 
-<p align="center">
-  <a href="#-features">Features</a> •
-  <a href="#-tech-stack">Tech Stack</a> •
-  <a href="#-setup">Setup</a> •
-  <a href="#-usage">Usage</a> •
-  <a href="#-advantages">Advantages</a> •
-  <a href="#-target-audience">Target Audience</a> •
-  <a href="#-about-me">About Me</a>
-</p>
+<table>
+  <tr>
+    <td width="50%">
+      <h3>🧠 AI Course Analysis</h3>
+      <p>Automatically extracts course details from any URL, including learning objectives, skills, and milestones.</p>
+    </td>
+    <td width="50%">
+      <h3>📊 Visual Progress Tracking</h3>
+      <p>Interactive dashboards show your progress across all courses with beautiful visualizations.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>📝 Smart Quiz Generation</h3>
+      <p>Auto-generates quizzes from your course content with adaptive difficulty levels.</p>
+    </td>
+    <td width="50%">
+      <h3>🤖 AI Learning Assistant</h3>
+      <p>24/7 AI helper answers questions about your courses and explains difficult concepts.</p>
+    </td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/React-v18-blue" alt="React" />
-  <img src="https://img.shields.io/badge/TypeScript-v5-blue" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Node.js-Backend-green" alt="Node.js" />
-  <img src="https://img.shields.io/badge/MongoDB-Database-green" alt="MongoDB" />
-  <img src="https://img.shields.io/badge/Google%20Gemini-AI-purple" alt="Gemini AI" />
-</p>
+## ✨ Key Features
 
----
+<div align="center">
+  <img src="https://i.ibb.co/0jZ3FbW/features.gif" alt="Features Demo" width="80%" />
+</div>
 
-## 🔍 Overview
+<details>
+  <summary><b>🔍 Course Extraction</b> - Import any online course with one click</summary>
+  <ul>
+    <li>Paste any course URL and let AI analyze it</li>
+    <li>Automatically extracts course name, provider, duration, and pace</li>
+    <li>Identifies learning objectives, prerequisites, and key skills</li>
+    <li>Creates smart milestones with realistic deadlines</li>
+  </ul>
+</details>
 
-**Epsilora AI** is an intelligent learning management system that revolutionizes online education through advanced AI technologies. The platform creates a seamless learning experience by:
+<details>
+  <summary><b>📈 Progress Analytics</b> - Track your learning journey</summary>
+  <ul>
+    <li>Visual dashboards show completion rates across all courses</li>
+    <li>Track milestone achievements and learning patterns</li>
+    <li>Identify knowledge gaps and strengths</li>
+    <li>Receive personalized recommendations for improvement</li>
+  </ul>
+</details>
 
-🧠 **Smart Content Analysis**: Automatically extracts and structures course information from any URL  
-🛣️ **Learning Pathways**: Creates personalized learning journeys with smart milestones  
-📊 **Progress Analytics**: Visualizes learning progress with beautiful interactive dashboards  
-🤖 **AI Assistance**: Provides 24/7 intelligent guidance throughout your learning journey  
+<details>
+  <summary><b>🧩 Quiz System</b> - Reinforce your knowledge</summary>
+  <ul>
+    <li>AI-generated quizzes based on course content</li>
+    <li>Adaptive difficulty levels that grow with your skills</li>
+    <li>Immediate feedback and explanations</li>
+    <li>Spaced repetition for maximum retention</li>
+  </ul>
+</details>
 
-The platform solves critical challenges in online learning:
-- Course abandonment and learning fatigue
-- Lack of structured learning paths across multiple platforms
-- Difficulty in tracking progress and maintaining motivation
-- Information overload without proper knowledge reinforcement
-
-## ✨ Features
-
-### Core Capabilities
-- 🔍 **AI-Powered Course Extraction**
-  - Auto-extracts structured information from any course URL
-  - Identifies key topics, learning objectives, and dependencies
-  - Creates searchable knowledge base from course content
-
-- 🧩 **Personalized Learning Pathways**
-  - Custom learning sequences with smart milestones
-  - Adaptive schedules based on your learning pace
-  - Intelligent prerequisite mapping and skill trees
-
-- 📝 **Smart Quiz Generation**
-  - Auto-generates quizzes from course content
-  - Spaced repetition for optimal knowledge retention
-  - Question difficulty adapts to your skill level
-
-- 📈 **Progress Tracking & Analytics**
-  - Beautiful visual dashboards of learning progress
-  - Cross-course completion tracking
-  - Learning pattern analysis and recommendations
-
-### Advanced Features
-- 💬 **AI Learning Assistant**
-  - Context-aware answers to questions about course content
-  - Concept explanations in multiple learning styles
-  - Study session planning and optimization
-
-- 📚 **Unified Course Catalog**
-  - Single hub for courses from diverse platforms
-  - Smart tagging and categorization
-  - Recommendation engine for related content
-
-- 🔔 **Smart Notifications**
-  - Intelligent reminders based on your study schedule
-  - Milestone achievement celebrations
-  - Learning streak maintenance nudges
-
-- 🌐 **Cross-Device Synchronization**
-  - Seamless progress syncing across all your devices
-  - Offline learning mode with automatic updates
+<details>
+  <summary><b>💬 AI Assistant</b> - Your 24/7 learning companion</summary>
+  <ul>
+    <li>Ask questions about any course concept</li>
+    <li>Get explanations tailored to your learning style</li>
+    <li>Request study summaries and key points</li>
+    <li>Help with planning your learning schedule</li>
+  </ul>
+</details>
 
 ## 🛠️ Tech Stack
 
-### 🌟 Frontend Architecture
-- **React 18**: Component-based UI library for building the interactive interface
-- **TypeScript**: Static typing for improved code quality and developer experience
-- **Tailwind CSS**: Utility-first CSS framework enabling rapid UI development
-- **Vite**: Next-generation frontend build tool for lightning-fast development
-- **Framer Motion**: Advanced animation library for smooth UI transitions
-- **React Router**: Client-side routing for seamless navigation
-- **Tremor & Nivo**: Beautiful data visualization components
-- **Material UI**: Component library for consistent design elements
-- **Formik & Yup**: Form handling and validation
-- **React Hot Toast**: Elegant notifications system
+<div align="center">
+  <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/react-colored.svg" width="50" height="50" alt="React" />
+  <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/typescript-colored.svg" width="50" height="50" alt="TypeScript" />
+  <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/nodejs-colored.svg" width="50" height="50" alt="NodeJS" />
+  <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/mongodb-colored.svg" width="50" height="50" alt="MongoDB" />
+  <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/tailwindcss-colored.svg" width="50" height="50" alt="TailwindCSS" />
+</div>
 
-### 🔧 Backend Infrastructure
-- **Node.js**: JavaScript runtime for building the scalable server
-- **Express**: Web application framework for robust API development
-- **MongoDB**: NoSQL database for flexible data modeling and storage
-- **Mongoose**: MongoDB object modeling tool for elegant data management
-- **JWT**: Secure authentication and authorization
-- **Axios**: Promise-based HTTP client for API requests
-- **CORS**: Cross-origin resource sharing middleware
+- **Frontend**: React, TypeScript, Tailwind CSS, Framer Motion
+- **Backend**: Node.js, Express, MongoDB, JWT
+- **AI Integration**: Google Gemini API, NLP, Machine Learning
+- **Deployment**: Vercel, Environment Variables
 
-### 🧠 AI & Machine Learning
-- **Google Gemini API**: Cutting-edge AI for content understanding and generation
-- **Natural Language Processing**: Advanced text analysis and processing
-- **Machine Learning Algorithms**: Personalized recommendations and insights
-- **Spaced Repetition Systems**: Optimized learning patterns for retention
+## 🚀 Quick Start
 
-### 🚀 Development & Deployment
-- **ESLint & TypeScript-ESLint**: Code quality and consistency enforcement
-- **Git & GitHub**: Version control and collaboration
-- **Environment Variables**: Secure configuration management
-- **Vercel**: Cloud platform for deployment and hosting
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/Epsilora-AI.git
 
-## 📋 Setup
+# Install dependencies
+cd Epsilora-AI
+npm install
 
-### Prerequisites
-- Node.js (v16+)
-- npm or yarn
-- MongoDB (local or Atlas)
-- Google Gemini API key
+# Set up environment
+cp .env.example .env
+# Add your API keys to .env
 
-### 🔧 Installation
+# Start development server
+npm run dev
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/yourusername/Epsilora-AI.git
-   cd Epsilora-AI
-   ```
+# Open in browser
+# http://localhost:3000
+```
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+## 📱 How It Works
 
-3. **Set up environment variables:**
-   - Copy `.env.example` to `.env`
-   - Add your Gemini API key and MongoDB connection string
+<div class="workflow" align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="https://img.icons8.com/fluency/96/000000/add-link.png" alt="Add Course"/><br/><b>Add Course</b></td>
+      <td align="center">➡️</td>
+      <td align="center"><img src="https://img.icons8.com/fluency/96/000000/artificial-intelligence.png" alt="AI Analyzes"/><br/><b>AI Analysis</b></td>
+      <td align="center">➡️</td>
+      <td align="center"><img src="https://img.icons8.com/fluency/96/000000/road.png" alt="Path Created"/><br/><b>Learning Path</b></td>
+      <td align="center">➡️</td>
+      <td align="center"><img src="https://img.icons8.com/fluency/96/000000/diploma.png" alt="Track Progress"/><br/><b>Track Progress</b></td>
+    </tr>
+  </table>
+</div>
 
-4. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
+1. **Enter Course URL** - Paste any course URL from popular platforms
+2. **AI Extracts Information** - Our AI analyzes and structures the course content
+3. **Customize Your Path** - Adjust milestones and schedule to fit your needs
+4. **Track Your Progress** - Monitor your learning journey with visual analytics
+5. **Take Smart Quizzes** - Test your knowledge with AI-generated assessments
+6. **Get AI Assistance** - Ask questions and get personalized help anytime
 
-5. **Access the application:**
-   ```
-   http://localhost:3000
-   ```
+## 📊 Impact & Results
 
-## 📚 Usage Guide
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><h2>40%</h2>Increase in<br/>course completion</td>
+      <td align="center"><h2>35%</h2>Reduction in<br/>time-to-mastery</td>
+      <td align="center"><h2>60%</h2>Improvement in<br/>knowledge retention</td>
+      <td align="center"><h2>85%</h2>Users report increased<br/>learning motivation</td>
+    </tr>
+  </table>
+</div>
 
-### 📱 Adding a Course
-1. Navigate to the "Courses" page
-2. Enter a course URL in the input field
-3. Set your weekly study hours
-4. Click "Analyze Course"
-5. Review the extracted course information
-6. Click "Add to My Courses" to save
+## 👥 Who It's For
 
-### 🛣️ Creating a Learning Path
-1. Go to the "My Learning" section
-2. Select courses you want to include
-3. Arrange them in your preferred order
-4. Set milestone deadlines
-5. Save your learning path
+- **Self-directed Learners** pursuing personal and professional growth
+- **Students** supplementing formal education with online courses
+- **Career Changers** building skills for professional transitions
+- **Continuous Learners** staying current in evolving fields
+- **Educational Institutions** enhancing online learning offerings
 
-### 📝 Taking Quizzes
-1. Open a course from your dashboard
-2. Navigate to the "Quiz" section
-3. Select difficulty level and number of questions
-4. Complete the quiz to test your knowledge
-5. Review your results and areas for improvement
+## 📬 Get in Touch
 
-### 🤖 Using the AI Assistant
-1. Click on the "AI Assistant" icon
-2. Ask questions about your courses or learning material
-3. Get AI-generated answers and explanations
-4. Save important information for future reference
+<div align="center">
+  <a href="https://github.com/yourusername/epsilora-ai/issues">
+    <img src="https://img.shields.io/badge/Report%20Bug-red?style=for-the-badge&logo=github" alt="Report Bug" />
+  </a>
+  <a href="https://github.com/yourusername/epsilora-ai/issues">
+    <img src="https://img.shields.io/badge/Request%20Feature-blue?style=for-the-badge&logo=github" alt="Request Feature" />
+  </a>
+</div>
 
-## 🌟 Key Advantages
-
-### 🎓 For Learners
-- **Unified Learning Hub**: Manage all courses in one place regardless of provider
-- **Structured Progress**: Clear milestones and deadlines keep you on track
-- **Active Learning**: Quizzes and assessments reinforce knowledge
-- **24/7 AI Support**: Get help exactly when you need it
-- **Motivation Boosters**: Visual progress indicators and achievement celebrations
-
-### 👨‍🏫 For Educators
-- **Course Engagement**: Increased student completion rates
-- **Progress Insights**: Detailed analytics on student learning patterns
-- **Content Improvement**: Identify areas where students need more support
-- **Resource Optimization**: Focus teaching efforts where they matter most
-
-### 💻 Technical Benefits
-- **Scalable Architecture**: Built to grow with user base and content volume
-- **Modular Design**: Easily extensible with new features and integrations
-- **State-of-the-art AI**: Leverages the latest in machine learning technology
-- **Responsive Design**: Perfect experience on any device from mobile to desktop
-- **Enterprise-grade Security**: Protects user data and intellectual property
-
-## 👥 Target Audience
-
-### 🧑‍💻 Primary Users
-- **Self-directed Learners**: Individuals pursuing personal and professional growth
-- **College Students**: Supplementing formal education with online resources
-- **Career Changers**: Building skills for professional transitions
-- **Continuous Learners**: Professionals staying current in evolving fields
-- **Knowledge Workers**: Specialists managing complex information domains
-
-### 🏢 Organizational Users
-- **Educational Institutions**: Universities and colleges enhancing online offerings
-- **Corporate Training Programs**: Companies managing employee skill development
-- **Online Course Creators**: Content developers seeking better student outcomes
-- **Learning & Development Teams**: HR professionals managing organizational learning
-
-## 📈 Outcomes & Impact
-
-### 📊 Measurable Results
-- 🚀 **40%** increase in course completion rates
-- ⏱️ **35%** reduction in time-to-mastery for complex topics
-- 🧠 **60%** improvement in knowledge retention
-- 💪 **85%** of users report increased learning motivation
-
-### 🌍 Broader Impact
-- Democratizing access to structured learning experiences
-- Bridging gaps between different educational platforms
-- Creating personalized education accessible to everyone
-- Building future-ready skills for the AI-powered economy
-
-## 👨‍💻 About Me
-
-I'm a passionate full-stack developer with expertise in creating innovative educational technology solutions. My mission is to transform learning experiences through technology, making education more accessible, engaging, and effective.
-
-### Skills & Expertise
-- Full-stack web development
-- AI/ML integration
-- Educational technology
-- User experience design
-- Cloud architecture
-
-### Connect With Me
-<p align="center">
-  <a href="https://linkedin.com/in/chaman2003"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/></a>
-  <a href="https://github.com/chaman2003"><img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"/></a>
-  <a href="https://twitter.com/chamansingh"><img src="https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="Twitter"/></a>
-  <a href="https://instagram.com/chaman.singh"><img src="https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white" alt="Instagram"/></a>
-  <a href="https://dev.to/chamansingh"><img src="https://img.shields.io/badge/dev.to-0A0A0A?style=for-the-badge&logo=devdotto&logoColor=white" alt="Dev.to"/></a>
-  <a href="https://medium.com/@chamansingh"><img src="https://img.shields.io/badge/Medium-12100E?style=for-the-badge&logo=medium&logoColor=white" alt="Medium"/></a>
-</p>
-
-### Contact
-- **Email**: chamans7952@gmail.com
-- **Website**: [chamansingh.dev](https://chamansingh.dev)
-- **Portfolio**: [portfolio.chamansingh.dev](https://portfolio.chamansingh.dev)
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Made%20with-%E2%9D%A4%EF%B8%8F-red" alt="Made with love" />
-  <br/>
-  <strong>Epsilora AI</strong> — Transforming how the world learns
-  <br/>
-  © 2024 Chaman S
-</p>
+<div align="center">
+  <p>
+    <b>Ready to transform your learning journey?</b><br/>
+    Star ⭐ this repo and watch for updates!
+  </p>
+  
+  [![Star this repo](https://img.shields.io/github/stars/yourusername/epsilora-ai?style=social)](https://github.com/yourusername/epsilora-ai)
+</div> 
