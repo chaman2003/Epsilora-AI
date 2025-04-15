@@ -183,10 +183,10 @@ npm run dev
 ## 📬 Get in Touch
 
 <div align="center">
-  <a href="https://github.com/yourusername/epsilora-ai/issues">
+  <a href="https://github.com/chaman2003/epsilora-ai/issues">
     <img src="https://img.shields.io/badge/Report%20Bug-red?style=for-the-badge&logo=github" alt="Report Bug" />
   </a>
-  <a href="https://github.com/yourusername/epsilora-ai/issues">
+  <a href="https://github.com/chaman2003/epsilora-ai/issues">
     <img src="https://img.shields.io/badge/Request%20Feature-blue?style=for-the-badge&logo=github" alt="Request Feature" />
   </a>
 </div>
