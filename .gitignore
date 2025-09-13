@@ -15,15 +15,22 @@ backend/node_modules
 */dist
 **/dist
 
-# Misc
-.DS_Store
+# Environment files
 .env
 .env.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
+.env.production
 .env.production.local
+.env.staging
 .env.*
 !.env.example
+!.env.template
+
+# Misc
+.DS_Store
 
 # Debug logs
 npm-debug.log*
