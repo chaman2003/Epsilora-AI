@@ -196,24 +196,40 @@ const authenticateToken = async (req, res, next) => {
 // Auth Routes
 app.post('/api/auth/signup', async (req, res, next) => {
   try {
+    console.log('Signup request received:', new Date().toISOString());
     const { name, email, password } = req.body;
 
     // Validate input
     if (!name || !email || !password) {
+      console.log('Signup attempt failed: Missing required fields');
       return res.status(400).json({ message: 'All fields are required' });
     }
 
+    // Connect to MongoDB if not already connected
+    const connected = await connectToMongoDB();
+    if (!connected) {
+      console.error('MongoDB connection failed during signup');
+      return res.status(503).json({ 
+        message: 'Database service unavailable',
+        error: 'Unable to connect to database'
+      });
+    }
+
     // Check if user already exists
+    console.log(`Checking if user exists with email: ${email}`);
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log(`Signup attempt failed: User already exists for email ${email}`);
       return res.status(400).json({ message: 'User already exists' });
     }
 
     // Hash password
+    console.log('Hashing password...');
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create user
+    console.log('Creating new user...');
     const user = new User({
       name,
       email,
@@ -221,6 +237,7 @@ app.post('/api/auth/signup', async (req, res, next) => {
     });
 
     await user.save();
+    console.log(`User created successfully: ${user._id}`);
 
     // Generate JWT token
     const token = jwt.sign(
@@ -229,6 +246,7 @@ app.post('/api/auth/signup', async (req, res, next) => {
       { expiresIn: '24h' }
     );
 
+    console.log(`Signup successful for user: ${email}`);
     res.status(201).json({
       token,
       user: {
@@ -238,7 +256,11 @@ app.post('/api/auth/signup', async (req, res, next) => {
       }
     });
   } catch (error) {
-    next(error);
+    console.error('Signup error:', error);
+    res.status(500).json({ 
+      message: 'Signup failed',
+      error: error.message 
+    });
   }
 });
 
