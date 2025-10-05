@@ -128,6 +128,7 @@ npm install
 # Set up environment
 cp .env.example .env
 # Add your API keys to .env
+# Configure GEMINI_MODEL to change AI model (optional)
 
 # Start development server
 npm run dev
@@ -135,6 +136,23 @@ npm run dev
 # Open in browser
 # http://localhost:3000
 ```
+
+### 🔧 Environment Variables
+
+See [VERCEL_ENV_SETUP.md](VERCEL_ENV_SETUP.md) for detailed configuration guide.
+
+**Key Variables:**
+- `MONGODB_URI` - MongoDB connection string
+- `VITE_GEMINI_API_KEY` - Google Gemini API key
+- `GEMINI_MODEL` - AI model to use (default: `gemini-2.0-flash-exp`)
+  - Change this in Vercel to switch between models without code changes!
+- `JWT_SECRET` - Secret for JWT tokens
+
+**Available Models:**
+- `gemini-2.0-flash-exp` ⚡ (Recommended - Fastest & Latest)
+- `gemini-1.5-flash` (Fast & Balanced)
+- `gemini-1.5-pro` (Most Capable)
+- See full list in [VERCEL_ENV_SETUP.md](VERCEL_ENV_SETUP.md)
 
 ## 📱 How It Works
 

@@ -23,6 +23,7 @@ const __dirname = dirname(__filename);
 
 // Get environment variables
 const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -640,11 +641,11 @@ app.post('/api/generate-quiz', authenticateToken, async (req, res) => {
     // Create an optimized prompt for Gemini
     const promptText = `Create ${actualNumberOfQuestions} multiple choice questions about "${course.name}" at ${difficulty} difficulty. Format: [{question,options:[A,B,C,D],correctAnswer}]. Be concise.`;
 
-    console.log(`Generating ${actualNumberOfQuestions} questions at ${difficulty} difficulty`);
+    console.log(`Generating ${actualNumberOfQuestions} questions at ${difficulty} difficulty using model: ${GEMINI_MODEL}`);
     
     try {
       // Use the API key as a query parameter with extended timeout
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-8b:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1209,8 +1210,8 @@ Remember to:
 `;
 
     try {
-      console.log('Getting generative model from genAI instance...');
-      const model = genAIInstance.getGenerativeModel({ model: "models/gemini-1.5-flash-8b" });
+      console.log('Getting generative model from genAI instance using model:', GEMINI_MODEL);
+      const model = genAIInstance.getGenerativeModel({ model: GEMINI_MODEL });
       console.log('Model retrieved successfully');
       
       console.log('Generating content...');

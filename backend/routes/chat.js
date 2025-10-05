@@ -7,6 +7,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const router = express.Router();
 
+// Get the Gemini model from environment variable
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+
 // Get all chats for the authenticated user
 router.get('/chats', authenticateToken, async (req, res) => {
   try {
@@ -106,7 +109,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
     
     // Initialize Gemini API
     const genAI = new GoogleGenerativeAI(process.env.VITE_GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
     let prompt = message;
     if (type === 'quiz_explanation') {
