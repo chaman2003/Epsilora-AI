@@ -417,6 +417,122 @@ app.delete('/api/courses/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Course extraction endpoint using Gemini API
+app.post('/api/extract-course', authenticateToken, async (req, res) => {
+  try {
+    const { courseUrl, hoursPerWeek } = req.body;
+
+    if (!courseUrl) {
+      return res.status(400).json({ message: 'Course URL is required' });
+    }
+
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ message: 'API key is not configured' });
+    }
+
+    const today = new Date();
+    const prompt = `You are a helpful course information extraction tool. I need you to generate structured information about the following course URL: "${courseUrl}".
+
+Your task is to output ONLY a valid JSON object with the following structure:
+{
+  "name": "Course Name",
+  "provider": "Provider Name",
+  "duration": "Duration in weeks",
+  "pace": "${hoursPerWeek || 10} hours per week",
+  "objectives": ["Objective 1", "Objective 2", "Objective 3"],
+  "milestones": [
+    {"name": "Milestone 1"},
+    {"name": "Milestone 2"}
+  ],
+  "prerequisites": ["Prerequisite 1", "Prerequisite 2"],
+  "mainSkills": ["Skill 1", "Skill 2", "Skill 3"]
+}
+
+IMPORTANT RULES:
+1. Output ONLY the JSON object. No markdown formatting (no \`\`\`json blocks), no explanations.
+2. Every property must be included and must not be null or undefined.
+3. "name", "provider", "duration", and "pace" must be strings.
+4. "objectives", "prerequisites", "mainSkills" must be arrays of strings.
+5. "milestones" must be an array of objects, each with a "name" property.
+6. Do not include deadline properties in milestones - those will be added later.
+7. Provide at least 3 items in objectives, milestones, and mainSkills arrays.
+8. Keep fields exactly as named in the example - don't rename any properties.`;
+
+    console.log('Extracting course info using model:', GEMINI_MODEL);
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            topP: 0.95,
+            topK: 40,
+            maxOutputTokens: 1024
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Gemini API Error:', errorData);
+      return res.status(500).json({ 
+        message: `API request failed: ${errorData.error?.message || response.statusText}` 
+      });
+    }
+
+    const data = await response.json();
+    
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return res.status(500).json({ message: 'Invalid API response structure' });
+    }
+
+    const responseText = data.candidates[0].content.parts[0].text;
+    
+    // Clean and parse JSON
+    let cleanText = responseText;
+    
+    // Remove markdown code blocks
+    cleanText = cleanText.replace(/```json|```/g, '');
+    
+    // Extract JSON object
+    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(500).json({ message: 'No valid JSON found in response' });
+    }
+    
+    cleanText = jsonMatch[0];
+    
+    // Parse the JSON
+    const parsedInfo = JSON.parse(cleanText);
+    
+    // Calculate milestone dates
+    const totalWeeks = parseInt(parsedInfo.duration.split(' ')[0]) || parsedInfo.milestones.length;
+    const weekInMilliseconds = 7 * 24 * 60 * 60 * 1000;
+    
+    parsedInfo.milestones = parsedInfo.milestones.map((milestone, index) => {
+      const milestoneDate = new Date(today.getTime() + (index + 1) * weekInMilliseconds);
+      return {
+        ...milestone,
+        deadline: milestoneDate.toISOString().split('T')[0],
+        week: index + 1
+      };
+    });
+
+    res.json(parsedInfo);
+  } catch (error) {
+    console.error('Error extracting course info:', error);
+    res.status(500).json({ 
+      message: 'Error extracting course information',
+      error: error.message 
+    });
+  }
+});
+
 // Chat History Schema
 const chatHistorySchema = new mongoose.Schema({
   userId: { type: String, required: true },

@@ -258,10 +258,6 @@ const Courses: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [courses, setCourses] = useState<CourseInfo[]>([]);
   const [savedCourses, setSavedCourses] = useState<(CourseInfo & { _id: string })[]>([]);
-  // Use the same API key configuration as Quiz page
-  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || '';
-  // Use the same model configuration as the backend (can be overridden via environment variable)
-  const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp';
   const { user } = useAuth();
 
   const [expandedCourses, setExpandedCourses] = useState<{ [key: string]: boolean }>({});
@@ -354,211 +350,12 @@ const Courses: React.FC = () => {
     }
   };
 
-  const validateCourseInfo = (data: any): boolean => {
-    console.log('Validating course info:', data);
-    const requiredFields = [
-      'name',
-      'provider',
-      'duration',
-      'pace',
-      'objectives',
-      'milestones',
-      'prerequisites',
-      'mainSkills'
-    ];
-    
-    const missingFields = requiredFields.filter(field => {
-      let isValid = true;
-      
-      if (!data[field]) {
-        console.error(`Field missing or empty: ${field}`);
-        return true; // Field is missing
-      }
-      
-      if (field === 'objectives' || field === 'prerequisites' || field === 'mainSkills') {
-        isValid = Array.isArray(data[field]) && data[field].length > 0;
-        if (!isValid) console.error(`Field invalid (should be non-empty array): ${field}, actual value:`, data[field]);
-      }
-      else if (field === 'milestones') {
-        isValid = Array.isArray(data[field]) && data[field].length > 0;
-        if (!isValid) {
-          console.error(`Milestones invalid (should be non-empty array): ${field}, actual value:`, data[field]);
-        } else {
-          // Check each milestone has at least a name
-          const invalidMilestones = data[field].filter((milestone: any) => !milestone.name);
-          if (invalidMilestones.length > 0) {
-            console.error(`Some milestones are missing 'name' property:`, invalidMilestones);
-            isValid = false;
-          }
-        }
-      }
-      
-      return !isValid;
-    });
-    
-    if (missingFields.length > 0) {
-      console.error('Missing or invalid fields:', missingFields);
-      return false;
-    }
-    
-    return true;
-  };
-
-  const cleanAndParseJSON = (text: string) => {
-    console.log('Raw text from API:', text);
-    
-    try {
-      // First try direct parsing
-      const directParse = JSON.parse(text);
-      console.log('Direct parse successful:', directParse);
-      if (validateCourseInfo(directParse)) {
-        return directParse;
-      }
-      throw new Error('Invalid course info structure');
-    } catch (e1) {
-      console.log('Direct parse failed:', e1);
-      try {
-        // Clean the text
-        let cleanText = text;
-        
-        // Debug log before cleaning
-        console.log('Text before cleaning:', cleanText);
-        
-        // Check if text contains any curly braces
-        if (!cleanText.includes('{') || !cleanText.includes('}')) {
-          console.error('No JSON object found in response');
-          throw new Error('Invalid API response format: No JSON object found');
-        }
-        
-        // Remove any text before the first {
-        cleanText = cleanText.substring(cleanText.indexOf('{'));
-        console.log('After removing text before {:', cleanText);
-        
-        // Remove any text after the last }
-        cleanText = cleanText.substring(0, cleanText.lastIndexOf('}') + 1);
-        console.log('After removing text after }:', cleanText);
-        
-        // Remove markdown code blocks
-        cleanText = cleanText.replace(/```json|```/g, '');
-        
-        // Fix common JSON formatting issues and handle escaped quotes
-        cleanText = cleanText
-          .replace(/\\n/g, ' ')         // Remove newlines
-          .replace(/\\s+/g, ' ')        // Remove extra whitespace
-          .replace(/,\s*}/g, '}')       // Fix trailing commas
-          .replace(/,\s*]/g, ']')       // Fix trailing commas in arrays
-          .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') // Ensure property names are quoted
-          .trim();
-          
-        // Handle special case of quotes in JSON values
-        try {
-          // First try normal parsing
-          console.log('First attempt at parsing cleaned text:', cleanText);
-          let parsed;
-          try {
-            parsed = JSON.parse(cleanText);
-          } catch (quoteError) {
-            console.log('Error parsing with potential quote issues:', quoteError);
-            
-            // Special handling for quotes in course names - more aggressive quote escaping
-            // Replace unescaped quotes inside string values with escaped quotes
-            cleanText = cleanText.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, function(match) {
-              // Replace unescaped quotes within the string with escaped quotes
-              return match.replace(/([^\\])"/g, '$1\\"').replace(/^"/, '"').replace(/"$/, '"');
-            });
-            
-            console.log('After quote escaping:', cleanText);
-            parsed = JSON.parse(cleanText);
-          }
-          
-          console.log('Parsed cleaned text:', parsed);
-          
-          // Fill in any missing fields with defaults
-          const filledParsed = {
-            name: parsed.name || "Untitled Course",
-            provider: parsed.provider || "Unknown Provider",
-            duration: parsed.duration || "12 weeks",
-            pace: parsed.pace || `${hoursPerWeek} hours per week`,
-            objectives: Array.isArray(parsed.objectives) ? parsed.objectives : ["Complete the course"],
-            milestones: Array.isArray(parsed.milestones) && parsed.milestones.length > 0 
-                      ? parsed.milestones.map((m: any) => ({ name: m.name || "Complete milestone" }))
-                      : [{ name: "Complete the course" }],
-            prerequisites: Array.isArray(parsed.prerequisites) ? parsed.prerequisites : [],
-            mainSkills: Array.isArray(parsed.mainSkills) ? parsed.mainSkills : []
-          };
-          
-          console.log('Filled parsed object:', filledParsed);
-          
-          if (!validateCourseInfo(filledParsed)) {
-            throw new Error('Missing required fields in course info');
-          }
-          
-          return filledParsed;
-        } catch (parseError) {
-          console.error('JSON parse error:', parseError);
-          
-          // Most aggressive approach as a last resort
-          try {
-            // Replace problematic quotes completely
-            cleanText = cleanText
-              .replace(/'/g, '"')         // Replace single quotes with double quotes
-              .replace(/\\/g, '\\\\')     // Escape backslashes
-              .replace(/\r?\n|\r/g, '')   // Remove all line breaks
-              .replace(/\t/g, ' ');       // Replace tabs with spaces
-            
-            // Fix double quotes in property values
-            cleanText = cleanText.replace(/"name"\s*:\s*"([^"]*)"([^,}]*)"([^"]*)"/g, '"name":"$1$2$3"');
-            
-            console.log('Aggressive cleaning, trying again with:', cleanText);
-            const parsed = JSON.parse(cleanText);
-            
-            // Fill in missing fields with defaults like before
-            const filledParsed = {
-              name: parsed.name || "Untitled Course",
-              provider: parsed.provider || "Unknown Provider",
-              duration: parsed.duration || "12 weeks",
-              pace: parsed.pace || `${hoursPerWeek} hours per week`,
-              objectives: Array.isArray(parsed.objectives) ? parsed.objectives : ["Complete the course"],
-              milestones: Array.isArray(parsed.milestones) && parsed.milestones.length > 0 
-                        ? parsed.milestones.map((m: any) => ({ name: m.name || "Complete milestone" }))
-                        : [{ name: "Complete the course" }],
-              prerequisites: Array.isArray(parsed.prerequisites) ? parsed.prerequisites : [],
-              mainSkills: Array.isArray(parsed.mainSkills) ? parsed.mainSkills : []
-            };
-            
-            if (!validateCourseInfo(filledParsed)) {
-              throw new Error('Missing required fields in course info');
-            }
-            
-            return filledParsed;
-          } catch (e3) {
-            console.error('Failed to parse JSON after aggressive cleaning:', e3);
-            throw new Error('Failed to parse course information. Please check the format and try again.');
-          }
-        }
-      } catch (e2) {
-        console.error('Failed to parse JSON after cleaning:', e2);
-        if (e2.message && e2.message.includes('Invalid API response format')) {
-          throw new Error('The AI response did not contain a valid JSON object. Please try again.');
-        }
-        if (e2.message && e2.message.includes('Missing required fields')) {
-          throw new Error('The AI response is missing required course information. Please try again.');
-        }
-        throw new Error('Failed to parse course information. Please check the format and try again.');
-      }
-    }
-  };
-
   const formatDate = (date: Date) => {
     return date.toISOString().split('T')[0];
   };
 
   const extractCourseInfo = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!API_KEY) {
-      toast.error('API key is not configured. Please check your environment variables.');
-      return;
-    }
 
     if (!courseUrl) {
       toast.error('Please enter a course URL');
@@ -572,87 +369,25 @@ const Courses: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const today = new Date();
-      const prompt = `You are a helpful course information extraction tool. I need you to generate structured information about the following course URL: "${courseUrl}".
+      console.log('Sending course extraction request to backend');
 
-Your task is to output ONLY a valid JSON object with the following structure:
-{
-  "name": "Course Name",
-  "provider": "Provider Name",
-  "duration": "Duration in weeks",
-  "pace": "${hoursPerWeek} hours per week",
-  "objectives": ["Objective 1", "Objective 2", "Objective 3"],
-  "milestones": [
-    {"name": "Milestone 1"},
-    {"name": "Milestone 2"}
-  ],
-  "prerequisites": ["Prerequisite 1", "Prerequisite 2"],
-  "mainSkills": ["Skill 1", "Skill 2", "Skill 3"]
-}
-
-IMPORTANT RULES:
-1. Output ONLY the JSON object. No markdown formatting (no \`\`\`json blocks), no explanations.
-2. Every property must be included and must not be null or undefined.
-3. "name", "provider", "duration", and "pace" must be strings.
-4. "objectives", "prerequisites", "mainSkills" must be arrays of strings.
-5. "milestones" must be an array of objects, each with a "name" property.
-6. Do not include deadline properties in milestones - those will be added later.
-7. Provide at least 3 items in objectives, milestones, and mainSkills arrays.
-8. Keep fields exactly as named in the example - don't rename any properties.`;
-
-      console.log('Sending prompt to Gemini API:', prompt);
-      console.log('Using Gemini Model:', GEMINI_MODEL);
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.1,
-              topP: 0.95,
-              topK: 40,
-              maxOutputTokens: 1024
-            }
-          })
+      const response = await axiosInstance.post('/api/extract-course', {
+        courseUrl,
+        hoursPerWeek
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('API Error Response:', errorData);
-        throw new Error(`API request failed: ${errorData.error?.message || response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('Raw API response:', data);
-      
-      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-        throw new Error('Invalid API response structure');
-      }
-
-      const responseText = data.candidates[0].content.parts[0].text;
-      console.log('Raw response text:', responseText);
-      
-      const parsedInfo = cleanAndParseJSON(responseText);
-      
-      // Calculate milestone dates
-      const totalWeeks = parseInt(parsedInfo.duration.split(' ')[0]) || parsedInfo.milestones.length;
-      const weekInMilliseconds = 7 * 24 * 60 * 60 * 1000;
-      
-      parsedInfo.milestones = parsedInfo.milestones.map((milestone: any, index: number) => {
-        const milestoneDate = new Date(today.getTime() + (index + 1) * weekInMilliseconds);
-        return {
-          ...milestone,
-          deadline: milestoneDate.toISOString().split('T')[0],
-          week: index + 1
-        };
       });
 
+      const parsedInfo = response.data;
+      console.log('Course info received from backend:', parsedInfo);
+      
       // Set course deadline to the last milestone date
       const lastMilestone = parsedInfo.milestones[parsedInfo.milestones.length - 1];
+      const today = new Date();
+      const totalWeeks = parseInt(parsedInfo.duration.split(' ')[0]) || parsedInfo.milestones.length;
+      const weekInMilliseconds = 7 * 24 * 60 * 60 * 1000;
       
       setExtractedCourse({
         ...parsedInfo,
@@ -663,7 +398,7 @@ IMPORTANT RULES:
 
     } catch (error: any) {
       console.error('Error extracting course info:', error);
-      toast.error(error.message || 'Error extracting course information');
+      toast.error(error.response?.data?.message || error.message || 'Error extracting course information');
     } finally {
       setIsLoading(false);
     }
