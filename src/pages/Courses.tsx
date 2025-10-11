@@ -258,7 +258,10 @@ const Courses: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [courses, setCourses] = useState<CourseInfo[]>([]);
   const [savedCourses, setSavedCourses] = useState<(CourseInfo & { _id: string })[]>([]);
-  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+  // Use the same API key configuration as Quiz page
+  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || '';
+  // Use the same model configuration as the backend (can be overridden via environment variable)
+  const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp';
   const { user } = useAuth();
 
   const [expandedCourses, setExpandedCourses] = useState<{ [key: string]: boolean }>({});
@@ -598,9 +601,10 @@ IMPORTANT RULES:
 8. Keep fields exactly as named in the example - don't rename any properties.`;
 
       console.log('Sending prompt to Gemini API:', prompt);
+      console.log('Using Gemini Model:', GEMINI_MODEL);
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-8b:generateContent?key=${API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${API_KEY}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
