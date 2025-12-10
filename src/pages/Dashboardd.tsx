@@ -4,7 +4,7 @@ import { QuoteSection } from "../components/dashboard/QuoteSection";
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../contexts/DashboardContext';
 import { MetricCard } from '../components/dashboard/MetricCard';
-import axiosInstance from '../utils/axios';
+import axiosInstance from '../config/axios';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';

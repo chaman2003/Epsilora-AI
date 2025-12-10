@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, Award, Target, Calendar } from 'lucide-react';
-import axiosInstance from '../../utils/axios';
+import axiosInstance from '../../config/axios';
 
 interface QuizHistoryModalProps {
   isOpen: boolean;

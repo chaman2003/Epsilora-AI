@@ -1,30 +1,22 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useQuiz } from '../context/QuizContext';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { useQuiz } from '../contexts/QuizContext';
 import { useAuth } from '../contexts/AuthContext';
 import { 
-  User,
-  Send,
   Award,
-  AlertCircle,
-  Loader2,
-  Timer,
   XCircle,
   CheckCircle,
   Target,
   Calendar,
   History as HistoryIcon,
-  ClipboardList,
-  BookOpen,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  BarChart2
+  ClipboardList
 } from 'lucide-react';
 import axiosInstance from '../config/axios';
 import toast from 'react-hot-toast';
-import axios from 'axios';
 import { Course, QuizAttempt } from '../types';
 import QuizLimitNotice from '../components/QuizLimitNotice';
 import QuizGenerationError from '../components/QuizGenerationError';
@@ -1246,7 +1238,7 @@ const generateQuiz = async () => {
     const filteredHistory = formattedQuizHistory.filter(quiz => quiz.courseName !== 'Loading...');
     
     // Apply filters
-    let filtered = filteredHistory.filter(quiz => {
+    const filtered = filteredHistory.filter(quiz => {
         if (filterDifficulty !== 'all' && quiz.difficulty !== filterDifficulty) return false;
         if (filterCourse !== 'all' && quiz.courseName !== filterCourse) return false;
         return true;

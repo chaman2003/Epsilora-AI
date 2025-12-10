@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../config/axios';
 import axios from 'axios';
@@ -7,8 +7,7 @@ import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
-import { useQuiz } from '../context/QuizContext';
-import { normalizeMarkdownText } from '../utils/markdown';
+import { useQuiz } from '../contexts/QuizContext';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, coldarkDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTheme } from '../contexts/ThemeContext';
@@ -90,7 +89,7 @@ const cleanMarkdown = (text: string): string => {
   if (!text) return '';
   
   // Fix misformatted tables by ensuring proper spacing
-  let fixed = text
+  const fixed = text
     // Fix table headers with improper spacing
     .replace(/\|\s*-\s*-\s*-\s*\|/g, '| --- |')
     .replace(/\|\s*-\s*-\s*\|/g, '| --- |')

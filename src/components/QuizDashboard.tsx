@@ -1,11 +1,18 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Award, Book, Clock } from 'lucide-react';
-import { useQuiz } from '../context/QuizContext';
+import { useQuiz } from '../contexts/QuizContext';
 import { toast } from 'react-hot-toast';
 
+interface QuizData {
+  score: number;
+  totalQuestions: number;
+  courseName: string;
+  difficulty: string;
+}
+
 interface QuizDashboardProps {
-  quizData: any;
+  quizData: QuizData | null;
   onRetake: () => void;
 }
 

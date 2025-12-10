@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import axiosInstance from '../config/axios';
 import { toast } from 'react-hot-toast';
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Course, Milestone } from '../types';
-import { CheckCircle2, Circle, ChevronDown, ChevronUp, Award, Clock, AlertTriangle, Calendar, CheckSquare, Square, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, ChevronUp, Clock, Calendar, CheckSquare, Square, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, RadialLinearScale, ArcElement, Tooltip as ChartJSTooltip, Legend } from 'chart.js';
-import { PolarArea, Pie, Doughnut } from 'react-chartjs-2';
-import Chart from 'chart.js/auto';
-import { testCourses } from '../api/mockData';
+import { Pie } from 'react-chartjs-2';
 import { themeConfig } from '../config/theme';
 
 // Register necessary components and scales for the PolarArea and Bar charts
@@ -211,19 +211,19 @@ const Progress: React.FC = () => {
 
   const fetchCourses = async () => {
     try {
-      // For testing, use the testCourses data
       const response = await axiosInstance.get('/api/courses');
       if (Array.isArray(response.data)) {
         setCourses(response.data);
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        setCourses(response.data.data);
       } else {
-        // Fallback to test data if API fails
-        setCourses(testCourses);
+        setCourses([]);
+        toast.error('Invalid courses data received');
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
-      // Use test data as fallback
-      setCourses(testCourses);
-      toast.error('Using test data - API connection failed');
+      setCourses([]);
+      toast.error('Failed to load courses. Please try again later.');
     }
   };
 

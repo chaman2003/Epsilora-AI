@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Award, Book, MessageSquare, ChevronLeft, CheckCircle, XCircle, ArrowUp, AlertCircle, Info, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useQuiz } from '../context/QuizContext';
-import type { QuizData } from '../context/QuizContext';
+import { useQuiz } from '../contexts/QuizContext';
+import type { QuizData } from '../contexts/QuizContext';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../contexts/ThemeContext';
 

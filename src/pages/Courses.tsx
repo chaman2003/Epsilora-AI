@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '../config/axios';
 import { useAuth } from '../contexts/AuthContext';
-import { API_BASE_URL } from '../config';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useNavigate } from 'react-router-dom';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { 
   Calendar, 
   Clock, 
-  Book, 
   Target, 
   ChevronRight, 
-  Plus, 
   Trash2, 
   Edit2, 
   BarChart2, 

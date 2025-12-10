@@ -1,4 +1,5 @@
 import React from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Image, Clock, Tag, Heart, Trash } from 'lucide-react';
 
 const ImageGenerations = () => {
@@ -64,3 +65,4 @@ const ImageGenerations = () => {
 };
 
 export default ImageGenerations;
+

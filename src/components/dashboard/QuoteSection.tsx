@@ -40,7 +40,7 @@ export const QuoteSection = () => {
       // Fix common JSON formatting issues
       cleanText = cleanText
         .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') // Ensure property names are quoted
-        .replace(/:\s*([^",\{\}\[\]]+)(,|})/g, ':"$1"$2'); // Ensure string values are quoted
+        .replace(/:\s*([^",{}[\]]+)(,|})/g, ':"$1"$2'); // Ensure string values are quoted
 
       try {
         const quoteData = JSON.parse(cleanText);

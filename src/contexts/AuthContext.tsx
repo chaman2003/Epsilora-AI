@@ -65,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const checkAuthStatus = async (currentToken: string) => {
     try {
       axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${currentToken}`;

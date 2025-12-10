@@ -1,28 +1,42 @@
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
+import config from '../config/config.js';
+import { connectToMongoDB } from '../config/database.js';
 
-dotenv.config();
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-export const authenticateToken = (req, res, next) => {
+/**
+ * Authentication middleware with on-demand MongoDB connection
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ */
+export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
+    return res.status(401).json({ message: 'Authentication token required' });
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    // Connect to MongoDB first if needed
+    const connected = await connectToMongoDB();
+    if (!connected) {
+      return res.status(503).json({ message: 'Database unavailable' });
+    }
+
+    const user = jwt.verify(token, config.jwtSecret);
+    req.user = user;
     next();
   } catch (error) {
     console.error('Token verification error:', error);
-    return res.status(401).json({ message: 'Invalid token' });
+    return res.status(403).json({ message: 'Invalid or expired token' });
   }
 };
 
+/**
+ * Generate JWT token for user
+ * @param {Object} user - User object
+ * @returns {string} JWT token
+ */
 export const generateToken = (user) => {
   return jwt.sign(
     { 
@@ -30,7 +44,9 @@ export const generateToken = (user) => {
       email: user.email,
       name: user.name 
     },
-    JWT_SECRET,
-    { expiresIn: '24h' }
+    config.jwtSecret,
+    { expiresIn: config.jwtExpiresIn }
   );
 };
+
+export default { authenticateToken, generateToken };

@@ -1,4 +1,5 @@
 import React from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Database, ExternalLink, Trash2 } from 'lucide-react';
 
 const Loras = () => {
@@ -70,3 +71,4 @@ const Loras = () => {
 };
 
 export default Loras;
+

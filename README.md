@@ -10,6 +10,7 @@
     <a href="#-features"><img src="https://img.shields.io/badge/Explore%20Features-FF6B6B?style=for-the-badge&logo=speakerdeck&logoColor=white" alt="Explore Features" /></a>
     <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick%20Start-4CAF50?style=for-the-badge&logo=codecademy&logoColor=white" alt="Quick Start" /></a>
     <a href="#-tech-stack"><img src="https://img.shields.io/badge/Tech%20Stack-007FFF?style=for-the-badge&logo=react&logoColor=white" alt="Tech Stack" /></a>
+    <a href="docs/DEPLOYMENT.md"><img src="https://img.shields.io/badge/Documentation-FFA500?style=for-the-badge&logo=readthedocs&logoColor=white" alt="Documentation" /></a>
   </p>
   
   <p>
@@ -152,7 +153,7 @@ See [VERCEL_ENV_SETUP.md](VERCEL_ENV_SETUP.md) for detailed configuration guide.
 - `gemini-2.0-flash-exp` ⚡ (Recommended - Fastest & Latest)
 - `gemini-1.5-flash` (Fast & Balanced)
 - `gemini-1.5-pro` (Most Capable)
-- See full list in [VERCEL_ENV_SETUP.md](VERCEL_ENV_SETUP.md)
+- See full configuration guide in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ## 📱 How It Works
 
@@ -197,6 +198,12 @@ See [VERCEL_ENV_SETUP.md](VERCEL_ENV_SETUP.md) for detailed configuration guide.
 - **Career Changers** building skills for professional transitions
 - **Continuous Learners** staying current in evolving fields
 - **Educational Institutions** enhancing online learning offerings
+
+## 📚 Documentation
+
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Complete guide for deploying to Vercel with environment variables
+- **[Architecture](docs/ARCHITECTURE.md)** - Project structure and architectural decisions
+- **[Backend API](docs/BACKEND.md)** - Backend API documentation and endpoints
 
 ## 📬 Get in Touch
 

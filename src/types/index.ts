@@ -149,7 +149,7 @@ export interface ImageGeneration {
   generated_at: string;
   model: string;
   hf_lora: string;
-  prediction_log: any;
+  prediction_log: Record<string, unknown> | null;
   prediction_id: string;
   prediction_status: string;
   replicate_image_url: string;

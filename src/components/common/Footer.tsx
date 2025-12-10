@@ -1,28 +1,26 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { 
   GraduationCap, 
   Github, 
   Twitter, 
   Linkedin, 
-  Mail, 
   Heart,
   ArrowUp,
   BookOpen,
   MessageSquare,
-  Award,
-  Users,
   Sparkles,
   BarChart2,
   Brain,
   Bot
 } from 'lucide-react';
-import { themeConfig } from '../../config/theme';
 
 const Footer = () => {
   const [suggestion, setSuggestion] = useState('');
   const [email, setEmail] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [, setIsSubmitted] = useState(false);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
