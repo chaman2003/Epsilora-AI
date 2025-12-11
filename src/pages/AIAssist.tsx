@@ -312,14 +312,16 @@ const AIAssist: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      // Handle nested response structure: response.data.data.chat or response.data.chat or response.data
+      const responseData = response.data.data || response.data;
+      const newChat = responseData.chat || responseData;
+      
       // Make sure we have a valid response
-      if (!response.data || !response.data._id) {
+      if (!newChat || !newChat._id) {
         console.error('Invalid response when creating new chat', response);
         toast.error('Failed to create new chat: Invalid server response');
         return null;
       }
-
-      const newChat = response.data;
 
       // Update state in a way that avoids race conditions
       setChatHistories(prev => {
@@ -521,11 +523,12 @@ const AIAssist: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Handle nested response structure: response.data.data or response.data
+      // Handle nested response structure: response.data.data.chatHistories or response.data.data or response.data
       const responseData = response.data.data || response.data;
+      const chatHistoriesData = responseData.chatHistories || responseData;
       
       // Ensure we're working with valid data
-      const validHistories = Array.isArray(responseData) ? responseData : [];
+      const validHistories = Array.isArray(chatHistoriesData) ? chatHistoriesData : [];
       
       // Filter out any chats that are in our deleted chats tracking set
       const filteredHistories = validHistories.filter(chat => 

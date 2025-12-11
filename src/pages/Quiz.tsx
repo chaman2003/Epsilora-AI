@@ -577,8 +577,16 @@ const generateQuiz = async () => {
       });
 
     if (response.data) {
+      // Handle nested response structure: response.data.data.questions or response.data.questions or response.data
+      const responseData = response.data.data || response.data;
+      const questionsArray = responseData.questions || responseData;
+      
+      if (!Array.isArray(questionsArray)) {
+        throw new Error('Invalid quiz data received from server');
+      }
+      
       // Process the quiz questions with consistent formatting
-      const formattedQuestions = response.data.map((q: any) => {
+      const formattedQuestions = questionsArray.map((q: any) => {
         // Ensure correctAnswer exists and is properly formatted
         let correctAnswer = q.correctAnswer?.toUpperCase().trim();
         

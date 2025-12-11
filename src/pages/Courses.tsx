@@ -385,11 +385,19 @@ const Courses: React.FC = () => {
         }
       });
 
-      const parsedInfo = response.data;
+      const responseData = response.data.data || response.data;
+      const parsedInfo = responseData.courseInfo || responseData;
       console.log('Course info received from backend:', parsedInfo);
       
+      // Ensure milestones array exists
+      if (!parsedInfo.milestones || !Array.isArray(parsedInfo.milestones)) {
+        parsedInfo.milestones = [];
+      }
+      
       // Set course deadline to the last milestone date
-      const lastMilestone = parsedInfo.milestones[parsedInfo.milestones.length - 1];
+      const lastMilestone = parsedInfo.milestones.length > 0 
+        ? parsedInfo.milestones[parsedInfo.milestones.length - 1] 
+        : null;
       const today = new Date();
       const totalWeeks = parseInt(parsedInfo.duration.split(' ')[0]) || parsedInfo.milestones.length;
       const weekInMilliseconds = 7 * 24 * 60 * 60 * 1000;
