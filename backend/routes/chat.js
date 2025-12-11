@@ -3,12 +3,9 @@ import Chat from '../models/Chat.js';
 import AIChat from '../models/AIChat.js';
 import Course from '../models/Course.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateContent } from '../utils/gemini.js';
 
 const router = express.Router();
-
-// Get the Gemini model from environment variable
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
 
 // Get all chats for the authenticated user
 router.get('/chats', authenticateToken, async (req, res) => {
@@ -107,18 +104,16 @@ router.post('/ai', authenticateToken, async (req, res) => {
   try {
     const { message, type } = req.body;
     
-    // Initialize Gemini API
-    const genAI = new GoogleGenerativeAI(process.env.VITE_GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    if (!message) {
+      return res.status(400).json({ message: 'Message is required' });
+    }
 
     let prompt = message;
     if (type === 'quiz_explanation') {
       prompt = `You are a helpful AI tutor. Please explain the following quiz question and its correct answer in two clear, concise sentences:\n\n${message}`;
     }
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const text = await generateContent(prompt);
 
     // Save the chat history
     const chat = new AIChat({
