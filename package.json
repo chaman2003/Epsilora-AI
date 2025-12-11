@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --config src/vite.config.ts",
-    "build": "tsc --project src/tsconfig.json && vite build --config src/vite.config.ts",
+    "dev": "vite",
+    "build": "tsc --project src/tsconfig.json && vite build",
     "lint": "eslint . --config src/eslint.config.js",
-    "preview": "vite preview --config src/vite.config.ts"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@emotion/react": "^11.13.5",
