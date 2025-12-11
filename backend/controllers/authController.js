@@ -81,8 +81,12 @@ class AuthController {
    */
   getMe = asyncHandler(async (req, res) => {
     try {
+      if (!req.user || !req.user.id) {
+        return sendError(res, 'User not authenticated', 401);
+      }
+      
       const user = await authService.getUserById(req.user.id);
-      return sendSuccess(res, { user }, 'User profile retrieved successfully');
+      return sendSuccess(res, user, 'User profile retrieved successfully');
     } catch (error) {
       console.error('Get user error:', error);
       if (error.message === 'User not found') {

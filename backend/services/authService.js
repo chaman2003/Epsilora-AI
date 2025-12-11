@@ -94,7 +94,12 @@ class AuthService {
       throw new Error('User not found');
     }
 
-    return user;
+    return {
+      _id: user._id,
+      id: user._id,
+      name: user.name,
+      email: user.email
+    };
   }
 
   /**
