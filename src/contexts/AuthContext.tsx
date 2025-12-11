@@ -41,9 +41,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem('token');
-      console.log('[AuthContext Init] Stored Token:', storedToken ? 'exists' : 'missing');
+      console.log('[AuthContext Init] Stored Token:', storedToken ? `exists (${storedToken.length} chars)` : 'missing');
       
-      if (storedToken && storedToken.trim()) {
+      if (storedToken && storedToken.trim() && storedToken.length > 20) {
         try {
           // Clean token: remove quotes and extra whitespace
           const cleanToken = storedToken.replace(/^["']|["']$/g, '').trim();
@@ -56,12 +56,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const response = await axiosInstance.get('/api/auth/me');
           console.log('[AuthContext Init] User Data Response:', response.data);
           
-          if (response.data) {
-            setUser(response.data);
+          // Backend wraps response in { success, message, data: { ... } }
+          const userData = response.data.data || response.data;
+          
+          if (userData && (userData._id || userData.id || userData.email)) {
+            setUser(userData);
             setIsAuthenticated(true);
             console.log('[AuthContext Init] Auth successful');
           } else {
-            console.log('[AuthContext Init] No user data in response');
+            console.log('[AuthContext Init] No valid user data in response');
             handleLogout();
           }
         } catch (error) {
@@ -69,7 +72,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           handleLogout();
         }
       } else {
-        console.log('[AuthContext Init] No valid token found');
+        console.log('[AuthContext Init] No valid token found (missing or too short)');
+        if (storedToken) {
+          // Clear invalid token
+          localStorage.removeItem('token');
+        }
       }
       setLoading(false);
     };
@@ -107,9 +114,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     try {
       const response = await axiosInstance.post('/api/auth/login', { email, password });
-      const { token: newToken, user: userData } = response.data;
       
-      console.log('[AuthContext] Login response token:', newToken ? 'received' : 'missing');
+      // Backend wraps response in { success, message, data: { token, user } }
+      const responseData = response.data.data || response.data;
+      const { token: newToken, user: userData } = responseData;
+      
+      console.log('[AuthContext] Login response:', response.data);
+      console.log('[AuthContext] Login response token:', newToken ? `received (${newToken.length} chars)` : 'missing');
+      
+      if (!newToken) {
+        throw new Error('No token received from server');
+      }
       
       // Ensure token is stored as plain string without quotes
       const cleanToken = typeof newToken === 'string' ? newToken.replace(/^["']|["']$/g, '').trim() : String(newToken);
@@ -126,6 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(true);
       return true;
     } catch (error) {
+      console.error('[AuthContext] Login error:', error);
       const message = error instanceof Error ? error.message : 'Login failed';
       setError(message);
       toast.error('Login failed. Please check your credentials.');
@@ -149,10 +165,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password,
       });
-      const { token: newToken, user: userData } = response.data;
+      
+      // Backend wraps response in { success, message, data: { token, user } }
+      const responseData = response.data.data || response.data;
+      const { token: newToken, user: userData } = responseData;
+      
+      console.log('[AuthContext] Signup response token:', newToken ? `received (${newToken.length} chars)` : 'missing');
+      
+      if (!newToken) {
+        throw new Error('No token received from server');
+      }
       
       // Ensure token is stored as plain string without quotes
-      const cleanToken = typeof newToken === 'string' ? newToken.replace(/^["']|["']$/g, '').trim() : newToken;
+      const cleanToken = typeof newToken === 'string' ? newToken.replace(/^["']|["']$/g, '').trim() : String(newToken);
       localStorage.setItem('token', cleanToken);
       setToken(cleanToken);
       axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${cleanToken}`;
@@ -161,6 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(true);
       toast.success('Account created successfully!');
     } catch (error) {
+      console.error('[AuthContext] Signup error:', error);
       const message = error instanceof Error ? error.message : 'Signup failed';
       setError(message);
       toast.error('Signup failed. Please try again.');
