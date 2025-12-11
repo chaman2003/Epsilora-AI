@@ -115,11 +115,17 @@ router.post('/ai', authenticateToken, async (req, res) => {
 
     const text = await generateContent(prompt);
 
+    // Generate title from message (first 50 characters)
+    const title = message.slice(0, 50) + (message.length > 50 ? '...' : '');
+
     // Save the chat history
     const chat = new AIChat({
       userId: req.user.id,
-      message: prompt,
-      response: text,
+      title: title,
+      messages: [
+        { role: 'user', content: message },
+        { role: 'assistant', content: text }
+      ],
       type: type || 'general'
     });
     await chat.save();
