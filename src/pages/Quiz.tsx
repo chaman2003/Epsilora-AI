@@ -260,7 +260,19 @@ const Quiz: React.FC = () => {
       console.log('Fetching quiz history...');
       const response = await axiosInstance.get(`/api/quiz-history/${user._id}`);
       console.log('Quiz history raw response:', response.data);
-      const history = response.data.history.map((quiz: any) => ({
+      
+      // Handle nested response structure: response.data.data.history or response.data.history
+      const responseData = response.data.data || response.data;
+      const historyData = responseData.history || responseData || [];
+      
+      if (!Array.isArray(historyData)) {
+        console.warn('Quiz history is not an array:', historyData);
+        setQuizHistory([]);
+        setHistoryFetched(true);
+        return;
+      }
+      
+      const history = historyData.map((quiz: any) => ({
         id: quiz.id || quiz._id,
         courseId: quiz.courseId,
         courseName: 'Loading...', // Set to loading initially
@@ -274,9 +286,10 @@ const Quiz: React.FC = () => {
       setQuizHistory(history);
       setHistoryFetched(true);
 
-      // Update quiz stats if available
-      if (response.data.stats) {
-        setQuizStats(response.data.stats);
+      // Update quiz stats if available - also check nested structure
+      const stats = responseData.stats || response.data.stats;
+      if (stats) {
+        setQuizStats(stats);
       }
     } catch (error) {
       console.error('Error fetching quiz history:', error);
@@ -319,13 +332,17 @@ const Quiz: React.FC = () => {
       
       console.log('Raw courses response:', response);
       
-      if (response.data && Array.isArray(response.data)) {
-        setCourses(response.data);
+      // Handle nested response structure: response.data.data.courses or response.data.courses or response.data
+      const responseData = response.data.data || response.data;
+      const coursesArray = responseData.courses || responseData;
+      
+      if (coursesArray && Array.isArray(coursesArray)) {
+        setCourses(coursesArray);
         
         // Once we have courses, we can update the quiz history with course names
         if (quizHistory.length > 0) {
           const updatedHistory = quizHistory.map((quiz) => {
-            const course = response.data.find((c: { _id: string }) => c._id === quiz.courseId);
+            const course = coursesArray.find((c: { _id: string }) => c._id === quiz.courseId);
             return {
               ...quiz,
               courseName: course ? course.name : 'Unknown Course'

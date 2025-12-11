@@ -320,9 +320,13 @@ const Courses: React.FC = () => {
         return;
       }
 
-      if (Array.isArray(response.data)) {
-        console.log('Saved courses array:', response.data);
-        setSavedCourses(response.data);
+      // Handle nested response structure: response.data.data.courses or response.data.courses or response.data
+      const responseData = response.data.data || response.data;
+      const coursesArray = responseData.courses || responseData;
+      
+      if (Array.isArray(coursesArray)) {
+        console.log('Saved courses array:', coursesArray);
+        setSavedCourses(coursesArray);
       } else {
         console.error('Saved courses response is not an array:', response.data);
         setSavedCourses([]);
@@ -341,9 +345,10 @@ const Courses: React.FC = () => {
           Authorization: `Bearer ${token}`
         }
       });
-      if (Array.isArray(response.data)) {
-        setMilestoneProgress(response.data);
-      }
+      // Handle nested response structure
+      const responseData = response.data.data || response.data;
+      const progressArray = Array.isArray(responseData) ? responseData : [];
+      setMilestoneProgress(progressArray);
     } catch (error) {
       console.error('Error fetching milestone progress:', error);
       setMilestoneProgress([]);
@@ -410,10 +415,10 @@ const Courses: React.FC = () => {
 
       const courseData = {
         ...extractedCourse,
-        userId: user?.id
+        userId: user?._id
       };
 
-      const savedCourse = await axiosInstance.post('/api/courses', courseData, {
+      await axiosInstance.post('/api/courses', courseData, {
         headers: {
           Authorization: `Bearer ${token}`
         }

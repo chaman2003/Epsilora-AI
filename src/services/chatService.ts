@@ -3,14 +3,23 @@ import axiosInstance from '../config/axios';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Chat Service - Handles all chat API calls
+ * All responses are unwrapped from the nested { success, message, data: {...} } structure
  */
 class ChatService {
+  /**
+   * Helper to extract data from nested response
+   */
+  private extractData(response: any): any {
+    const data = response.data;
+    return data.data || data;
+  }
+
   /**
    * Get all chat histories
    */
   async getChatHistories() {
     const response = await axiosInstance.get('/api/chat-history');
-    return response.data;
+    return this.extractData(response);
   }
 
   /**
@@ -18,7 +27,7 @@ class ChatService {
    */
   async getChatHistoryById(chatId: string): Promise<any> {
     const response = await axiosInstance.get(`/api/chat-history/${chatId}`);
-    return response.data;
+    return this.extractData(response);
   }
 
   /**
@@ -26,7 +35,7 @@ class ChatService {
    */
   async createChatHistory(chatData: any): Promise<any> {
     const response = await axiosInstance.post('/api/chat-history', chatData);
-    return response.data;
+    return this.extractData(response);
   }
 
   /**
@@ -34,7 +43,7 @@ class ChatService {
    */
   async updateChatHistory(chatId: string, chatData: any): Promise<any> {
     const response = await axiosInstance.put(`/api/chat-history/${chatId}`, chatData);
-    return response.data;
+    return this.extractData(response);
   }
 
   /**
@@ -42,7 +51,7 @@ class ChatService {
    */
   async deleteChatHistory(chatId: string): Promise<any> {
     const response = await axiosInstance.delete(`/api/chat-history/${chatId}`);
-    return response.data;
+    return this.extractData(response);
   }
 
   /**
@@ -50,7 +59,7 @@ class ChatService {
    */
   async deleteAllChatHistories() {
     const response = await axiosInstance.delete('/api/chat-history/all');
-    return response.data;
+    return this.extractData(response);
   }
 }
 

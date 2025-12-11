@@ -3,8 +3,17 @@ import axiosInstance from '../config/axios';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Quiz Service - Handles all quiz API calls
+ * All responses are unwrapped from the nested { success, message, data: {...} } structure
  */
 class QuizService {
+  /**
+   * Helper to extract data from nested response
+   */
+  private extractData(response: any): any {
+    const data = response.data;
+    return data.data || data;
+  }
+
   /**
    * Generate quiz questions
    */
@@ -15,7 +24,7 @@ class QuizService {
       difficulty,
       timePerQuestion
     });
-    return response.data;
+    return this.extractData(response);
   }
 
   /**
@@ -23,7 +32,7 @@ class QuizService {
    */
   async getQuizHistory() {
     const response = await axiosInstance.get('/api/quiz/history');
-    return response.data;
+    return this.extractData(response);
   }
 
   /**
@@ -31,7 +40,7 @@ class QuizService {
    */
   async saveQuizResult(quizData: any): Promise<any> {
     const response = await axiosInstance.post('/api/quiz/save-result', quizData);
-    return response.data;
+    return this.extractData(response);
   }
 
   /**
@@ -39,7 +48,7 @@ class QuizService {
    */
   async getQuizStats() {
     const response = await axiosInstance.get('/api/quiz/stats');
-    return response.data;
+    return this.extractData(response);
   }
 
   /**
@@ -47,7 +56,7 @@ class QuizService {
    */
   async getQuizHistoryByUserId(userId: string): Promise<any> {
     const response = await axiosInstance.get(`/api/quiz/history/${userId}`);
-    return response.data;
+    return this.extractData(response);
   }
 }
 

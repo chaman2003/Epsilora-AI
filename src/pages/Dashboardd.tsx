@@ -5,17 +5,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../contexts/DashboardContext';
 import { MetricCard } from '../components/dashboard/MetricCard';
 import axiosInstance from '../config/axios';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid } from 'recharts';
 import { Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip as ChartJSTooltip, Legend as ChartJSLegend } from 'chart.js';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
   Title,
-  Tooltip,
-  Legend
+  ChartJSTooltip,
+  ChartJSLegend
 );
 
 interface Metrics {
@@ -58,18 +58,72 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [metricsRes, statsRes] = await Promise.all([
-          axiosInstance.get('/api/metrics'),
-          axiosInstance.get('/api/user/stats')
-        ]);
-        setMetrics(metricsRes.data);
-        setStats(statsRes.data);
+        // Use the correct dashboard endpoint
+        const dashboardRes = await axiosInstance.get('/api/dashboard');
+        
+        // Handle nested response structure
+        const responseData = dashboardRes.data.data || dashboardRes.data;
+        
+        // Extract metrics from dashboard data
+        const courseProgress = responseData.courseProgress || [];
+        const recentQuizzes = responseData.recentQuizzes || [];
+        
+        // Calculate metrics from the data
+        const totalCourses = courseProgress.length;
+        const completedCourses = courseProgress.filter((c: any) => c.progress >= 100).length;
+        
+        // Build milestones data from course progress
+        const milestonesData = courseProgress.map((course: any) => ({
+          name: course.courseName || 'Course',
+          completed: Math.round(course.progress / 10),
+          total: 10
+        }));
+        
+        setMetrics({
+          totalCourses,
+          completedCourses,
+          totalMilestones: milestonesData.reduce((acc: number, m: any) => acc + m.total, 0),
+          completedMilestones: milestonesData.reduce((acc: number, m: any) => acc + m.completed, 0),
+          milestonesData
+        });
+        
+        // Calculate quiz stats
+        const totalQuizzes = recentQuizzes.length;
+        const averageScore = totalQuizzes > 0 
+          ? recentQuizzes.reduce((acc: number, q: any) => acc + (q.score / q.totalQuestions) * 100, 0) / totalQuizzes
+          : 0;
+        
+        const quizHistory = recentQuizzes.map((q: any) => ({
+          date: new Date(q.date).toLocaleDateString(),
+          score: Math.round((q.score / q.totalQuestions) * 100)
+        }));
+        
+        setStats({
+          totalQuizzes,
+          averageScore,
+          quizHistory
+        });
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        // Set default values on error
+        setMetrics({
+          totalCourses: 0,
+          completedCourses: 0,
+          totalMilestones: 0,
+          completedMilestones: 0,
+          milestonesData: []
+        });
+        setStats({
+          totalQuizzes: 0,
+          averageScore: 0,
+          quizHistory: []
+        });
       }
     };
 
-    fetchData();
+    if (user) {
+      fetchData();
+    }
   }, [user, shouldRefresh]);
 
   const milestonesChartData = {
@@ -92,7 +146,7 @@ const Dashboard = () => {
     responsive: true,
     plugins: {
       legend: {
-        position: 'top',
+        position: 'top' as const,
       },
       title: {
         display: true,
@@ -223,7 +277,7 @@ const Dashboard = () => {
                     axisLine={{ stroke: 'currentColor', opacity: 0.2 }}
                     domain={[0, 100]}
                   />
-                  <Tooltip
+                  <RechartsTooltip
                     contentStyle={{
                       backgroundColor: 'rgba(0, 0, 0, 0.8)',
                       border: 'none',

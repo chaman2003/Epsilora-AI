@@ -80,5 +80,5 @@ next-env.d.ts
 
 # Backup files
 *.bak
-
+error.txt
 .vercel

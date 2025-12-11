@@ -21,8 +21,13 @@ interface MilestoneProgress {
   completed: boolean;
 }
 
-interface MilestoneWithCourse extends Milestone {
+// MilestoneWithCourse matches the actual backend data structure
+interface MilestoneWithCourse {
+  name: string;
+  deadline: string;
+  courseId: string;
   courseName: string;
+  completed: boolean;
 }
 
 const Progress: React.FC = () => {
@@ -31,8 +36,8 @@ const Progress: React.FC = () => {
   const [milestoneProgress, setMilestoneProgress] = useState<MilestoneProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedCourses, setExpandedCourses] = useState<string[]>([]);
-  const [courseProgressData, setCourseProgressData] = useState({});
-  const [milestonesCompletedData, setMilestonesCompletedData] = useState({});
+  const [courseProgressData, setCourseProgressData] = useState<{ labels?: string[]; datasets: any[] }>({ datasets: [] });
+  const [milestonesCompletedData, setMilestonesCompletedData] = useState<{ labels?: string[]; datasets: any[] }>({ datasets: [] });
   const [completedAnimation, setCompletedAnimation] = useState<{courseId: string, milestoneIndex: number} | null>(null);
   const [allMilestones, setAllMilestones] = useState<MilestoneWithCourse[]>([]);
 
@@ -212,13 +217,15 @@ const Progress: React.FC = () => {
   const fetchCourses = async () => {
     try {
       const response = await axiosInstance.get('/api/courses');
-      if (Array.isArray(response.data)) {
-        setCourses(response.data);
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        setCourses(response.data.data);
+      // Handle nested response structure: response.data.data.courses or response.data.courses or response.data
+      const responseData = response.data.data || response.data;
+      const coursesArray = responseData.courses || responseData;
+      
+      if (Array.isArray(coursesArray)) {
+        setCourses(coursesArray);
       } else {
         setCourses([]);
-        toast.error('Invalid courses data received');
+        console.warn('Invalid courses data received:', response.data);
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
@@ -230,9 +237,10 @@ const Progress: React.FC = () => {
   const fetchMilestoneProgress = async () => {
     try {
       const response = await axiosInstance.get('/api/progress/milestones');
-      if (Array.isArray(response.data)) {
-        setMilestoneProgress(response.data);
-      }
+      // Handle nested response structure
+      const responseData = response.data.data || response.data;
+      const progressArray = Array.isArray(responseData) ? responseData : [];
+      setMilestoneProgress(progressArray);
     } catch (error) {
       console.error('Error fetching milestone progress:', error);
       setMilestoneProgress([]);
@@ -346,7 +354,7 @@ const Progress: React.FC = () => {
   const pieOptions = {
     plugins: {
       legend: {
-        position: 'top',
+        position: 'top' as const,
       },
       title: {
         display: false

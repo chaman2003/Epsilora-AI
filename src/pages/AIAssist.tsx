@@ -521,8 +521,11 @@ const AIAssist: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+      // Handle nested response structure: response.data.data or response.data
+      const responseData = response.data.data || response.data;
+      
       // Ensure we're working with valid data
-      const validHistories = Array.isArray(response.data) ? response.data : [];
+      const validHistories = Array.isArray(responseData) ? responseData : [];
       
       // Filter out any chats that are in our deleted chats tracking set
       const filteredHistories = validHistories.filter(chat => 

@@ -106,7 +106,7 @@ app.use('/api/quiz-history', (req, res, next) => {
 });
 app.use('/api/chat-history', chatRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api', progressRoutes);
+app.use('/api/progress', progressRoutes);
 
 // 404 handler
 app.use((req, res) => {
