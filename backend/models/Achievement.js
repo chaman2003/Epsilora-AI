@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const achievementSchema = new mongoose.Schema({
   userId: {
@@ -31,4 +31,4 @@ const achievementSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Achievement', achievementSchema);
+export default mongoose.model('Achievement', achievementSchema);

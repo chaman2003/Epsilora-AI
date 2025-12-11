@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const aiUsageSchema = new mongoose.Schema({
   userId: {
@@ -20,4 +20,4 @@ const aiUsageSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model('AIUsage', aiUsageSchema);
+export default mongoose.model('AIUsage', aiUsageSchema);
