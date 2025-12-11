@@ -713,16 +713,12 @@ const AIAssist: React.FC = () => {
       console.log('Getting AI response for chat:', chatId);
       
       try {
-        const aiResponse = await axiosInstance.post('/api/super-simple-ai', {
-          messages: newMessages,
-          chatContext: { 
-            chatId,
-            firstMessage: messages[0]?.content || '',
-            quizData: quizData
-          }
+        const aiResponse = await axiosInstance.post('/api/chats/ai', {
+          message: newMessages[newMessages.length - 1]?.content || userMessage,
+          type: 'general'
         }, {
           headers: { Authorization: `Bearer ${token}` },
-          timeout: 30000 // Set 30 second timeout
+          timeout: 60000 // Set 60 second timeout for Gemini API
         });
 
         if (!aiResponse.data || !aiResponse.data.message) {
