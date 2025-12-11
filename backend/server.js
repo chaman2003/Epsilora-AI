@@ -70,6 +70,25 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Epsilora AI Backend API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      auth: '/api/auth',
+      courses: '/api/courses',
+      quiz: '/api/quiz',
+      chat: '/api/chat-history',
+      dashboard: '/api/dashboard',
+      progress: '/api/progress'
+    }
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
