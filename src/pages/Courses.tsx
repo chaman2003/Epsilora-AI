@@ -394,12 +394,21 @@ const Courses: React.FC = () => {
         parsedInfo.milestones = [];
       }
       
+      // Ensure all required fields exist
+      if (!parsedInfo.name) parsedInfo.name = 'Untitled Course';
+      if (!parsedInfo.provider) parsedInfo.provider = 'Unknown Provider';
+      if (!parsedInfo.duration) parsedInfo.duration = '8 weeks';
+      if (!parsedInfo.pace) parsedInfo.pace = 'Self-paced';
+      if (!parsedInfo.prerequisites) parsedInfo.prerequisites = [];
+      if (!parsedInfo.mainSkills) parsedInfo.mainSkills = [];
+      
       // Set course deadline to the last milestone date
       const lastMilestone = parsedInfo.milestones.length > 0 
         ? parsedInfo.milestones[parsedInfo.milestones.length - 1] 
         : null;
       const today = new Date();
-      const totalWeeks = parseInt(parsedInfo.duration.split(' ')[0]) || parsedInfo.milestones.length;
+      const durationMatch = (parsedInfo.duration || '8 weeks').match(/(\d+)/);
+      const totalWeeks = durationMatch ? parseInt(durationMatch[0]) : (parsedInfo.milestones.length || 8);
       const weekInMilliseconds = 7 * 24 * 60 * 60 * 1000;
       
       setExtractedCourse({

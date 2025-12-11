@@ -12,6 +12,7 @@ import quizRoutes from './routes/quizRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import progressRoutes from './routes/progress.js';
+import aiRoutes from './routes/aiRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -107,6 +108,7 @@ app.use('/api/quiz-history', (req, res, next) => {
 app.use('/api/chat-history', chatRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api', aiRoutes);
 
 // 404 handler
 app.use((req, res) => {

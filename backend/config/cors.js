@@ -13,8 +13,8 @@ export const corsOptions = {
       callback(null, true);
     } else if (
         allowedOrigins.includes(origin) || 
-        /^https:\/\/epsilora-.*-chaman-ss-projects\.vercel\.app$/.test(origin) ||
-        /^https:\/\/epsilora.*\.vercel\.app$/.test(origin)) {
+        /^https:\/\/epsilora(-[a-z0-9]+)*(\.vercel\.app)?$/.test(origin) ||
+        /^https:\/\/.*epsilora.*\.vercel\.app$/.test(origin)) {
       callback(null, origin);
     } else {
       console.log(`CORS blocked origin: ${origin}`);

@@ -33,8 +33,8 @@ export const config = {
   ],
   
   // Timeouts
-  requestTimeout: 180000, // 3 minutes
-  responseTimeout: 180000, // 3 minutes
+  requestTimeout: 300000, // 5 minutes
+  responseTimeout: 300000, // 5 minutes
   
   // MongoDB Options
   mongoOptions: {

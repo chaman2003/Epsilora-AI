@@ -569,7 +569,7 @@ const generateQuiz = async () => {
 
     // Send request to generate quiz
     const response = await axiosInstance.post('/api/generate-quiz', quizParams, {
-        timeout: 15000, // 15 seconds timeout
+        timeout: 60000, // 60 seconds timeout for Gemini AI response
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
