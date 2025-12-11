@@ -44,8 +44,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Stored Token:', storedToken);
       if (storedToken) {
         try {
-          setToken(storedToken);
-          axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+          // Clean token: remove quotes and extra whitespace
+          const cleanToken = storedToken.replace(/^["']|["']$/g, '').trim();
+          setToken(cleanToken);
+          axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${cleanToken}`;
           const response = await axiosInstance.get('/api/auth/me');
           console.log('User Data Response:', response.data);
           if (response.data) {
@@ -97,9 +99,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await axiosInstance.post('/api/auth/login', { email, password });
       const { token: newToken, user: userData } = response.data;
       
-      localStorage.setItem('token', newToken);
-      setToken(newToken);
-      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      // Ensure token is stored as plain string without quotes
+      const cleanToken = typeof newToken === 'string' ? newToken.replace(/^["']|["']$/g, '').trim() : newToken;
+      localStorage.setItem('token', cleanToken);
+      setToken(cleanToken);
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${cleanToken}`;
       
       setUser(userData);
       setIsAuthenticated(true);
@@ -130,9 +134,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       const { token: newToken, user: userData } = response.data;
       
-      localStorage.setItem('token', newToken);
-      setToken(newToken);
-      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      // Ensure token is stored as plain string without quotes
+      const cleanToken = typeof newToken === 'string' ? newToken.replace(/^["']|["']$/g, '').trim() : newToken;
+      localStorage.setItem('token', cleanToken);
+      setToken(cleanToken);
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${cleanToken}`;
       
       setUser(userData);
       setIsAuthenticated(true);

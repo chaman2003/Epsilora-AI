@@ -15,9 +15,16 @@ const axiosInstance = axios.create({
 // Add request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    let token = localStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      // Remove quotes if the token is stored as JSON
+      token = token.replace(/^["']|["']$/g, '').trim();
+      // Only add Bearer prefix if token doesn't already have it
+      if (!token.startsWith('Bearer ')) {
+        config.headers.Authorization = `Bearer ${token}`;
+      } else {
+        config.headers.Authorization = token;
+      }
     }
     // Add timestamp to prevent caching
     config.params = {

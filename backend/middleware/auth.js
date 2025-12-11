@@ -13,6 +13,7 @@ export const authenticateToken = async (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
+    console.warn('No token provided in Authorization header');
     return res.status(401).json({ message: 'Authentication token required' });
   }
 
@@ -23,11 +24,14 @@ export const authenticateToken = async (req, res, next) => {
       return res.status(503).json({ message: 'Database unavailable' });
     }
 
-    const user = jwt.verify(token, config.jwtSecret);
+    // Clean token if it has quotes (shouldn't happen but just in case)
+    const cleanToken = typeof token === 'string' ? token.replace(/^["']|["']$/g, '').trim() : token;
+    const user = jwt.verify(cleanToken, config.jwtSecret);
     req.user = user;
     next();
   } catch (error) {
-    console.error('Token verification error:', error);
+    console.error('Token verification error:', error.message);
+    console.error('Token received:', token);
     return res.status(403).json({ message: 'Invalid or expired token' });
   }
 };
