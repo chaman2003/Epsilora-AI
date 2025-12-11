@@ -41,25 +41,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem('token');
-      console.log('Stored Token:', storedToken);
-      if (storedToken) {
+      console.log('[AuthContext Init] Stored Token:', storedToken ? 'exists' : 'missing');
+      
+      if (storedToken && storedToken.trim()) {
         try {
           // Clean token: remove quotes and extra whitespace
           const cleanToken = storedToken.replace(/^["']|["']$/g, '').trim();
+          console.log('[AuthContext Init] Clean token length:', cleanToken.length);
+          
           setToken(cleanToken);
           axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${cleanToken}`;
+          console.log('[AuthContext Init] Making /api/auth/me request');
+          
           const response = await axiosInstance.get('/api/auth/me');
-          console.log('User Data Response:', response.data);
+          console.log('[AuthContext Init] User Data Response:', response.data);
+          
           if (response.data) {
             setUser(response.data);
             setIsAuthenticated(true);
+            console.log('[AuthContext Init] Auth successful');
           } else {
+            console.log('[AuthContext Init] No user data in response');
             handleLogout();
           }
         } catch (error) {
-          console.error('Auth check failed:', error);
+          console.error('[AuthContext Init] Auth check failed:', error);
           handleLogout();
         }
+      } else {
+        console.log('[AuthContext Init] No valid token found');
       }
       setLoading(false);
     };
@@ -99,12 +109,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await axiosInstance.post('/api/auth/login', { email, password });
       const { token: newToken, user: userData } = response.data;
       
+      console.log('[AuthContext] Login response token:', newToken ? 'received' : 'missing');
+      
       // Ensure token is stored as plain string without quotes
-      const cleanToken = typeof newToken === 'string' ? newToken.replace(/^["']|["']$/g, '').trim() : newToken;
+      const cleanToken = typeof newToken === 'string' ? newToken.replace(/^["']|["']$/g, '').trim() : String(newToken);
+      
+      console.log('[AuthContext] Storing clean token, length:', cleanToken.length);
       localStorage.setItem('token', cleanToken);
+      console.log('[AuthContext] Token stored in localStorage');
+      
       setToken(cleanToken);
       axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${cleanToken}`;
       
+      console.log('[AuthContext] Token set in axios defaults');
       setUser(userData);
       setIsAuthenticated(true);
       return true;

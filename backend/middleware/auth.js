@@ -10,10 +10,13 @@ import { connectToMongoDB } from '../config/database.js';
  */
 export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
+  console.log('[Auth Middleware] Authorization header:', authHeader ? 'present' : 'missing');
+  
   const token = authHeader && authHeader.split(' ')[1];
+  console.log('[Auth Middleware] Token extracted:', token ? `${token.substring(0, 20)}...` : 'undefined');
 
   if (!token) {
-    console.warn('No token provided in Authorization header');
+    console.warn('[Auth Middleware] No token provided in Authorization header');
     return res.status(401).json({ message: 'Authentication token required' });
   }
 
@@ -26,12 +29,16 @@ export const authenticateToken = async (req, res, next) => {
 
     // Clean token if it has quotes (shouldn't happen but just in case)
     const cleanToken = typeof token === 'string' ? token.replace(/^["']|["']$/g, '').trim() : token;
+    console.log('[Auth Middleware] Token cleaned, attempting verification');
+    
     const user = jwt.verify(cleanToken, config.jwtSecret);
+    console.log('[Auth Middleware] Token verified successfully, user:', user.email);
+    
     req.user = user;
     next();
   } catch (error) {
-    console.error('Token verification error:', error.message);
-    console.error('Token received:', token);
+    console.error('[Auth Middleware] Token verification error:', error.message);
+    console.error('[Auth Middleware] Token (first 30 chars):', token.substring(0, 30));
     return res.status(403).json({ message: 'Invalid or expired token' });
   }
 };

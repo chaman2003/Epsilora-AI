@@ -16,15 +16,20 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     let token = localStorage.getItem('token');
+    console.log('[Axios Interceptor] Token from localStorage:', token ? 'exists' : 'missing');
     if (token) {
       // Remove quotes if the token is stored as JSON
       token = token.replace(/^["']|["']$/g, '').trim();
+      console.log('[Axios Interceptor] Cleaned token length:', token.length);
       // Only add Bearer prefix if token doesn't already have it
       if (!token.startsWith('Bearer ')) {
         config.headers.Authorization = `Bearer ${token}`;
       } else {
         config.headers.Authorization = token;
       }
+      console.log('[Axios Interceptor] Authorization header set');
+    } else {
+      console.log('[Axios Interceptor] No token found, request will be unauthenticated');
     }
     // Add timestamp to prevent caching
     config.params = {
