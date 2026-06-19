@@ -37,33 +37,40 @@ Make questions challenging and diverse. Output ONLY valid JSON, no markdown.`;
 
     // Clean and parse response
     let cleanedText = generatedText
-      .replace(/```(json)?/g, '')
-      .replace(/[\n\r\t]/g, ' ')
+      .replace(/```(?:json)?\s*/gi, '')
+      .replace(/```\s*/g, '')
+      // Smart/curly quotes -> straight quotes
+      .replace(/[‘’]/g, "'")
+      .replace(/[“”]/g, '"')
+      // Remove control characters (keep tab/newline/CR for now)
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      // Fix invalid JSON escape sequences (e.g. \' is not valid JSON)
+      .replace(/\\'/g, "'")
+      // Collapse whitespace
+      .replace(/[\n\r\t]+/g, ' ')
       .trim();
+
+    // Extract the JSON array
+    const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      cleanedText = jsonMatch[0];
+    }
+
+    // Fix trailing commas before ] or } (common AI mistake)
+    cleanedText = cleanedText
+      .replace(/,\s*]/g, ']')
+      .replace(/,\s*}/g, '}');
 
     let questions;
     try {
-      const jsonMatch = cleanedText.match(/\[(.*)\]/s);
-      if (jsonMatch) {
-        cleanedText = `[${jsonMatch[1]}]`;
-      }
       questions = JSON.parse(cleanedText);
-
       if (!Array.isArray(questions)) {
         throw new Error('Not a valid array of questions');
       }
     } catch (parseError) {
       console.error('JSON Parsing Error:', parseError);
-      try {
-        const bracketMatch = cleanedText.match(/\[.*\]/s);
-        if (bracketMatch) {
-          questions = JSON.parse(bracketMatch[0]);
-        } else {
-          throw new Error('No JSON array found in response');
-        }
-      } catch (fallbackError) {
-        throw new Error('Failed to parse generated quiz data');
-      }
+      console.error('Cleaned text snippet:', cleanedText.slice(0, 300));
+      throw new Error('Failed to parse generated quiz data');
     }
 
     // Format and validate questions
